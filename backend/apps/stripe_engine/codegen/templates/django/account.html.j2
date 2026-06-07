@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Account</title>
+</head>
+<body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem">
+  <h1>Account</h1>
+  <p>Manage your subscription and billing.</p>
+  {% raw %}{% if customer_id %}{% endraw %}
+    <form method="post" action="{% raw %}{% url 'stripe-portal' %}{% endraw %}">
+      {% raw %}{% csrf_token %}{% endraw %}
+      <input type="hidden" name="customerId" value="{% raw %}{{ customer_id }}{% endraw %}" />
+      <button type="submit">Manage subscription</button>
+    </form>
+  {% raw %}{% else %}{% endraw %}
+    <p>No Stripe customer linked yet. Complete checkout first.</p>
+    <p><a href="{% raw %}{% url 'stripe-pricing' %}{% endraw %}">View plans</a></p>
+  {% raw %}{% endif %}{% endraw %}
+</body>
+</html>

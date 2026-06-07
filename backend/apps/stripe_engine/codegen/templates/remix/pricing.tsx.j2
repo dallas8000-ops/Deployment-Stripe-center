@@ -1,0 +1,21 @@
+import { Form } from "@remix-run/react";
+
+const tiers = [[ tiers | tojson ]];
+
+export default function Pricing() {
+  return (
+    <main>
+      <h1>Choose your plan</h1>
+      {tiers.map((t: { tier: string; label: string; price_id: string }) => (
+        <article key={t.tier}>
+          <h2>{t.tier}</h2>
+          <p>{t.label}</p>
+          <Form method="post" action="/api/stripe/checkout">
+            <input type="hidden" name="priceId" value={t.price_id} />
+            <button type="submit">Subscribe</button>
+          </Form>
+        </article>
+      ))}
+    </main>
+  );
+}

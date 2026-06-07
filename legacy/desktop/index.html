@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>Stripe Installer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div class="ambient ambient-a"></div>
+    <div class="ambient ambient-b"></div>
+
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="9" fill="url(#g)"/><path d="M9 16.5c0-4.2 3.4-6.5 7.5-6.5 3.1 0 5.4 1.4 6.7 3.5l-3.4 2c-.8-1.2-2-1.9-3.5-1.9-2.1 0-3.6 1.4-3.6 3.4s1.5 3.3 3.9 3.3c1.3 0 2.4-.5 3.1-1.4H16v-2.8H23v8.4c-1.8 1.5-4.3 2.3-7.2 2.3-4.8 0-8-3.1-8-7.9Z" fill="#fff"/><defs><linearGradient id="g" x1="4" y1="4" x2="28" y2="28"><stop stop-color="#6772E5"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient></defs></svg>
+        </div>
+        <div class="brand-copy">
+          <span class="brand-title">Stripe Installer</span>
+          <span class="brand-tag">Enterprise Setup</span>
+        </div>
+      </div>
+
+      <p class="nav-label">Workspace</p>
+      <nav class="nav">
+        <button class="nav-item active" data-view="dashboard">
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4Zm9-1a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-3ZM3 13a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3Zm9 0a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-3Z"/></svg></span>
+          Dashboard
+        </button>
+        <button class="nav-item" data-view="diagnose">
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-3a1 1 0 0 0-.867.5 1 1 0 0 1-1.731-1A3 3 0 0 1 13 8a3.001 3.001 0 0 1-2 2.83V11a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1 1 1 0 1 0 0-2Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg></span>
+          Diagnose & Fix
+        </button>
+        <button class="nav-item" data-view="vault">
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/></svg></span>
+          Secure Vault
+        </button>
+        <button class="nav-item" data-view="stripe">
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 0 0-2 2v1h16V6a2 2 0 0 0-2-2H4ZM2 10.5V14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.5H2Zm4.25 2.25a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5h-1.5Z"/></svg></span>
+          Stripe Setup
+        </button>
+        <button class="nav-item" data-view="deploy">
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5V5h14V3.5A1.5 1.5 0 0 0 15.5 2h-11ZM2 7.5A1.5 1.5 0 0 1 3.5 6h13A1.5 1.5 0 0 1 18 7.5v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 15.5v-8ZM6 9.75A.75.75 0 0 1 6.75 9h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 6 9.75Z" clip-rule="evenodd"/></svg></span>
+          Deploy
+        </button>
+        <button class="nav-item" data-view="readiness">
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd"/></svg></span>
+          Readiness
+        </button>
+      </nav>
+
+      <div class="sidebar-card">
+        <div class="vault-status">
+          <span class="status-dot" id="vault-dot"></span>
+          <div>
+            <div class="vault-status-label" id="vault-badge">Vault locked</div>
+            <div class="vault-status-hint">AES-256 encrypted</div>
+          </div>
+        </div>
+        <button class="btn btn-outline btn-block" id="btn-lock" hidden>
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/></svg>
+          Lock vault
+        </button>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="topbar-left">
+          <span class="breadcrumb" id="page-breadcrumb">Dashboard</span>
+        </div>
+        <div class="project-selector">
+          <div class="project-selector-inner">
+            <svg class="project-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2 6a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6Z"/></svg>
+            <code id="project-path" class="project-path" title="">No project selected</code>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-select-project">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/></svg>
+            Open project
+          </button>
+        </div>
+      </header>
+
+      <div class="content-area">
+        <section class="view active" id="view-dashboard">
+          <div class="page-header">
+            <div>
+              <h1>Project overview</h1>
+              <p class="lead">Analyze your codebase, detect Stripe integration needs, and track setup progress.</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-secondary" id="btn-refresh-status">Refresh</button>
+              <button class="btn btn-primary" id="btn-scan">Scan project</button>
+            </div>
+          </div>
+          <div id="dashboard-empty" class="empty-state">
+            <div class="empty-icon">📂</div>
+            <h3>No project loaded</h3>
+            <p>Open a project folder to view framework detection, Stripe status, and recommendations.</p>
+            <button class="btn btn-primary" id="btn-select-project-empty">Open project folder</button>
+          </div>
+          <div id="dashboard-content" class="metrics-grid" hidden></div>
+          <div id="dashboard-recs" class="section-card" hidden></div>
+        </section>
+
+        <section class="view" id="view-diagnose">
+          <div class="page-header">
+            <div>
+              <h1>Diagnose & fix</h1>
+              <p class="lead">Find what's wrong with your Stripe setup and apply automated repairs.</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-secondary" id="btn-diagnose">Run diagnosis</button>
+              <button class="btn btn-primary" id="btn-fix-all">Fix all auto-fixable</button>
+            </div>
+          </div>
+
+          <div class="diagnose-hero" id="diagnose-hero" hidden>
+            <div class="health-badge" id="health-badge">
+              <span id="health-score">—</span>
+              <span class="health-label">health</span>
+            </div>
+            <div class="health-meta">
+              <h2 id="diagnose-summary">Run diagnosis to scan your project</h2>
+              <p id="diagnose-stats"></p>
+            </div>
+          </div>
+
+          <div id="diagnose-issues" class="issue-list"></div>
+
+          <div id="diagnose-empty" class="empty-state compact">
+            <div class="empty-icon">🔍</div>
+            <h3>Ready to scan</h3>
+            <p>Checks credentials, files, webhooks, catalog, packages, and security.</p>
+          </div>
+        </section>
+
+        <section class="view" id="view-vault">
+          <div class="page-header">
+            <div>
+              <h1>Secure vault</h1>
+              <p class="lead">Store API keys locally with encryption. Secrets never appear in logs or AI prompts.</p>
+            </div>
+          </div>
+
+          <div class="alert alert-info">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.19l.69 4.081a1 1 0 0 0 .99.84H11a1 1 0 0 0 0-2h-.253l-.542-3.21A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd"/></svg>
+            <div>Your passphrase encrypts all secrets on disk. We never transmit or display stored values after saving.</div>
+          </div>
+
+          <div class="content-split">
+            <div class="section-card" id="vault-locked-panel">
+              <div class="card-header">
+                <h2>Unlock vault</h2>
+                <span class="pill pill-neutral">Locked</span>
+              </div>
+              <div class="field">
+                <label for="vault-passphrase">Passphrase</label>
+                <input type="password" id="vault-passphrase" placeholder="Enter your vault passphrase" autocomplete="off" />
+              </div>
+              <div class="card-actions">
+                <button class="btn btn-primary" id="btn-unlock-vault">Unlock vault</button>
+                <button class="btn btn-secondary" id="btn-init-vault">Create new vault</button>
+              </div>
+            </div>
+
+            <div class="section-card" id="vault-unlocked-panel" hidden>
+              <div class="card-header">
+                <h2>Add secret</h2>
+                <span class="pill pill-success">Unlocked</span>
+              </div>
+              <div class="form-stack">
+                <div class="field">
+                  <label for="secret-key">Key name</label>
+                  <input type="text" id="secret-key" placeholder="STRIPE_SECRET_KEY" />
+                </div>
+                <div class="field">
+                  <label for="secret-value">Secret value</label>
+                  <input type="password" id="secret-value" placeholder="Value is encrypted immediately" autocomplete="off" />
+                </div>
+                <button class="btn btn-primary" id="btn-store-secret">Store encrypted</button>
+              </div>
+              <div class="divider"></div>
+              <h3 class="subsection-title">Stored keys</h3>
+              <ul id="vault-keys" class="key-chips"></ul>
+              <p class="footnote">Common: STRIPE_SECRET_KEY · STRIPE_PUBLISHABLE_KEY · STRIPE_WEBHOOK_SECRET · DATABASE_URL · NEON_API_KEY</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-stripe">
+          <div class="page-header">
+            <div>
+              <h1>Stripe automation</h1>
+              <p class="lead">Verify credentials, provision products and prices, and generate production-ready code.</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-secondary" id="btn-verify">Verify keys</button>
+              <button class="btn btn-primary" id="btn-run-pipeline">Run full setup</button>
+            </div>
+          </div>
+
+          <div class="section-card pipeline-card">
+            <div class="card-header">
+              <h2>Live pipeline</h2>
+              <span class="pipeline-hint">Real-time progress — same events as Django Channels WebSocket</span>
+            </div>
+            <div id="pipeline-terminal" class="pipeline-terminal" aria-live="polite">
+              <div class="pipeline-line muted">Click <strong>Run full setup</strong> to start verify → provision → generate → readiness.</div>
+            </div>
+          </div>
+
+          <div class="section-card options-card">
+            <h2 class="subsection-title">Pipeline options</h2>
+            <div class="option-row">
+              <label class="toggle-card">
+                <input type="checkbox" id="opt-sync-env" />
+                <span class="toggle-body">
+                  <strong>Sync to .env.local</strong>
+                  <small>Write vault secrets to local env file</small>
+                </span>
+              </label>
+              <label class="toggle-card">
+                <input type="checkbox" id="opt-force" />
+                <span class="toggle-body">
+                  <strong>Overwrite files</strong>
+                  <small>Replace existing generated integration files</small>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="section-card output-card">
+            <div class="card-header">
+              <h2>Output</h2>
+            </div>
+            <div id="stripe-result" class="output-panel">
+              <span class="output-placeholder">Run verification or the full pipeline to see results here.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-deploy">
+          <div class="page-header">
+            <div>
+              <h1>Production deploy</h1>
+              <p class="lead">Generate infrastructure, provision databases, and prepare your app for launch.</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-secondary" id="btn-postgres-status">DB status</button>
+              <button class="btn btn-primary" id="btn-deploy">Run deploy</button>
+            </div>
+          </div>
+
+          <div class="content-split">
+            <div class="section-card">
+              <h2 class="subsection-title">Deploy options</h2>
+              <div class="option-row vertical">
+                <label class="toggle-card">
+                  <input type="checkbox" id="opt-provision-db" />
+                  <span class="toggle-body">
+                    <strong>Auto-provision PostgreSQL</strong>
+                    <small>Create database via Neon or Supabase API</small>
+                  </span>
+                </label>
+                <label class="toggle-card">
+                  <input type="checkbox" id="opt-deploy-force" />
+                  <span class="toggle-body">
+                    <strong>Force overwrite</strong>
+                    <small>Replace existing infra and generated files</small>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div class="section-card">
+              <h2 class="subsection-title">Database only</h2>
+              <div class="field">
+                <label for="postgres-provider">Provider</label>
+                <select id="postgres-provider">
+                  <option value="neon">Neon PostgreSQL</option>
+                  <option value="supabase">Supabase</option>
+                </select>
+              </div>
+              <button class="btn btn-secondary btn-block" id="btn-postgres-provision">Provision database</button>
+            </div>
+          </div>
+
+          <div class="section-card output-card">
+            <div class="card-header"><h2>Deploy output</h2></div>
+            <div id="deploy-result" class="output-panel">
+              <span class="output-placeholder">Deploy results and next steps will appear here.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-readiness">
+          <div class="page-header">
+            <div>
+              <h1>Production readiness</h1>
+              <p class="lead">Score your project across Stripe, database, security, SSL, monitoring, and more.</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary" id="btn-readiness">Run assessment</button>
+            </div>
+          </div>
+
+          <div class="readiness-hero" id="readiness-score" hidden>
+            <div class="score-ring" id="score-ring">
+              <svg viewBox="0 0 120 120">
+                <circle class="score-track" cx="60" cy="60" r="52"/>
+                <circle class="score-fill" id="score-fill" cx="60" cy="60" r="52"/>
+              </svg>
+              <div class="score-center">
+                <span id="readiness-score-value">0</span>
+                <span class="score-suffix">/ 100</span>
+              </div>
+            </div>
+            <div class="score-meta">
+              <h2 id="score-title">Not assessed</h2>
+              <p id="score-desc">Run checks to evaluate production readiness.</p>
+            </div>
+          </div>
+
+          <div id="readiness-result" class="check-grid"></div>
+        </section>
+      </div>
+
+      <footer class="activity-panel">
+        <button class="activity-toggle" id="activity-toggle" type="button">
+          <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM9.555 4.168A1 1 0 0 0 8 5v4.5a1 1 0 0 0 .445.832l3 2a1 1 0 0 0 1.11-1.664L10 8.873V5a1 1 0 0 0-1.445-.832l-3 2Z" clip-rule="evenodd"/></svg>
+          Activity log
+          <span class="activity-chevron">▾</span>
+        </button>
+        <div id="activity-log" class="activity-log"></div>
+      </footer>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

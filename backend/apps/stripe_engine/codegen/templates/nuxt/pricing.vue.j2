@@ -1,0 +1,18 @@
+<template>
+  <main>
+    <h1>Choose your plan</h1>
+    <article v-for="t in tiers" :key="t.tier">
+      <h2>{{ t.tier }}</h2>
+      <p>{{ t.label }}</p>
+      <button @click="checkout(t.price_id)">Subscribe</button>
+    </article>
+  </main>
+</template>
+
+<script setup lang="ts">
+const tiers = [[ tiers | tojson ]];
+async function checkout(priceId: string) {
+  const { url } = await $fetch("/api/stripe/checkout", { method: "POST", body: { priceId } });
+  if (url) navigateTo(url, { external: true });
+}
+</script>

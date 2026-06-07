@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html><head><title>Account</title></head>
+<body style="font-family:system-ui;max-width:480px;margin:2rem auto">
+  <h1>Account</h1>
+  {% if customer_id %}
+  <form method="post" action="/stripe/portal">
+    <input type="hidden" name="customerId" value="{{ customer_id }}" />
+    <button type="submit">Manage subscription</button>
+  </form>
+  {% else %}
+  <p>Complete checkout first.</p>
+  <a href="/stripe/pricing">View plans</a>
+  {% endif %}
+</body></html>

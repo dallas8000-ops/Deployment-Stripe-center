@@ -1,0 +1,156 @@
+import json
+import os
+
+import stripe
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import redirect, render
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+from . import client  # noqa: F401 — configures stripe.api_key
+from .webhook_handlers import dispatch_stripe_event
+
+{{ price_comment_block }}
+
+
+def _post_value(request, key):
+    if request.content_type and "application/json" in request.content_type:
+        try:
+            return json.loads(request.body).get(key)
+        except json.JSONDecodeError:
+            return None
+    return request.POST.get(key)
+
+
+@csrf_exempt
+@require_POST
+def webhook(request):
+    payload = request.body
+    sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
+    secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
+    if not sig_header or not secret:
+        return HttpResponse("Missing signature or webhook secret", status=400)
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, secret)
+    except ValueError:
+        return HttpResponse("Invalid payload", status=400)
+    except stripe.error.SignatureVerificationError:
+        return HttpResponse("Invalid signature", status=400)
+
+    try:
+        dispatch_stripe_event(event)
+    except Exception as exc:
+        print(f"[stripe] Webhook handler error: {exc}")
+        return JsonResponse({"error": "handler failed"}, status=500)
+
+    return JsonResponse({"received": True})
+
+
+@require_POST
+def checkout(request):
+    price_id = _post_value(request, "priceId")
+    if not price_id:
+        return JsonResponse({"error": "priceId required"}, status=400)
+    app_url = os.environ.get("APP_URL", "{{ app_url }}")
+    user_id = None
+    if getattr(request, "user", None) and request.user.is_authenticated:
+        user_id = str(request.user.pk)
+    session = stripe.checkout.Session.create(
+        mode="subscription",
+        customer_email=_post_value(request, "customerEmail") or getattr(request.user, "email", None),
+        client_reference_id=user_id,
+        line_items=[{"price": price_id, "quantity": 1}],
+        success_url=f"{app_url}/stripe/success/?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{app_url}/stripe/pricing/",
+    )
+    return redirect(session.url)
+
+
+@require_POST
+def portal(request):
+    customer_id = _post_value(request, "customerId")
+    if not customer_id and getattr(request, "user", None) and request.user.is_authenticated:
+        from .db import get_stripe_customer_for_user
+        customer_id = get_stripe_customer_for_user(request.user.pk)
+    if not customer_id:
+        customer_id = request.session.get("stripe_customer_id")
+    if not customer_id:
+        return JsonResponse({"error": "customerId required"}, status=400)
+    app_url = os.environ.get("APP_URL", "{{ app_url }}")
+    session = stripe.billing_portal.Session.create(
+        customer=customer_id,
+        return_url=f"{app_url}/stripe/account/",
+    )
+    return redirect(session.url)
+
+
+@csrf_exempt
+@require_POST
+def session_info(request):
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    session_id = data.get("sessionId")
+    if not session_id:
+        return JsonResponse({"error": "sessionId required"}, status=400)
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+    except stripe.error.StripeError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    customer_id = session.customer if isinstance(session.customer, str) else getattr(session.customer, "id", None)
+    return JsonResponse({
+        "customerId": customer_id,
+        "email": session.customer_email,
+        "status": session.status,
+    })
+
+
+def stripe_me(request):
+    if not getattr(request, "user", None) or not request.user.is_authenticated:
+        return JsonResponse({"customerId": None, "source": None}, status=401)
+    from .db import get_stripe_customer_for_user, get_active_subscription_for_customer
+
+    customer_id = get_stripe_customer_for_user(request.user.pk)
+    source = "database" if customer_id else None
+    if not customer_id:
+        customer_id = request.session.get("stripe_customer_id")
+        source = "session" if customer_id else None
+    payload = {"customerId": customer_id, "source": source}
+    if customer_id:
+        sub = get_active_subscription_for_customer(customer_id)
+        if sub:
+            payload["subscription"] = sub
+    return JsonResponse(payload)
+
+
+STRIPE_TIERS = [
+{% for t in tiers %}
+    {"key": "{{ t.key }}", "tier": "{{ t.tier }}", "price_id": "{{ t.price_id }}", "label": "{{ t.label }}"},
+{% endfor %}
+]
+
+
+def pricing(request):
+    return render(request, "stripe/pricing.html", {"tiers": STRIPE_TIERS})
+
+
+def success(request):
+    session_id = request.GET.get("session_id")
+    if session_id:
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+            customer_id = session.customer if isinstance(session.customer, str) else getattr(session.customer, "id", None)
+            if customer_id:
+                request.session["stripe_customer_id"] = customer_id
+        except stripe.error.StripeError:
+            pass
+    return render(request, "stripe/success.html", {"session_id": session_id})
+
+
+def account(request):
+    customer_id = request.session.get("stripe_customer_id")
+    if not customer_id and getattr(request, "user", None) and request.user.is_authenticated:
+        from .db import get_stripe_customer_for_user
+        customer_id = get_stripe_customer_for_user(request.user.pk)
+    return render(request, "stripe/account.html", {"customer_id": customer_id})

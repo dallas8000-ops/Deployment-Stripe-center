@@ -1,0 +1,67 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Stripe\Stripe;
+use Stripe\Webhook;
+use Stripe\Checkout\Session as CheckoutSession;
+use Stripe\BillingPortal\Session as PortalSession;
+
+{{ price_comment_block | replace('#', '//') }}
+
+class StripeController extends Controller
+{
+    public function __construct()
+    {
+        Stripe::setApiKey(env('STRIPE_SECRET_KEY'));
+    }
+
+    public function webhook(Request $request)
+    {
+        $payload = $request->getContent();
+        $sig = $request->header('Stripe-Signature');
+        $secret = env('STRIPE_WEBHOOK_SECRET');
+        if (!$sig || !$secret) {
+            return response('Missing signature', 400);
+        }
+        try {
+            $event = Webhook::constructEvent($payload, $sig, $secret);
+        } catch (\Exception $e) {
+            return response('Invalid signature', 400);
+        }
+        \Log::info('[stripe] ' . $event->type);
+        return response()->json(['received' => true]);
+    }
+
+    public function checkout(Request $request)
+    {
+        $priceId = $request->input('priceId');
+        if (!$priceId) {
+            return response()->json(['error' => 'priceId required'], 400);
+        }
+        $appUrl = env('APP_URL', '{{ app_url }}');
+        $session = CheckoutSession::create([
+            'mode' => 'subscription',
+            'customer_email' => $request->input('customerEmail'),
+            'line_items' => [['price' => $priceId, 'quantity' => 1]],
+            'success_url' => $appUrl . '/stripe/success?session_id={CHECKOUT_SESSION_ID}',
+            'cancel_url' => $appUrl . '/stripe/pricing',
+        ]);
+        return response()->json(['url' => $session->url]);
+    }
+
+    public function portal(Request $request)
+    {
+        $customerId = $request->input('customerId');
+        if (!$customerId) {
+            return response()->json(['error' => 'customerId required'], 400);
+        }
+        $appUrl = env('APP_URL', '{{ app_url }}');
+        $session = PortalSession::create([
+            'customer' => $customerId,
+            'return_url' => $appUrl . '/stripe/account',
+        ]);
+        return response()->json(['url' => $session->url]);
+    }
+}
