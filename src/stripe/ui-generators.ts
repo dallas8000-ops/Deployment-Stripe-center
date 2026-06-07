@@ -23,10 +23,6 @@ export function generateUiFiles(
       return nuxtUi(paths, manifest, sessionPath);
     case "sveltekit":
       return sveltekitUi(paths, manifest, sessionPath);
-    case "react":
-      return reactUi(paths, manifest, sessionPath);
-    case "django":
-      return djangoUi(paths, manifest, sessionPath);
     case "flask":
       return flaskUi(paths, manifest, sessionPath);
     case "rails":
@@ -345,115 +341,6 @@ export default function AccountPage() {
 }
 `,
   };
-}
-
-function reactUi(paths: UiApiPaths, manifest?: StripeManifest | null, sessionPath = "/api/stripe/session"): Record<string, string> {
-  const tiers = tierCardsFromManifest(manifest);
-  return {
-    "src/components/CheckoutButton.tsx": reactCheckoutButton(paths),
-    "src/components/ManageSubscriptionButton.tsx": reactManageButton(paths),
-    "src/pages/Pricing.tsx": reactPricingPage(tiers, "../components/CheckoutButton"),
-    "src/pages/Success.tsx": `import { useEffect } from "react";
-
-export default function SuccessPage() {
-  useEffect(() => {
-    const sessionId = new URLSearchParams(window.location.search).get("session_id");
-    if (!sessionId) return;
-    fetch("${sessionPath}", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.customerId) localStorage.setItem("stripe_customer_id", data.customerId);
-      })
-      .catch(() => undefined);
-  }, []);
-
-  return (
-    <main style={{ maxWidth: 480, margin: "4rem auto", textAlign: "center", padding: "1rem" }}>
-      <h1 style={{ color: "#059669" }}>Payment successful</h1>
-      <p>Thank you for your purchase.</p>
-      <a href="${paths.account}" style={{ display: "inline-block", marginTop: "2rem", padding: "0.5rem 1.5rem", background: "#111", color: "#fff", borderRadius: 8, textDecoration: "none" }}>
-        Go to account
-      </a>
-    </main>
-  );
-}
-`,
-    "src/pages/Account.tsx": `import { ManageSubscriptionButton } from "../components/ManageSubscriptionButton";
-
-export default function AccountPage() {
-  const customerId = typeof window !== "undefined" ? localStorage.getItem("stripe_customer_id") : null;
-  return (
-    <main style={{ maxWidth: 480, margin: "2rem auto", padding: "1rem" }}>
-      <h1>Account</h1>
-      <p>Manage your subscription and billing.</p>
-      {customerId ? (
-        <ManageSubscriptionButton customerId={customerId} />
-      ) : (
-        <p>No Stripe customer linked. Complete checkout first.</p>
-      )}
-    </main>
-  );
-}
-`,
-    "server/dev-server.ts": generateReactDevServer(paths),
-    "docs/STRIPE-REACT.md": `# React + Stripe dev server
-
-1. \`npm install express stripe\`
-2. Run API: \`npx tsx server/dev-server.ts\`
-3. Proxy Vite \`/api\` → \`http://localhost:3001\` in \`vite.config.ts\`
-4. Routes: ${paths.pricing}, ${paths.success}, ${paths.account}
-`,
-  };
-}
-
-function generateReactDevServer(paths: UiApiPaths): string {
-  return `import express from "express";
-import Stripe from "stripe";
-
-const app = express();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-02-24.acacia" });
-const APP_URL = process.env.APP_URL ?? "http://localhost:5173";
-
-app.post("${paths.checkout}", express.json(), async (req, res) => {
-  const { priceId, customerEmail } = req.body;
-  if (!priceId) return res.status(400).json({ error: "priceId required" });
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer_email: customerEmail,
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: \`\${APP_URL}/success?session_id={CHECKOUT_SESSION_ID}\`,
-    cancel_url: \`\${APP_URL}/pricing\`,
-  });
-  res.json({ url: session.url });
-});
-
-app.post("${paths.portal}", express.json(), async (req, res) => {
-  const { customerId } = req.body;
-  if (!customerId) return res.status(400).json({ error: "customerId required" });
-  const session = await stripe.billingPortal.sessions.create({
-    customer: customerId,
-    return_url: \`\${APP_URL}/account\`,
-  });
-  res.json({ url: session.url });
-});
-
-app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
-  const sig = req.headers["stripe-signature"] as string;
-  try {
-    const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
-    console.log("[stripe]", event.type);
-    res.json({ received: true });
-  } catch (err) {
-    res.status(400).send(\`Webhook Error: \${(err as Error).message}\`);
-  }
-});
-
-app.listen(3001, () => console.log("Stripe dev API on http://localhost:3001"));
-`;
 }
 
 function nuxtUi(paths: UiApiPaths, manifest?: StripeManifest | null, sessionPath = "/api/stripe/session"): Record<string, string> {
@@ -785,44 +672,6 @@ ${cards || "    <p>Run stripe-installer run --provision to create tiers.</p>"}
 `;
 }
 
-function djangoUi(paths: UiApiPaths, manifest?: StripeManifest | null, sessionPath = "/stripe/session"): Record<string, string> {
-  const tiers = tierCardsFromManifest(manifest);
-  return {
-    "stripe/templates/stripe/pricing.html": pythonPricingTemplate(tiers, paths.checkout),
-    "stripe/templates/stripe/success.html": `<!DOCTYPE html>
-<html><head><title>Success</title></head>
-<body style="font-family:system-ui;text-align:center;margin:4rem auto">
-  <h1 style="color:#059669">Payment successful</h1>
-  <p>Thank you for your purchase.</p>
-  <a href="${paths.account}">Go to account</a>
-  ${vanillaSuccessSessionScript(sessionPath)}
-</body></html>
-`,
-    "stripe/templates/stripe/account.html": `<!DOCTYPE html>
-<html><head><title>Account</title></head>
-<body style="font-family:system-ui;max-width:480px;margin:2rem auto">
-  <h1>Account</h1>
-  <p>Manage your subscription and billing.</p>
-  <button id="portal" style="display:none">Manage subscription</button>
-  <p id="msg"></p>
-  <script>
-    const customerId = localStorage.getItem("stripe_customer_id");
-    if (!customerId) document.getElementById("msg").textContent = "No Stripe customer linked.";
-    else {
-      const btn = document.getElementById("portal");
-      btn.style.display = "inline-block";
-      btn.onclick = async () => {
-        const res = await fetch("${paths.portal}", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerId }) });
-        const data = await res.json();
-        if (data.url) window.location.href = data.url;
-      };
-    }
-  </script>
-</body></html>
-`,
-  };
-}
-
 function flaskUi(paths: UiApiPaths, manifest?: StripeManifest | null, sessionPath = "/stripe/session"): Record<string, string> {
   const tiers = tierCardsFromManifest(manifest);
   return {
@@ -912,65 +761,6 @@ function laravelUi(paths: UiApiPaths, manifest?: StripeManifest | null, sessionP
 </main>
 `,
   };
-}
-
-export function djangoPageViews(): string {
-  return `from django.shortcuts import render
-
-
-def pricing(request):
-    return render(request, "stripe/pricing.html")
-
-
-def success(request):
-    return render(request, "stripe/success.html")
-
-
-def account(request):
-    return render(request, "stripe/account.html")
-`;
-}
-
-export function djangoUrlsWithPages(): string {
-  return `from django.urls import path
-
-from . import views
-
-urlpatterns = [
-    path("webhook", views.webhook, name="stripe-webhook"),
-    path("checkout", views.checkout, name="stripe-checkout"),
-    path("portal", views.portal, name="stripe-portal"),
-    path("session", views.session_info, name="stripe-session"),
-    path("pricing", views.pricing, name="stripe-pricing"),
-    path("success", views.success, name="stripe-success"),
-    path("account", views.account, name="stripe-account"),
-]
-`;
-}
-
-export function djangoSessionView(): string {
-  return `
-@csrf_exempt
-@require_POST
-def session_info(request):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
-    session_id = data.get("sessionId")
-    if not session_id:
-        return JsonResponse({"error": "sessionId required"}, status=400)
-    try:
-        session = stripe.checkout.Session.retrieve(session_id)
-    except stripe.error.StripeError as e:
-        return JsonResponse({"error": str(e)}, status=400)
-    customer_id = session.customer if isinstance(session.customer, str) else getattr(session.customer, "id", None)
-    return JsonResponse({
-        "customerId": customer_id,
-        "email": session.customer_email,
-        "status": session.status,
-    })
-`;
 }
 
 export function flaskPageRoutes(): string {

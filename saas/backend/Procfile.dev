@@ -1,0 +1,5 @@
+# Run Django with WebSocket support:
+#   daphne -b 0.0.0.0 -p 8000 config.asgi:application
+#
+# Or for dev (HTTP only — no WebSocket):
+#   python manage.py runserver

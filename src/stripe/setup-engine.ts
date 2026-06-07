@@ -42,7 +42,7 @@ export class StripeSetupEngine {
     const packagesToInstall = isNode ? ["stripe"] : [];
     if (selected.includes("checkout") && isNode) {
       packagesToInstall.push("@stripe/stripe-js");
-      if (this.profile.framework === "react" || isNext) {
+      if (isNext) {
         packagesToInstall.push("@stripe/react-stripe-js");
       }
     }

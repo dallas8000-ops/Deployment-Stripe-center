@@ -1,0 +1,12 @@
+import { NextRequest, NextResponse } from "next/server";
+import { stripe } from "@/[[ lib ]]/stripe";
+
+export async function POST(req: NextRequest) {
+  const { customerId } = await req.json();
+  const appUrl = process.env.APP_URL ?? "[[ app_url ]]";
+  const session = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: `${appUrl}/account`,
+  });
+  return NextResponse.json({ url: session.url });
+}

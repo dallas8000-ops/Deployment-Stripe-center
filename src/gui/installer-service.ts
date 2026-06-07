@@ -145,6 +145,8 @@ export class InstallerService {
     syncEnv?: boolean;
     force?: boolean;
     appUrl?: string;
+    onEvent?: import("../stripe/pipeline-events.js").PipelineEventHandler;
+    includeReadiness?: boolean;
   }) {
     const root = this.requireProject();
     const vault = this.requireVault();
@@ -165,6 +167,8 @@ export class InstallerService {
       force: opts.force,
       config,
       appUrl: opts.appUrl,
+      onEvent: opts.onEvent,
+      includeReadiness: opts.includeReadiness,
     });
   }
 

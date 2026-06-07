@@ -1,0 +1,14 @@
+import { stripe } from "$lib/stripe";
+import { dispatchStripeEvent } from "$lib/stripe-webhooks";
+import type { RequestHandler } from "./$types";
+
+export const POST: RequestHandler = async ({ request }) => {
+  const body = await request.text();
+  const sig = request.headers.get("stripe-signature");
+  if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
+    return new Response("Missing signature", { status: 400 });
+  }
+  const event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  await dispatchStripeEvent(event);
+  return new Response(JSON.stringify({ received: true }));
+};

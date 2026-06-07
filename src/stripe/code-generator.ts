@@ -5,9 +5,21 @@ import {
   djangoPageViews,
   djangoSessionView,
   djangoUrlsWithPages,
-  flaskPageRoutes,
-  generateUiFiles,
-} from "./ui-generators.js";
+  generateDjangoTemplateFiles,
+} from "./django-templates.js";
+import {
+  djangoConnectDbExtensions,
+  generateDjangoDbModule,
+  generateDjangoMeView,
+  generateDjangoWebhookHandlers,
+} from "./django-db-sync.js";
+import {
+  djangoConnectSetupGuide,
+  generateDjangoConnectTemplates,
+  generateDjangoConnectViews,
+} from "./django-connect.js";
+import { postgresSchema } from "../deploy/postgres.js";
+import { flaskPageRoutes, generateUiFiles } from "./ui-generators.js";
 import {
   generateSessionInfoRoute,
 } from "./session-routes.js";
@@ -33,11 +45,22 @@ export class StripeCodeGenerator {
     if (fw === "django") {
       files["stripe/__init__.py"] = "";
       files["stripe/client.py"] = this.djangoStripeClient();
-      files["stripe/views.py"] = this.djangoViews(manifest) + djangoSessionView() + "\n" + djangoPageViews();
+      files["stripe/db.py"] = generateDjangoDbModule() + djangoConnectDbExtensions();
+      files["stripe/webhook_handlers.py"] = generateDjangoWebhookHandlers();
+      files["stripe/views.py"] =
+        this.djangoViews(manifest) +
+        djangoSessionView() +
+        generateDjangoMeView() +
+        djangoPageViews(manifest) +
+        generateDjangoConnectViews();
       files["stripe/urls.py"] = djangoUrlsWithPages();
+      files["db/schema.sql"] = postgresSchema();
       files["docs/STRIPE-DJANGO.md"] = this.djangoSetupGuide();
-      files[".env.example"] = this.pythonEnvExample();
-      Object.assign(files, generateUiFiles("django", manifest));
+      files["docs/STRIPE-CONNECT.md"] = djangoConnectSetupGuide();
+      files["docs/STRIPE-AUTH.md"] = this.djangoAuthGuide();
+      files[".env.example"] = this.pythonEnvExample(true);
+      Object.assign(files, generateDjangoTemplateFiles(manifest));
+      Object.assign(files, generateDjangoConnectTemplates());
       return files;
     }
 
@@ -110,8 +133,6 @@ export class StripeCodeGenerator {
       files["src/routes/api/stripe/checkout/+server.ts"] = this.sveltekitCheckoutRoute(manifest);
       files["src/routes/api/stripe/portal/+server.ts"] = this.sveltekitPortalRoute();
       Object.assign(files, generateUiFiles("sveltekit", manifest));
-    } else if (this.profile.framework === "react") {
-      Object.assign(files, generateUiFiles("react", manifest));
     } else if (cap.codegen === "minimal") {
       files["docs/STRIPE-WIRING.md"] = this.wiringGuide(manifest);
     }
@@ -934,12 +955,23 @@ import os
 
 import stripe
 from django.http import HttpResponse, JsonResponse
+from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from . import client  # noqa: F401 — configures stripe.api_key
+from .webhook_handlers import dispatch_stripe_event
 
 ${priceComment}
+
+
+def _post_value(request, key):
+    if request.content_type and "application/json" in request.content_type:
+        try:
+            return json.loads(request.body).get(key)
+        except json.JSONDecodeError:
+            return None
+    return request.POST.get(key)
 
 
 @csrf_exempt
@@ -957,52 +989,43 @@ def webhook(request):
     except stripe.error.SignatureVerificationError:
         return HttpResponse("Invalid signature", status=400)
 
-    if event["type"] == "checkout.session.completed":
-        session = event["data"]["object"]
-        print(f"[stripe] Checkout completed: {session.get('id')}")
-    elif event["type"] in (
-        "customer.subscription.created",
-        "customer.subscription.updated",
-        "customer.subscription.deleted",
-    ):
-        sub = event["data"]["object"]
-        print(f"[stripe] Subscription {event['type']}: {sub.get('id')}")
-    elif event["type"] == "invoice.payment_failed":
-        invoice = event["data"]["object"]
-        print(f"[stripe] Payment failed: {invoice.get('id')}")
+    try:
+        dispatch_stripe_event(event)
+    except Exception as exc:
+        print(f"[stripe] Webhook handler error: {exc}")
+        return JsonResponse({"error": "handler failed"}, status=500)
 
     return JsonResponse({"received": True})
 
 
-@csrf_exempt
 @require_POST
 def checkout(request):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
-    price_id = data.get("priceId")
+    price_id = _post_value(request, "priceId")
     if not price_id:
         return JsonResponse({"error": "priceId required"}, status=400)
     app_url = os.environ.get("APP_URL", "http://localhost:8000")
+    user_id = None
+    if getattr(request, "user", None) and request.user.is_authenticated:
+        user_id = str(request.user.pk)
     session = stripe.checkout.Session.create(
         mode="subscription",
-        customer_email=data.get("customerEmail"),
+        customer_email=_post_value(request, "customerEmail") or getattr(request.user, "email", None),
+        client_reference_id=user_id,
         line_items=[{"price": price_id, "quantity": 1}],
-        success_url=f"{app_url}/stripe/success/",
+        success_url=f"{app_url}/stripe/success/?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{app_url}/stripe/pricing/",
     )
-    return JsonResponse({"url": session.url})
+    return redirect(session.url)
 
 
-@csrf_exempt
 @require_POST
 def portal(request):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
-    customer_id = data.get("customerId")
+    customer_id = _post_value(request, "customerId")
+    if not customer_id and getattr(request, "user", None) and request.user.is_authenticated:
+        from .db import get_stripe_customer_for_user
+        customer_id = get_stripe_customer_for_user(request.user.pk)
+    if not customer_id:
+        customer_id = request.session.get("stripe_customer_id")
     if not customer_id:
         return JsonResponse({"error": "customerId required"}, status=400)
     app_url = os.environ.get("APP_URL", "http://localhost:8000")
@@ -1010,16 +1033,18 @@ def portal(request):
         customer=customer_id,
         return_url=f"{app_url}/stripe/account/",
     )
-    return JsonResponse({"url": session.url})
+    return redirect(session.url)
 `;
   }
 
   private djangoSetupGuide(): string {
     return `# Stripe — Django setup
 
-## 1. Install dependency
+Django is the recommended stack: server-rendered pages, SEO-friendly URLs, no React SPA required.
+
+## 1. Install
 \`\`\`bash
-pip install stripe
+pip install stripe django
 \`\`\`
 
 ## 2. Wire URLs
@@ -1028,18 +1053,62 @@ In your project \`urls.py\`:
 from django.urls import include, path
 
 urlpatterns = [
-    # ...
     path("stripe/", include("stripe.urls")),
 ]
 \`\`\`
 
-Webhook URL for Stripe Dashboard: \`\${APP_URL}/stripe/webhook\`
+## 3. Pages (indexable by search engines)
+| URL | Purpose |
+|-----|---------|
+| \`/stripe/pricing/\` | Pricing tiers (HTML forms, no JavaScript required) |
+| \`/stripe/success/\` | Post-checkout confirmation |
+| \`/stripe/account/\` | Billing portal entry |
 
-## 3. Environment
-Copy \`.env.example\` keys into your environment or \`.env\` (never commit secrets).
+Webhook URL: \`\${APP_URL}/stripe/webhook\`
 
-## 4. CSRF
-Webhook/checkout/portal views use \`@csrf_exempt\` — restrict to POST-only in production as needed.
+## 4. Environment
+Set \`STRIPE_SECRET_KEY\`, \`STRIPE_WEBHOOK_SECRET\`, \`APP_URL\`, and \`DATABASE_URL\` (PostgreSQL).
+
+## 5. Database (deterministic customer + subscription sync)
+\`\`\`bash
+psql $DATABASE_URL -f db/schema.sql
+\`\`\`
+Webhooks write to \`stripe_customers\` (via \`auth_user_id\` = Django User.pk) and \`subscriptions\`.
+Lookup: \`GET /stripe/me/\` when logged in.
+
+## 6. Scheduled payments
+Renewals run on Stripe using the Customer's saved payment method.
+Your app resolves \`stripe_customer_id\` from DB → portal + entitlements.
+Failed charges: \`invoice.payment_failed\` webhook (extend in \`webhook_handlers.py\`).
+
+## 7. Connect transfers
+See \`docs/STRIPE-CONNECT.md\` for Express onboarding and platform transfers.
+
+## 8. Do not mix with React SPA billing
+This project generates Django templates only. Do not add client-side Stripe secret keys or SPA checkout flows alongside these views.
+`;
+  }
+
+  private djangoAuthGuide(): string {
+    return `# Stripe + Auth — Django
+
+## Deterministic customer linking
+1. \`checkout\` passes \`client_reference_id=str(request.user.pk)\` when authenticated.
+2. Webhook \`checkout.session.completed\` → \`stripe_customers.auth_user_id\`.
+3. \`account\` / \`portal\` / \`GET /stripe/me/\` resolve customer via \`get_stripe_customer_for_user(user.pk)\`.
+
+## API
+| Method | URL | Auth | Returns |
+|--------|-----|------|---------|
+| GET | \`/stripe/me/\` | Login required | \`{ customerId, source, subscription? }\` |
+
+## Session fallback
+\`success\` view stores \`stripe_customer_id\` in session for guests; DB is source of truth for logged-in users.
+
+## Tables
+- \`stripe_customers.auth_user_id\` — Django User.pk (text)
+- \`subscriptions\` — synced from \`customer.subscription.*\` webhooks
+- \`stripe_connect_accounts\` — Connect Express accounts (see STRIPE-CONNECT.md)
 `;
   }
 
@@ -1141,13 +1210,13 @@ Mount webhook **before** any middleware that parses JSON bodies globally if you 
 `;
   }
 
-  private pythonEnvExample(): string {
+  private pythonEnvExample(includeDb = false): string {
     return `# Stripe — copy to .env (never commit real keys)
 STRIPE_SECRET_KEY=
 STRIPE_PUBLISHABLE_KEY=
 STRIPE_WEBHOOK_SECRET=
 APP_URL=http://localhost:8000
-`;
+${includeDb ? "DATABASE_URL=postgresql://user:pass@localhost:5432/yourdb\n" : ""}`;
   }
 
   private rubyEnvExample(): string {
@@ -1448,10 +1517,10 @@ ${prices}
 
 ## ${cap.displayName} notes
 ${cap.summary}
-
-### React (SPA / Vite)
-- Call your backend to create Checkout sessions — never use secret key in browser
-- Add a small Express/Fastify server or serverless function for /webhook
+${this.profile.framework === "react" ? `
+## Recommended alternative
+Use **Django** for server-rendered, SEO-friendly pricing and account pages. Stripe Installer does not generate React SPA billing UI.
+` : ""}
 `;
   }
 

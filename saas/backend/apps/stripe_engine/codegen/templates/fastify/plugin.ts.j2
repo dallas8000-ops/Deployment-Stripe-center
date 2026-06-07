@@ -1,0 +1,49 @@
+import type { FastifyPluginAsync } from "fastify";
+import { stripe } from "../[[ lib ]]/stripe.js";
+import { dispatchStripeEvent } from "../[[ lib ]]/stripe-webhooks.js";
+
+[[ price_comment_block | replace('#', '//') ]]
+
+const stripePlugin: FastifyPluginAsync = async (app) => {
+  app.addContentTypeParser("application/json", { parseAs: "buffer" }, (_req, body, done) => {
+    done(null, body);
+  });
+
+  app.post("/stripe/webhook", async (req, reply) => {
+    const sig = req.headers["stripe-signature"] as string;
+    try {
+      const event = stripe.webhooks.constructEvent(
+        req.body as Buffer,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET!
+      );
+      await dispatchStripeEvent(event);
+      return { received: true };
+    } catch (err) {
+      return reply.status(400).send(`Webhook Error: ${(err as Error).message}`);
+    }
+  });
+
+  app.post("/stripe/checkout", async (req) => {
+    const { priceId, customerEmail } = req.body as { priceId: string; customerEmail?: string };
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer_email: customerEmail,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${process.env.APP_URL}/success.html`,
+      cancel_url: `${process.env.APP_URL}/pricing.html`,
+    });
+    return { url: session.url };
+  });
+
+  app.post("/stripe/portal", async (req) => {
+    const { customerId } = req.body as { customerId: string };
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${process.env.APP_URL}/account.html`,
+    });
+    return { url: session.url };
+  });
+};
+
+export default stripePlugin;

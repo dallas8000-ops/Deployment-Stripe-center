@@ -1073,3 +1073,66 @@ input:focus, select:focus {
   font-size: 13px;
   font-family: var(--mono);
 }
+
+/* Real-time pipeline terminal */
+.pipeline-card {
+  margin-bottom: 20px;
+}
+
+.pipeline-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+.pipeline-terminal {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.65;
+  background: #0a0c10;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  min-height: 280px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.pipeline-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 2px 0;
+  color: var(--text-secondary);
+}
+
+.pipeline-line.detail {
+  padding-left: 28px;
+  color: var(--text-muted);
+}
+
+.pipeline-line.muted {
+  color: var(--text-muted);
+}
+
+.pipeline-line.running {
+  color: var(--warn);
+}
+
+.pipeline-line.ok {
+  color: var(--success);
+}
+
+.pipeline-line.failed {
+  color: var(--danger);
+}
+
+.pipeline-icon {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+
+.pipeline-terminal.is-running {
+  box-shadow: 0 0 0 1px rgba(103, 114, 229, 0.25), 0 0 24px rgba(103, 114, 229, 0.08);
+}

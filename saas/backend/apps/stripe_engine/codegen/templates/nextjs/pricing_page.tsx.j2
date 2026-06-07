@@ -1,0 +1,30 @@
+"use client";
+
+const tiers = [[ tiers | tojson ]];
+
+export default function PricingPage() {
+  async function checkout(priceId: string) {
+    const res = await fetch("/api/stripe/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ priceId }),
+    });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+  }
+
+  return (
+    <main style={{ maxWidth: 960, margin: "0 auto", padding: "2rem" }}>
+      <h1>Choose your plan</h1>
+      <div style={{ display: "grid", gap: "1.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+        {tiers.map((t: { tier: string; label: string; price_id: string }) => (
+          <article key={t.tier} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: "1.5rem" }}>
+            <h2>{t.tier}</h2>
+            <p>{t.label}</p>
+            <button onClick={() => checkout(t.price_id)}>Subscribe</button>
+          </article>
+        ))}
+      </div>
+    </main>
+  );
+}

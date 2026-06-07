@@ -104,7 +104,7 @@ export async function runStripeDiagnostics(
   if (
     profile.suggestedFeatures.includes("checkout") &&
     !profile.dependencies.includes("@stripe/stripe-js") &&
-    (profile.framework === "nextjs" || profile.framework === "react")
+    profile.framework === "nextjs"
   ) {
     push(issues, {
       id: "missing-stripe-js",

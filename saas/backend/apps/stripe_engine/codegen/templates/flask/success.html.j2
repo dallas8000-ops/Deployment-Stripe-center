@@ -1,0 +1,7 @@
+<!DOCTYPE html>
+<html><head><title>Success</title></head>
+<body style="font-family:system-ui;text-align:center;margin:4rem auto">
+  <h1 style="color:#059669">Payment successful</h1>
+  {% if session_id %}<p>Reference: {{ session_id }}</p>{% endif %}
+  <a href="/stripe/account">Go to account</a>
+</body></html>

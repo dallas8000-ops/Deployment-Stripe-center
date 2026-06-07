@@ -1,0 +1,55 @@
+from django.urls import path
+
+from .views import (
+    CodegenDownloadView,
+    DiagnoseView,
+    FixView,
+    PipelineRunDetailView,
+    PipelineRunDownloadView,
+    PipelineRunListCreateView,
+    ReadinessView,
+    VerifyKeysView,
+)
+
+urlpatterns = [
+    path(
+        "projects/<slug:project_slug>/verify/",
+        VerifyKeysView.as_view(),
+        name="project-verify",
+    ),
+    path(
+        "projects/<slug:project_slug>/runs/",
+        PipelineRunListCreateView.as_view(),
+        name="pipeline-run-list",
+    ),
+    path(
+        "projects/<slug:project_slug>/runs/<uuid:run_id>/",
+        PipelineRunDetailView.as_view(),
+        name="pipeline-run-detail",
+    ),
+    path(
+        "projects/<slug:project_slug>/runs/<uuid:run_id>/download/",
+        PipelineRunDownloadView.as_view(),
+        name="pipeline-run-download",
+    ),
+    path(
+        "projects/<slug:project_slug>/codegen/download/",
+        CodegenDownloadView.as_view(),
+        name="codegen-download",
+    ),
+    path(
+        "projects/<slug:project_slug>/diagnose/",
+        DiagnoseView.as_view(),
+        name="project-diagnose",
+    ),
+    path(
+        "projects/<slug:project_slug>/readiness/",
+        ReadinessView.as_view(),
+        name="project-readiness",
+    ),
+    path(
+        "projects/<slug:project_slug>/fix/",
+        FixView.as_view(),
+        name="project-fix",
+    ),
+]

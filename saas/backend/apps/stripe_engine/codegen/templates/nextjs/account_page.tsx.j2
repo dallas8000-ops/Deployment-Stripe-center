@@ -1,0 +1,25 @@
+"use client";
+
+import { useState } from "react";
+
+export default function AccountPage() {
+  const [customerId, setCustomerId] = useState("");
+
+  async function openPortal() {
+    const res = await fetch("/api/stripe/portal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customerId }),
+    });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+  }
+
+  return (
+    <main style={{ maxWidth: 480, margin: "2rem auto" }}>
+      <h1>Account</h1>
+      <input value={customerId} onChange={(e) => setCustomerId(e.target.value)} placeholder="cus_..." />
+      <button onClick={openPortal}>Manage subscription</button>
+    </main>
+  );
+}

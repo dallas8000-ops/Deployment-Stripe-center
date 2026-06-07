@@ -1,0 +1,16 @@
+{
+  "name": "stripe-installer-saas",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "cd backend && .venv\\Scripts\\daphne.exe -b 127.0.0.1 -p 8000 config.asgi:application",
+    "dev:celery": "cd backend && .venv\\Scripts\\celery.exe -A config worker -l info",
+    "build:frontend": "npm run build --prefix frontend",
+    "migrate": "cd backend && .venv\\Scripts\\python.exe manage.py migrate",
+    "setup:backend": "cd backend && python -m venv .venv && .venv\\Scripts\\pip.exe install -r requirements.txt",
+    "setup:frontend": "npm install --prefix frontend",
+    "setup": "npm run setup:backend && npm run setup:frontend && npm run migrate",
+    "redis": "docker compose up -d redis"
+  }
+}

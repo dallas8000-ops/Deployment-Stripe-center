@@ -37,10 +37,10 @@ const CAPABILITIES: Record<Framework, Omit<FrameworkCapabilities, "framework">> 
     summary: "Resource routes, pricing pages, and portal UI",
   },
   react: {
-    codegen: "full",
-    webhookPath: "/api/stripe/webhook",
+    codegen: "none",
+    webhookPath: "/stripe/webhook",
     displayName: "React (SPA)",
-    summary: "Pages, components, and dev API server for Stripe",
+    summary: "Not supported — use Django for server-rendered, SEO-friendly billing pages",
   },
   nuxt: {
     codegen: "full",
@@ -140,8 +140,8 @@ export function frameworkRecommendations(profile: ProjectProfile): string[] {
       recs.push("Webhook route must read raw body via request.text() for constructEvent.");
       break;
     case "react":
-      recs.push("Generated pages + server/dev-server.ts — proxy /api to port 3001 in Vite.");
-      recs.push("Never put STRIPE_SECRET_KEY in the browser bundle.");
+      recs.push("React SPA is not supported for generated billing UI.");
+      recs.push("Use Django (recommended) or Next.js for indexable pricing/account pages.");
       break;
     case "nuxt":
       recs.push("Generated server/api/stripe/* routes — register webhook URL in Stripe Dashboard.");

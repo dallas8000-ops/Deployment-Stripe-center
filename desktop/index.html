@@ -198,7 +198,17 @@
             </div>
             <div class="page-actions">
               <button class="btn btn-secondary" id="btn-verify">Verify keys</button>
-              <button class="btn btn-primary" id="btn-run-pipeline">Run pipeline</button>
+              <button class="btn btn-primary" id="btn-run-pipeline">Run full setup</button>
+            </div>
+          </div>
+
+          <div class="section-card pipeline-card">
+            <div class="card-header">
+              <h2>Live pipeline</h2>
+              <span class="pipeline-hint">Real-time progress — same events as Django Channels WebSocket</span>
+            </div>
+            <div id="pipeline-terminal" class="pipeline-terminal" aria-live="polite">
+              <div class="pipeline-line muted">Click <strong>Run full setup</strong> to start verify → provision → generate → readiness.</div>
             </div>
           </div>
 

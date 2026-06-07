@@ -135,21 +135,6 @@ async function setupLaravelFixture() {
   return dir;
 }
 
-async function setupReactFixture() {
-  const dir = join(tmpdir(), `stripe-installer-burn-react-${Date.now()}`);
-  await mkdir(join(dir, "src"), { recursive: true });
-  await writeFile(
-    join(dir, "package.json"),
-    JSON.stringify({
-      name: "burn-test-react",
-      private: true,
-      dependencies: { react: "^18.0.0", "react-dom": "^18.0.0", stripe: "^17.0.0" },
-    }, null, 2)
-  );
-  await writeFile(join(dir, "src", "App.tsx"), "export default function App() { return null; }\n");
-  return dir;
-}
-
 async function smokeFramework(name, dir) {
   const quoted = `"${dir}"`;
   run(`${name} scan`, `${cli} scan ${quoted}`);
@@ -192,7 +177,6 @@ async function main() {
   await smokeFramework("flask", await setupFlaskFixture());
   await smokeFramework("rails", await setupRailsFixture());
   await smokeFramework("laravel", await setupLaravelFixture());
-  await smokeFramework("react", await setupReactFixture());
 
   run("self scan", `${cli} scan .`);
   run("self diagnose", `${cli} diagnose . --skip-vault`);

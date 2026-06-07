@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pricing</title>
+  <style>
+    body { font-family: system-ui; max-width: 960px; margin: 0 auto; padding: 2rem; }
+    .grid { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .tier-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.5rem; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; background: #111; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Choose your plan</h1>
+  <div class="grid" id="tiers"></div>
+  <script>
+    const tiers = [[ tiers | tojson ]];
+    const appUrl = "[[ app_url ]]";
+    document.getElementById("tiers").innerHTML = tiers.map(t => `
+      <article class="tier-card">
+        <h2>${t.tier}</h2>
+        <p>${t.label}</p>
+        <button onclick="checkout('${t.price_id}')">Subscribe</button>
+      </article>
+    `).join("");
+    async function checkout(priceId) {
+      const res = await fetch(appUrl + "/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priceId }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    }
+  </script>
+</body>
+</html>

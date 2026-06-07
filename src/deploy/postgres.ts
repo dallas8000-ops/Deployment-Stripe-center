@@ -20,10 +20,14 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS stripe_customers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
+  auth_user_id    TEXT,
   stripe_customer_id TEXT UNIQUE NOT NULL,
   email           TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_stripe_customers_auth_user
+  ON stripe_customers(auth_user_id) WHERE auth_user_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS subscriptions (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -51,6 +55,31 @@ CREATE TABLE IF NOT EXISTS webhook_events (
 CREATE INDEX IF NOT EXISTS idx_subscriptions_customer ON subscriptions(stripe_customer_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_type ON webhook_events(type);
+
+CREATE TABLE IF NOT EXISTS stripe_connect_accounts (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  auth_user_id        TEXT,
+  stripe_account_id   TEXT UNIQUE NOT NULL,
+  charges_enabled     BOOLEAN DEFAULT FALSE,
+  payouts_enabled     BOOLEAN DEFAULT FALSE,
+  details_submitted   BOOLEAN DEFAULT FALSE,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS stripe_transfers (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_transfer_id  TEXT UNIQUE NOT NULL,
+  stripe_account_id   TEXT NOT NULL,
+  amount              INTEGER NOT NULL,
+  currency            TEXT NOT NULL DEFAULT 'usd',
+  status              TEXT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_connect_accounts_auth ON stripe_connect_accounts(auth_user_id);
+CREATE INDEX IF NOT EXISTS idx_transfers_account ON stripe_transfers(stripe_account_id);
 `;
 }
 
@@ -104,6 +133,15 @@ export async function linkCustomerFromCheckout(session: Stripe.Checkout.Session)
          user_id = COALESCE(EXCLUDED.user_id, stripe_customers.user_id)\`,
       [customerId, email, userId]
     );
+  } else if (userId) {
+    await query(
+      \`INSERT INTO stripe_customers (stripe_customer_id, email, auth_user_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (stripe_customer_id) DO UPDATE SET
+         email = COALESCE(EXCLUDED.email, stripe_customers.email),
+         auth_user_id = COALESCE(EXCLUDED.auth_user_id, stripe_customers.auth_user_id)\`,
+      [customerId, email, String(userId)]
+    );
   } else {
     await query(
       \`INSERT INTO stripe_customers (stripe_customer_id, email)
@@ -128,8 +166,10 @@ export async function linkCustomerToUser(userId: string, stripeCustomerId: strin
 
 export async function getStripeCustomerForUser(userId: string): Promise<string | null> {
   const result = await query<{ stripe_customer_id: string }>(
-    "SELECT stripe_customer_id FROM stripe_customers WHERE user_id = $1::uuid LIMIT 1",
-    [userId]
+    \`SELECT stripe_customer_id FROM stripe_customers
+     WHERE auth_user_id = $1 OR user_id::text = $1
+     ORDER BY created_at DESC LIMIT 1\`,
+    [String(userId)]
   );
   return result.rows[0]?.stripe_customer_id ?? null;
 }

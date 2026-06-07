@@ -110,6 +110,31 @@ function registerIpc(): void {
     force?: boolean;
     appUrl?: string;
   }) => service.runStripePipeline(opts));
+
+  ipcMain.handle("run-pipeline-stream", async (event, opts: {
+    provision?: boolean;
+    generate?: boolean;
+    syncEnv?: boolean;
+    force?: boolean;
+    appUrl?: string;
+    includeReadiness?: boolean;
+  }) => {
+    try {
+      const data = await service.runStripePipeline({
+        ...opts,
+        onEvent: (pipelineEvent) => {
+          event.sender.send("pipeline-event", pipelineEvent);
+        },
+        includeReadiness: opts.includeReadiness !== false,
+      });
+      return { ok: true as const, data };
+    } catch (err) {
+      return {
+        ok: false as const,
+        error: err instanceof Error ? err.message : "Unknown error",
+      };
+    }
+  });
   ipcArg("deploy", (opts: {
     provisionStripe?: boolean;
     generateCode?: boolean;

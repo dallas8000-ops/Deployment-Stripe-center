@@ -9,6 +9,8 @@ import type {
 } from "../types.js";
 import { SecretVault } from "../security/vault.js";
 import { getStripeClient, verifyApiKeys } from "./stripe-client.js";
+import { formatAmount } from "./tier-format.js";
+import { emitEvent, type PipelineEventHandler } from "./pipeline-events.js";
 
 const INSTALLER_TAG = "stripe-installer";
 
@@ -20,6 +22,10 @@ const DEFAULT_WEBHOOK_EVENTS = [
   "invoice.paid",
   "invoice.payment_failed",
   "customer.created",
+  "account.updated",
+  "transfer.created",
+  "transfer.updated",
+  "transfer.reversed",
 ] as const;
 
 const MANIFEST_DIR = ".stripe-installer";
@@ -31,7 +37,11 @@ export class StripeApiAutomation {
     private readonly vault: SecretVault
   ) {}
 
-  async run(config: StripeAutomationConfig): Promise<StripeAutomationResult> {
+  async run(
+    config: StripeAutomationConfig,
+    hooks?: { onEvent?: PipelineEventHandler }
+  ): Promise<StripeAutomationResult> {
+    const onEvent = hooks?.onEvent;
     const verified = await verifyApiKeys(this.vault);
     if (!verified.secretKey.valid) {
       throw new Error(`API key verification failed: ${verified.secretKey.message}`);
@@ -50,9 +60,25 @@ export class StripeApiAutomation {
     };
 
     if (config.tiers && config.tiers.length > 0) {
-      const catalog = await this.createSubscriptionCatalog(stripe, config.tiers, existingManifest, reuse);
+      emitEvent(onEvent, {
+        step: "provision.products",
+        status: "running",
+        message: "Provisioning Stripe products…",
+      });
+      const catalog = await this.createSubscriptionCatalog(
+        stripe,
+        config.tiers,
+        existingManifest,
+        reuse,
+        onEvent
+      );
       result.products = catalog.products;
       result.prices = catalog.prices;
+      emitEvent(onEvent, {
+        step: "provision.products",
+        status: "ok",
+        message: "Products provisioned",
+      });
     } else if (config.productName) {
       const product = await this.findOrCreateProduct(stripe, config.productName, config.productDescription, reuse);
       result.products.push({ id: product.id, name: product.name, reused: product.reused });
@@ -80,6 +106,11 @@ export class StripeApiAutomation {
     }
 
     if (config.webhookUrl && config.provision?.createWebhook !== false) {
+      emitEvent(onEvent, {
+        step: "provision.webhook",
+        status: "running",
+        message: "Registering webhooks…",
+      });
       const webhook = await this.registerWebhook(
         stripe,
         config.webhookUrl,
@@ -90,6 +121,11 @@ export class StripeApiAutomation {
         url: webhook.url,
         reused: webhook.reused,
       };
+      emitEvent(onEvent, {
+        step: "provision.webhook",
+        status: "ok",
+        message: `Webhook registered: ${webhook.url}`,
+      });
 
       if (webhook.secret) {
         await this.vault.set("STRIPE_WEBHOOK_SECRET", webhook.secret);
@@ -221,7 +257,8 @@ export class StripeApiAutomation {
     stripe: Stripe,
     tiers: PricingTier[],
     manifest: StripeManifest | null,
-    reuse: boolean
+    reuse: boolean,
+    onEvent?: PipelineEventHandler
   ): Promise<{
     products: StripeAutomationResult["products"];
     prices: StripeAutomationResult["prices"];
@@ -281,6 +318,17 @@ export class StripeApiAutomation {
         trialDays: tier.trialDays,
         reused: priceReused,
       });
+
+      if (!priceReused) {
+        const label = formatAmount(tier.amount, tier.currency);
+        const interval = tier.interval ? `/${tier.interval}` : "";
+        emitEvent(onEvent, {
+          step: "provision.price",
+          status: "detail",
+          message: `Created: ${tier.name} (${label}${interval})`,
+          detail: true,
+        });
+      }
     }
 
     return { products, prices };

@@ -50,6 +50,7 @@ const els = {
   healthBadge: $("#health-badge"),
   diagnoseSummary: $("#diagnose-summary"),
   diagnoseStats: $("#diagnose-stats"),
+  pipelineTerminal: $("#pipeline-terminal"),
 };
 
 let vaultUnlocked = false;
@@ -263,11 +264,47 @@ async function verifyKeys() {
 
 async function runPipeline() {
   requireVault();
-  log("Running Stripe pipeline…");
-  const result = await call(api.runPipeline, {
-    syncEnv: $("#opt-sync-env").checked,
-    force: $("#opt-force").checked,
-  });
+  const terminal = els.pipelineTerminal;
+  terminal.classList.add("is-running");
+  terminal.innerHTML = "";
+
+  const appendLine = (icon, text, className = "") => {
+    const line = document.createElement("div");
+    line.className = `pipeline-line ${className}`.trim();
+    line.innerHTML = `<span class="pipeline-icon">${icon}</span><span>${escapeHtml(text)}</span>`;
+    terminal.appendChild(line);
+    terminal.scrollTop = terminal.scrollHeight;
+  };
+
+  appendLine("✓", "Vault unlocked", "ok");
+
+  const onEvent = (event) => {
+    const icon =
+      event.status === "running" ? "⏳" :
+      event.status === "ok" ? "✓" :
+      event.status === "failed" ? "✗" : "→";
+    const cls =
+      event.status === "running" ? "running" :
+      event.status === "ok" ? "ok" :
+      event.status === "failed" ? "failed" :
+      event.detail ? "detail" : "";
+    appendLine(icon, event.message, cls);
+  };
+
+  log("Running full setup…");
+
+  const resultWrapper = await api.runPipelineStream(
+    {
+      syncEnv: $("#opt-sync-env").checked,
+      force: $("#opt-force").checked,
+    },
+    onEvent
+  );
+
+  terminal.classList.remove("is-running");
+
+  if (!resultWrapper?.ok) throw new Error(resultWrapper?.error ?? "Pipeline failed");
+  const result = resultWrapper.data;
 
   const lines = [];
   if (result.provision) {
@@ -282,7 +319,8 @@ async function runPipeline() {
     result.files.forEach((f) => lines.push(`  ${f.action.padEnd(8)} ${f.path}`));
   }
   setOutput(els.stripeResult, lines.join("\n") || "Pipeline completed successfully.");
-  log("Pipeline complete", "success");
+  log("Full setup complete", "success");
+  await refreshStatus();
 }
 
 async function runDeploy() {

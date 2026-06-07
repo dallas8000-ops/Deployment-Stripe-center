@@ -13,6 +13,16 @@ contextBridge.exposeInMainWorld("stripeInstaller", {
   verify: () => ipcRenderer.invoke("verify"),
   getStatus: () => ipcRenderer.invoke("get-status"),
   runPipeline: (opts: Record<string, unknown>) => ipcRenderer.invoke("run-pipeline", opts),
+  runPipelineStream: (
+    opts: Record<string, unknown>,
+    onEvent: (event: { step: string; status: string; message: string; detail?: boolean; score?: number }) => void
+  ) => {
+    const handler = (_: unknown, event: Parameters<typeof onEvent>[0]) => onEvent(event);
+    ipcRenderer.on("pipeline-event", handler);
+    return ipcRenderer
+      .invoke("run-pipeline-stream", opts)
+      .finally(() => ipcRenderer.removeListener("pipeline-event", handler));
+  },
   deploy: (opts: Record<string, unknown>) => ipcRenderer.invoke("deploy", opts),
   readiness: () => ipcRenderer.invoke("readiness"),
   postgresProvision: (opts: Record<string, unknown>) => ipcRenderer.invoke("postgres-provision", opts),

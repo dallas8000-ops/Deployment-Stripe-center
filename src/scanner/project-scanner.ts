@@ -169,7 +169,14 @@ export class ProjectScanner {
     if (deps?.["@sveltejs/kit"]) return "sveltekit";
     if (deps?.express) return "express";
     if (deps?.fastify) return "fastify";
-    if (deps?.react || deps?.["react-dom"]) return "react";
+
+    if (await this.fileExists("manage.py")) return "django";
+    if (await this.fileExists("config/routes.rb")) return "rails";
+    if (await this.fileExists("artisan")) return "laravel";
+
+    if (deps?.react || deps?.["react-dom"]) {
+      return "react";
+    }
 
     for (const [framework, signals] of Object.entries(FRAMEWORK_SIGNALS)) {
       if (framework === "unknown") continue;
@@ -179,10 +186,6 @@ export class ProjectScanner {
         }
       }
     }
-
-    if (await this.fileExists("manage.py")) return "django";
-    if (await this.fileExists("config/routes.rb")) return "rails";
-    if (await this.fileExists("artisan")) return "laravel";
 
     return "unknown";
   }
