@@ -1,6 +1,18 @@
 from django.urls import path
 
-from .views import PostgresSchemaView, PostgresStatusView
+from .views import (
+    DeployConfigView,
+    DeployPushView,
+    DeployReadinessView,
+    DeployRunView,
+    InfraGenerateView,
+    InfraPreviewView,
+    PostgresApplySchemaView,
+    PostgresProvisionView,
+    PostgresSchemaView,
+    PostgresStatusView,
+    PostgresTestView,
+)
 
 urlpatterns = [
     path(
@@ -12,5 +24,50 @@ urlpatterns = [
         "projects/<slug:project_slug>/postgres/schema/",
         PostgresSchemaView.as_view(),
         name="postgres-schema",
+    ),
+    path(
+        "projects/<slug:project_slug>/postgres/provision/",
+        PostgresProvisionView.as_view(),
+        name="postgres-provision",
+    ),
+    path(
+        "projects/<slug:project_slug>/postgres/test/",
+        PostgresTestView.as_view(),
+        name="postgres-test",
+    ),
+    path(
+        "projects/<slug:project_slug>/postgres/apply-schema/",
+        PostgresApplySchemaView.as_view(),
+        name="postgres-apply-schema",
+    ),
+    path(
+        "projects/<slug:project_slug>/deploy/readiness/",
+        DeployReadinessView.as_view(),
+        name="deploy-readiness",
+    ),
+    path(
+        "projects/<slug:project_slug>/deploy/run/",
+        DeployRunView.as_view(),
+        name="deploy-run",
+    ),
+    path(
+        "projects/<slug:project_slug>/deploy/push/",
+        DeployPushView.as_view(),
+        name="deploy-push",
+    ),
+    path(
+        "projects/<slug:project_slug>/deploy/config/",
+        DeployConfigView.as_view(),
+        name="deploy-config",
+    ),
+    path(
+        "projects/<slug:project_slug>/deploy/infra/preview/",
+        InfraPreviewView.as_view(),
+        name="deploy-infra-preview",
+    ),
+    path(
+        "projects/<slug:project_slug>/deploy/infra/generate/",
+        InfraGenerateView.as_view(),
+        name="deploy-infra-generate",
     ),
 ]

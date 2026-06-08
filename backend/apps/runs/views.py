@@ -6,6 +6,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.access import ProjectOwnedMixin
 from apps.projects.models import Project
 from apps.runs.artifacts import resolve_run_files
 from apps.runs.models import PipelineRun
@@ -18,11 +19,6 @@ from apps.stripe_engine.readiness import readiness_label, run_readiness_checks, 
 from apps.stripe_engine.repair import run_auto_fix, run_repair_action
 from apps.stripe_engine.verify import verify_stripe_keys
 from apps.vault.models import get_secret
-
-
-class ProjectOwnedMixin:
-    def get_project(self, project_slug: str) -> Project:
-        return get_object_or_404(Project, slug=project_slug, owner=self.request.user)
 
 
 class VerifyKeysView(ProjectOwnedMixin, APIView):
@@ -236,3 +232,49 @@ class FixView(ProjectOwnedMixin, APIView):
                 "report": report.to_dict(),
             }
         )
+
+
+class StripeConfigView(ProjectOwnedMixin, APIView):
+    """Read/write stripe.config.json in the client project repo."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, project_slug: str):
+        from apps.stripe_engine.stripe_config import config_from_disk, stripe_config_path
+
+        project = self.get_project(project_slug)
+        if not project.local_path:
+            return Response({"error": "Set project local_path first."}, status=status.HTTP_400_BAD_REQUEST)
+        root = Path(project.local_path).resolve()
+        if not root.is_dir():
+            return Response({"error": f"Project path not found: {root}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        path = stripe_config_path(root)
+        return Response(
+            {
+                "config": config_from_disk(root),
+                "exists": path.is_file(),
+                "path": "stripe.config.json",
+            }
+        )
+
+    def put(self, request, project_slug: str):
+        from apps.stripe_engine.stripe_config import normalize_stripe_config, write_stripe_config
+
+        project = self.get_project(project_slug)
+        if not project.local_path:
+            return Response({"error": "Set project local_path first."}, status=status.HTTP_400_BAD_REQUEST)
+        root = Path(project.local_path).resolve()
+        if not root.is_dir():
+            return Response({"error": f"Project path not found: {root}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        body = request.data.get("config", request.data)
+        if not isinstance(body, dict):
+            return Response({"error": "config object required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            normalized = normalize_stripe_config(body)
+            write_stripe_config(root, normalized)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"config": normalized, "exists": True, "path": "stripe.config.json"})

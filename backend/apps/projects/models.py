@@ -12,6 +12,13 @@ class Project(models.Model):
         on_delete=models.CASCADE,
         related_name="projects",
     )
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="projects",
+    )
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=220)
     description = models.TextField(blank=True)
@@ -36,6 +43,12 @@ class Project(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    @property
+    def active_environment(self) -> str:
+        scan = self.scan_data or {}
+        env = str(scan.get("activeEnvironment") or "production")
+        return env if env in ("test", "staging", "production") else "production"
+
     def save(self, *args, **kwargs):
         if not self.slug:
             base = slugify(self.name) or "project"
@@ -46,3 +59,26 @@ class Project(models.Model):
                 n += 1
             self.slug = slug
         super().save(*args, **kwargs)
+
+
+class AuditLog(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="audit_logs")
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audit_logs",
+    )
+    action = models.CharField(max_length=64)
+    detail = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.project.slug}:{self.action}"
+
+
+from apps.projects.api_keys import ProjectApiKey  # noqa: E402, F401

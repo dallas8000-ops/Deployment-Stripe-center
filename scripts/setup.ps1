@@ -1,4 +1,4 @@
-# First-time setup for Stripe Installer SaaS (Windows)
+# First-time setup (Windows)
 param(
     [switch]$SkipMigrate
 )
@@ -11,8 +11,23 @@ $EnvExample = Join-Path $Backend ".env.example"
 
 Write-Host "Stripe Installer setup" -ForegroundColor Cyan
 
-if (-not (Test-Path (Join-Path $Backend ".venv\Scripts\python.exe"))) {
-    Write-Host "Creating Python venv..."
+$VenvPython = Join-Path $Backend ".venv\Scripts\python.exe"
+$PyvenvCfg = Join-Path $Backend ".venv\pyvenv.cfg"
+$VenvBroken = $false
+if (Test-Path $PyvenvCfg) {
+    $cfg = Get-Content $PyvenvCfg -Raw
+    if ($cfg -match "saas\\backend" -or $cfg -notmatch [regex]::Escape($Backend)) {
+        $VenvBroken = $true
+    }
+}
+
+if ($VenvBroken -or -not (Test-Path $VenvPython)) {
+    if ($VenvBroken) {
+        Write-Host "Removing broken venv (still pointed at old saas/ path)..." -ForegroundColor Yellow
+        Remove-Item -Recurse -Force (Join-Path $Backend ".venv") -ErrorAction SilentlyContinue
+    } else {
+        Write-Host "Creating Python venv..."
+    }
     Push-Location $Backend
     python -m venv .venv
     .\.venv\Scripts\pip.exe install -r requirements.txt
@@ -39,16 +54,15 @@ if (-not $SkipMigrate) {
     Pop-Location
 }
 
-if (-not (Test-Path (Join-Path $Root "node_modules"))) {
-    npm install --prefix $Root
-}
-
-if (-not (Test-Path (Join-Path $Root "frontend\node_modules"))) {
-    npm install --prefix (Join-Path $Root "frontend")
-}
+Write-Host "Installing npm dependencies (root + frontend)..."
+Push-Location $Root
+npm install
+Pop-Location
+npm install --prefix (Join-Path $Root "frontend")
 
 Write-Host ""
 Write-Host "Done. Start the app:" -ForegroundColor Green
 Write-Host "  npm run dev"
+Write-Host "  # or: .\scripts\dev.ps1"
 Write-Host ""
 Write-Host "Open http://localhost:5173" -ForegroundColor Yellow

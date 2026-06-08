@@ -1,23 +1,93 @@
-import { Link, Outlet, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
+
+import { projectsApi } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+
+const NAV = [
+  { to: "/", label: "Projects", match: (path: string) => path === "/" || (path.startsWith("/projects/") && !path.startsWith("/agency")) },
+  { to: "/agency", label: "Agency", match: (path: string) => path.startsWith("/agency") },
+  { to: "/billing", label: "Billing", match: (path: string) => path.startsWith("/billing") },
+] as const;
+
+function settingsPath(slug: string | undefined, pathname: string) {
+  return slug && pathname.startsWith(`/projects/${slug}`) ? `/projects/${slug}/settings` : null;
+}
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { slug } = useParams();
+  const [projectName, setProjectName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!slug) {
+      setProjectName(null);
+      return;
+    }
+    let cancelled = false;
+    projectsApi
+      .get(slug)
+      .then((p) => {
+        if (!cancelled) setProjectName(p.name);
+      })
+      .catch(() => {
+        if (!cancelled) setProjectName(slug);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
 
   return (
     <div className="shell">
       <header className="topbar">
-        <Link to="/" className="brand">
-          <span className="brand-mark" aria-hidden>
-            ◆
-          </span>
-          Stripe Installer
-        </Link>
-        <nav className="topbar-nav">
-          <Link to="/">Projects</Link>
-          <Link to="/billing">Billing</Link>
-        </nav>
+        <div className="topbar-start">
+          <NavLink to="/" className="brand" end>
+            <span className="brand-mark" aria-hidden>
+              ◆
+            </span>
+            Stripe Installer
+          </NavLink>
+          <nav className="topbar-nav" aria-label="Main">
+            {NAV.map(({ to, label, match }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === "/"}
+                className={() =>
+                  match(location.pathname) ? "topbar-nav-link active" : "topbar-nav-link"
+                }
+              >
+                {label}
+              </NavLink>
+            ))}
+            {settingsPath(slug, location.pathname) && (
+              <NavLink
+                to={settingsPath(slug, location.pathname)!}
+                className={({ isActive }) =>
+                  isActive ? "topbar-nav-link active" : "topbar-nav-link"
+                }
+              >
+                Settings
+              </NavLink>
+            )}
+          </nav>
+        </div>
+
+        {slug && (
+          <div className="topbar-breadcrumb" aria-label="Breadcrumb">
+            <NavLink to="/" className="topbar-breadcrumb-link">
+              Projects
+            </NavLink>
+            <span className="topbar-breadcrumb-sep" aria-hidden>
+              /
+            </span>
+            <span className="topbar-breadcrumb-current">{projectName || "…"}</span>
+          </div>
+        )}
+
         <div className="topbar-right">
           <span className="user-email">{user?.email}</span>
           <button

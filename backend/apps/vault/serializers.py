@@ -35,3 +35,7 @@ class VaultDeleteSerializer(serializers.Serializer):
         if not attrs.get("confirm"):
             raise serializers.ValidationError({"confirm": "Confirmation required to delete a secret."})
         return attrs
+
+
+class VaultImportSerializer(serializers.Serializer):
+    env_file = serializers.CharField(max_length=256, default=".env.local", required=False)

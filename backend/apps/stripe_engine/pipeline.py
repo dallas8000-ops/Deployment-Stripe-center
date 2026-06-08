@@ -14,6 +14,7 @@ from .codegen import generate_all, write_project_files
 from .events import EventEmitter, PipelineEvent, emit
 from .provision import ProvisionConfig, load_manifest, provision_catalog
 from .readiness import readiness_label, run_readiness_checks, score_readiness
+from .stripe_config import provision_config_from_stripe_file
 from .verify import verify_stripe_keys
 
 MAX_STORED_ARTIFACT_BYTES = 3 * 1024 * 1024
@@ -151,15 +152,24 @@ def run_pipeline(
     generated_files: dict[str, str] | None = None
 
     if options.provision and secret:
+        stripe_opts = provision_config_from_stripe_file(
+            project_root,
+            app_url=app_url,
+            webhook_path=webhook_path,
+        )
         prov = provision_catalog(
             secret,
             project_root,
             project=project,
             account_id=verification.account_id,
             config=ProvisionConfig(
-                webhook_url=f"{app_url}{webhook_path}",
-                billing_portal_return_url=f"{app_url}/stripe/account/",
-                app_url=app_url,
+                tiers=stripe_opts["tiers"],
+                webhook_url=stripe_opts["webhook_url"],
+                billing_portal_return_url=stripe_opts["billing_portal_return_url"],
+                app_url=stripe_opts["app_url"],
+                reuse_existing=stripe_opts["reuse_existing"],
+                create_webhook=stripe_opts["create_webhook"],
+                create_portal=stripe_opts["create_portal"],
             ),
             on_event=on_event,
         )

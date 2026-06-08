@@ -74,6 +74,16 @@ def _sync_public_key(project: Project) -> RepairResult:
     return RepairResult("sync-public-key", True, "Synced NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY")
 
 
+def _generate_infra(project: Project, project_root: Path, force: bool, app_url: str) -> RepairResult:
+    from apps.deploy.infra import generate_and_write_infra
+
+    _, results = generate_and_write_infra(project, force=force, prod_url=app_url)
+    created = [r.path for r in results if r.action != "skipped"]
+    if not created:
+        return RepairResult("generate-infra", True, "All infra files already exist")
+    return RepairResult("generate-infra", True, f"Generated {len(created)} deploy file(s)", files=created)
+
+
 def _generate_files(project: Project, project_root: Path, force: bool) -> RepairResult:
     from apps.stripe_engine.provision import load_manifest
 
@@ -129,6 +139,8 @@ def run_repair_action(
         return RepairResult("sync-env", True, "Synced vault to .env.local")
     if action == "generate-files":
         return _generate_files(project, root, force)
+    if action == "generate-infra":
+        return _generate_infra(project, root, force, app_url)
     if action == "provision-stripe":
         return _provision_stripe(project, root, app_url)
     return RepairResult(action, False, f"Unknown action: {action}")

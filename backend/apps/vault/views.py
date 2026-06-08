@@ -1,25 +1,21 @@
-from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.projects.models import Project
+from apps.core.access import ProjectOwnedMixin
 
 from .crypto import VaultConfigurationError
+from .import_env import import_env_to_vault
 from .models import ProjectVault, delete_secret, get_or_create_vault, list_secret_keys, list_vault_entries, set_secret
-from .serializers import VaultDeleteSerializer, VaultEntrySerializer, VaultKeyListSerializer, VaultSetSerializer
+from .serializers import VaultDeleteSerializer, VaultEntrySerializer, VaultImportSerializer, VaultKeyListSerializer, VaultSetSerializer
 
 
-class ProjectVaultMixin:
-    def get_project(self, request, project_slug: str) -> Project:
-        return get_object_or_404(Project, slug=project_slug, owner=request.user)
-
-
-class VaultInitView(ProjectVaultMixin, APIView):
+class VaultInitView(ProjectOwnedMixin, APIView):
+    project_min_role = "admin"
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, project_slug: str):
-        project = self.get_project(request, project_slug)
+        project = self.get_project(project_slug)
         try:
             vault = get_or_create_vault(project)
         except VaultConfigurationError as exc:
@@ -35,11 +31,11 @@ class VaultInitView(ProjectVaultMixin, APIView):
         )
 
 
-class VaultKeysView(ProjectVaultMixin, APIView):
+class VaultKeysView(ProjectOwnedMixin, APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request, project_slug: str):
-        project = self.get_project(request, project_slug)
+        project = self.get_project(project_slug, min_role="viewer")
         initialized = ProjectVault.objects.filter(project=project).exists()
         entries = list_vault_entries(project)
         data = VaultKeyListSerializer(
@@ -52,11 +48,12 @@ class VaultKeysView(ProjectVaultMixin, APIView):
         return Response(data)
 
 
-class VaultSetView(ProjectVaultMixin, APIView):
+class VaultSetView(ProjectOwnedMixin, APIView):
+    project_min_role = "admin"
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, project_slug: str):
-        project = self.get_project(request, project_slug)
+        project = self.get_project(project_slug)
         serializer = VaultSetSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         key = serializer.validated_data["key"]
@@ -76,11 +73,12 @@ class VaultSetView(ProjectVaultMixin, APIView):
         )
 
 
-class VaultDeleteView(ProjectVaultMixin, APIView):
+class VaultDeleteView(ProjectOwnedMixin, APIView):
+    project_min_role = "admin"
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, project_slug: str):
-        project = self.get_project(request, project_slug)
+        project = self.get_project(project_slug)
         serializer = VaultDeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         key = serializer.validated_data["key"]
@@ -93,4 +91,41 @@ class VaultDeleteView(ProjectVaultMixin, APIView):
                 "keys": list_secret_keys(project),
                 "entries": list_vault_entries(project),
             }
+        )
+
+
+class VaultImportView(ProjectOwnedMixin, APIView):
+    project_min_role = "admin"
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, project_slug: str):
+        from pathlib import Path
+
+        project = self.get_project(project_slug)
+        if not project.local_path:
+            return Response({"error": "Set project local_path first."}, status=status.HTTP_400_BAD_REQUEST)
+        root = Path(project.local_path).resolve()
+        if not root.is_dir():
+            return Response({"error": f"Project path not found: {root}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = VaultImportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        env_file = serializer.validated_data.get("env_file", ".env.local")
+
+        try:
+            get_or_create_vault(project)
+            imported = import_env_to_vault(project, root, env_file=env_file)
+        except VaultConfigurationError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except (FileNotFoundError, ValueError) as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "imported": imported,
+                "env_file": env_file,
+                "keys": list_secret_keys(project),
+                "entries": list_vault_entries(project),
+            },
+            status=status.HTTP_201_CREATED,
         )

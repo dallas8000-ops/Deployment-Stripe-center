@@ -9,6 +9,8 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [name, setName] = useState("");
   const [localPath, setLocalPath] = useState("");
+  const [gitUrl, setGitUrl] = useState("");
+  const [cloneOnCreate, setCloneOnCreate] = useState(true);
   const [creating, setCreating] = useState(false);
 
   const stats = useMemo(() => {
@@ -40,9 +42,17 @@ export default function DashboardPage() {
     setCreating(true);
     setError("");
     try {
-      await projectsApi.create({ name, local_path: localPath || undefined });
+      const project = await projectsApi.create({
+        name,
+        local_path: localPath || undefined,
+        git_url: gitUrl || undefined,
+      });
+      if (gitUrl && cloneOnCreate) {
+        await projectsApi.clone(project.slug);
+      }
       setName("");
       setLocalPath("");
+      setGitUrl("");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
@@ -58,9 +68,6 @@ export default function DashboardPage() {
           <h1>Projects</h1>
           <p className="muted">Manage Stripe integrations for your apps.</p>
         </div>
-        <Link to="/billing" className="btn btn-secondary">
-          Billing
-        </Link>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -84,19 +91,37 @@ export default function DashboardPage() {
 
       <section className="card">
         <h2>New project</h2>
-        <form className="form-row" onSubmit={onCreate}>
+        <form className="settings-form" onSubmit={onCreate}>
           <label>
             Name
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </label>
           <label>
-            Local path (for scan)
+            Local path (optional if using Git)
             <input
               value={localPath}
               onChange={(e) => setLocalPath(e.target.value)}
               placeholder="C:\path\to\repo"
             />
           </label>
+          <label>
+            Git URL
+            <input
+              value={gitUrl}
+              onChange={(e) => setGitUrl(e.target.value)}
+              placeholder="https://github.com/org/repo"
+            />
+          </label>
+          {gitUrl && (
+            <label className="toggle-inline">
+              <input
+                type="checkbox"
+                checked={cloneOnCreate}
+                onChange={(e) => setCloneOnCreate(e.target.checked)}
+              />
+              Clone repo on create
+            </label>
+          )}
           <button type="submit" className="btn btn-primary" disabled={creating}>
             {creating ? "Creating…" : "Create project"}
           </button>
@@ -116,19 +141,24 @@ export default function DashboardPage() {
           <ul className="project-grid">
             {projects.map((p) => (
               <li key={p.id}>
-                <Link to={`/projects/${p.slug}`} className="project-card">
-                  <div className="project-card-top">
-                    <strong>{p.name}</strong>
-                    <ScoreRing score={p.latest_readiness_score ?? null} size={48} />
-                  </div>
-                  <div className="project-card-meta">
-                    <span className="pill">{p.framework}</span>
-                    <span className="muted">{p.language}</span>
-                    {p.last_run_status && (
-                      <span className={`run-pill run-${p.last_run_status}`}>{p.last_run_status}</span>
-                    )}
-                  </div>
-                </Link>
+                <div className="project-card">
+                  <Link to={`/projects/${p.slug}`} className="project-card-link">
+                    <div className="project-card-top">
+                      <strong>{p.name}</strong>
+                      <ScoreRing score={p.latest_readiness_score ?? null} size={48} />
+                    </div>
+                    <div className="project-card-meta">
+                      <span className="pill">{p.framework}</span>
+                      <span className="muted">{p.language}</span>
+                      {p.last_run_status && (
+                        <span className={`run-pill run-${p.last_run_status}`}>{p.last_run_status}</span>
+                      )}
+                    </div>
+                  </Link>
+                  <Link to={`/projects/${p.slug}/settings`} className="project-card-settings">
+                    Edit settings
+                  </Link>
+                </div>
               </li>
             ))}
           </ul>

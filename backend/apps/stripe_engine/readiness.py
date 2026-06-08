@@ -251,7 +251,7 @@ def run_readiness_checks(
             name="Health check endpoint",
             status="pass" if has_health else "warn",
             message="/api/health or stripe module exists" if has_health else "Health endpoint not found",
-            fix="Generate integration files",
+            fix="Generate integration files or run generate-infra",
         )
     )
 
@@ -265,7 +265,7 @@ def run_readiness_checks(
             name="Database backup script",
             status="pass" if has_backup else "warn",
             message="Backup scripts exist" if has_backup else "No backup script",
-            fix="Add scripts/backup-db.sh",
+            fix="Run generate-infra from Deploy panel or scripts/backup-db.sh",
         )
     )
 

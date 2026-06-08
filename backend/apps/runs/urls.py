@@ -8,6 +8,7 @@ from .views import (
     PipelineRunDownloadView,
     PipelineRunListCreateView,
     ReadinessView,
+    StripeConfigView,
     VerifyKeysView,
 )
 
@@ -51,5 +52,10 @@ urlpatterns = [
         "projects/<slug:project_slug>/fix/",
         FixView.as_view(),
         name="project-fix",
+    ),
+    path(
+        "projects/<slug:project_slug>/stripe/config/",
+        StripeConfigView.as_view(),
+        name="stripe-config",
     ),
 ]

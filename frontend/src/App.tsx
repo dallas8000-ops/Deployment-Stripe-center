@@ -1,10 +1,13 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import Layout from "./components/Layout";
+import AgencyPage from "./pages/AgencyPage";
+import GithubCallbackPage from "./pages/GithubCallbackPage";
 import BillingPage from "./pages/BillingPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import ProjectPage from "./pages/ProjectPage";
+import ProjectSettingsPage from "./pages/ProjectSettingsPage";
 import RegisterPage from "./pages/RegisterPage";
 
 function ProtectedRoute() {
@@ -31,7 +34,10 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="agency" element={<AgencyPage />} />
+          <Route path="agency/github/callback" element={<GithubCallbackPage />} />
           <Route path="projects/:slug" element={<ProjectPage />} />
+          <Route path="projects/:slug/settings" element={<ProjectSettingsPage />} />
           <Route path="billing" element={<BillingPage />} />
         </Route>
       </Route>

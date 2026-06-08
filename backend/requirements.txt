@@ -11,3 +11,6 @@ channels-redis>=4.2
 celery>=5.4
 redis>=5.0
 daphne>=4.1
+psycopg[binary]>=3.1
+PyJWT>=2.8
+whitenoise>=6.6

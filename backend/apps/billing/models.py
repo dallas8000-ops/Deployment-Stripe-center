@@ -35,3 +35,50 @@ class Subscription(models.Model):
     @property
     def is_active(self) -> bool:
         return self.status in (self.Status.ACTIVE, self.Status.TRIALING)
+
+
+class OrgSubscription(models.Model):
+    """Platform billing scoped to an organization (agency plans)."""
+
+    organization = models.OneToOneField(
+        "organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="subscription",
+    )
+    stripe_customer_id = models.CharField(max_length=64, blank=True)
+    stripe_subscription_id = models.CharField(max_length=64, blank=True)
+    stripe_price_id = models.CharField(max_length=64, blank=True)
+    tier = models.CharField(max_length=64, blank=True)
+    status = models.CharField(
+        max_length=32,
+        choices=Subscription.Status.choices,
+        default=Subscription.Status.NONE,
+    )
+    current_period_end = models.DateTimeField(null=True, blank=True)
+    cancel_at_period_end = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self) -> str:
+        return f"{self.organization.slug} ({self.status})"
+
+    @property
+    def is_active(self) -> bool:
+        return self.status in (Subscription.Status.ACTIVE, Subscription.Status.TRIALING)
+
+
+class BillingWebhookEvent(models.Model):
+    """Idempotent Stripe platform billing webhook processing."""
+
+    stripe_event_id = models.CharField(max_length=64, unique=True)
+    event_type = models.CharField(max_length=64)
+    processed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-processed_at"]
+
+    def __str__(self) -> str:
+        return f"{self.event_type}:{self.stripe_event_id}"

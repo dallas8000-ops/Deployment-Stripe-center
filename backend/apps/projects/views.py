@@ -3,9 +3,14 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import Project
+from apps.projects.git_clone import clone_project_repo
+from apps.projects.github_pr import create_setup_pull_request
+from apps.core.access import ROLE_RANK, org_membership, projects_for_user
+from apps.organizations.models import Organization
+from apps.projects.api_keys import ProjectApiKey
+from apps.projects.tasks import clone_repo_task
 from .scanner import ProjectScanner
-from .serializers import ProjectScanSerializer, ProjectSerializer
+from .serializers import ProjectScanSerializer, ProjectSerializer, ProjectUpdateSerializer
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -14,10 +19,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
     lookup_field = "slug"
 
     def get_queryset(self):
-        return Project.objects.filter(owner=self.request.user)
+        return projects_for_user(self.request.user).distinct()
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    def get_serializer_class(self):
+        if self.action in ("update", "partial_update"):
+            return ProjectUpdateSerializer
+        return ProjectSerializer
 
     @action(detail=True, methods=["post"])
     def scan(self, request, slug=None):
@@ -41,7 +51,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
         except FileNotFoundError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        from pathlib import Path
+
+        from apps.deploy.platform import detect_deploy_platform
+
         data = result.to_dict()
+        if data.get("next_router"):
+            data["nextRouter"] = data["next_router"]
+        data["deployPlatform"] = detect_deploy_platform(Path(scan_path), data.get("framework", "unknown"))
         project.framework = data["framework"]
         project.language = data["language"]
         project.scan_data = data
@@ -51,3 +68,143 @@ class ProjectViewSet(viewsets.ModelViewSet):
         )
 
         return Response(ProjectSerializer(project).data)
+
+    @action(detail=True, methods=["post"])
+    def clone(self, request, slug=None):
+        project = self.get_object()
+        if not project.git_url:
+            return Response(
+                {"error": "Set git_url on the project first (Settings)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        branch = request.data.get("branch") or None
+        force = bool(request.data.get("force", False))
+        async_mode = bool(request.data.get("async", False))
+
+        if async_mode:
+            task = clone_repo_task.delay(str(project.id), branch=branch, force=force)
+            scan = dict(project.scan_data or {})
+            scan["cloneStatus"] = "queued"
+            scan["cloneTaskId"] = task.id
+            project.scan_data = scan
+            project.save(update_fields=["scan_data", "updated_at"])
+            return Response(
+                {"status": "queued", "task_id": task.id, "project": ProjectSerializer(project).data},
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        try:
+            result = clone_project_repo(project, branch=branch, force=force)
+        except (RuntimeError, ValueError) as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({**result, "project": ProjectSerializer(project).data}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="open-pr")
+    def open_pr(self, request, slug=None):
+        project = self.get_object()
+        if not project.local_path:
+            return Response({"error": "Set project local_path first."}, status=status.HTTP_400_BAD_REQUEST)
+        require_ci = bool(request.data.get("require_ci_passing", False))
+        if require_ci and project.git_url:
+            try:
+                from apps.projects.github_ci import get_github_ci_status
+
+                ci = get_github_ci_status(project)
+                if not ci.get("success"):
+                    return Response(
+                        {"error": f"GitHub CI not passing on {ci.get('ref')} (state: {ci.get('state')})"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            except (RuntimeError, ValueError) as exc:
+                return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            result = create_setup_pull_request(
+                project,
+                commit_message=request.data.get("commit_message", "chore: Stripe Installer setup"),
+                pr_title=request.data.get("title"),
+                pr_body=request.data.get("body"),
+            )
+        except (RuntimeError, ValueError) as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["get"])
+    def audit(self, request, slug=None):
+        project = self.get_object()
+        rows = []
+        for log in project.audit_logs.select_related("actor").all()[:50]:
+            rows.append(
+                {
+                    "id": log.id,
+                    "action": log.action,
+                    "detail": log.detail,
+                    "created_at": log.created_at.isoformat(),
+                    "actor": log.actor.email if log.actor else None,
+                }
+            )
+        return Response({"entries": rows})
+
+    @action(detail=True, methods=["get", "post"], url_path="api-keys")
+    def api_keys(self, request, slug=None):
+        from apps.core.access import get_project_for_user
+
+        project = get_project_for_user(request.user, slug, min_role="admin")
+
+        if request.method == "GET":
+            rows = []
+            for key in project.api_keys.filter(revoked_at__isnull=True):
+                rows.append(
+                    {
+                        "id": str(key.id),
+                        "name": key.name,
+                        "prefix": key.key_prefix,
+                        "created_at": key.created_at.isoformat(),
+                        "last_used_at": key.last_used_at.isoformat() if key.last_used_at else None,
+                    }
+                )
+            return Response({"keys": rows})
+
+        name = (request.data or {}).get("name") or "CI key"
+        row, full_key = ProjectApiKey.create_for_project(project, name, request.user)
+        from apps.projects.audit import log_audit
+
+        log_audit(project, "api_key.created", actor=request.user, detail={"name": name, "prefix": row.key_prefix})
+        return Response(
+            {
+                "id": str(row.id),
+                "name": row.name,
+                "prefix": row.key_prefix,
+                "key": full_key,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["delete"], url_path=r"api-keys/(?P<key_id>[^/.]+)")
+    def revoke_api_key(self, request, slug=None, key_id=None):
+        from apps.core.access import get_project_for_user
+        from django.utils import timezone
+
+        project = get_project_for_user(request.user, slug, min_role="admin")
+        key = project.api_keys.filter(id=key_id, revoked_at__isnull=True).first()
+        if not key:
+            return Response({"error": "API key not found"}, status=404)
+        key.revoked_at = timezone.now()
+        key.save(update_fields=["revoked_at"])
+        from apps.projects.audit import log_audit
+
+        log_audit(project, "api_key.revoked", actor=request.user, detail={"prefix": key.key_prefix})
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["get"], url_path="clone-status")
+    def clone_status(self, request, slug=None):
+        project = self.get_object()
+        scan = project.scan_data or {}
+        return Response(
+            {
+                "status": scan.get("cloneStatus", "idle"),
+                "error": scan.get("cloneError", ""),
+                "local_path": project.local_path,
+                "task_id": scan.get("cloneTaskId"),
+            }
+        )

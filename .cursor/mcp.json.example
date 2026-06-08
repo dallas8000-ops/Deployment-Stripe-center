@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "stripe-installer": {
+      "command": "python",
+      "args": ["manage.py", "run_mcp_server"],
+      "cwd": "${workspaceFolder}/backend",
+      "env": {
+        "STRIPE_INSTALLER_USER": "you@example.com",
+        "DJANGO_SETTINGS_MODULE": "config.settings"
+      }
+    }
+  }
+}

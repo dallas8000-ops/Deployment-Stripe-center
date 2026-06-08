@@ -1,11 +1,67 @@
 from django.urls import path
 
-from .views import RecommendView
+from .views import (
+    CatalogStrategistView,
+    DriftResyncView,
+    DriftView,
+    FixCopilotView,
+    HandoffPackView,
+    NlConfigView,
+    ReadinessCoachView,
+    RecommendView,
+    WebhookHealthView,
+    WebhookIncidentView,
+)
 
 urlpatterns = [
     path(
         "projects/<slug:project_slug>/ai/recommend/",
         RecommendView.as_view(),
         name="ai-recommend",
+    ),
+    path(
+        "projects/<slug:project_slug>/ai/fix-copilot/",
+        FixCopilotView.as_view(),
+        name="ai-fix-copilot",
+    ),
+    path(
+        "projects/<slug:project_slug>/ai/readiness-coach/",
+        ReadinessCoachView.as_view(),
+        name="ai-readiness-coach",
+    ),
+    path(
+        "projects/<slug:project_slug>/ai/nl-config/",
+        NlConfigView.as_view(),
+        name="ai-nl-config",
+    ),
+    path(
+        "projects/<slug:project_slug>/ai/catalog-strategist/",
+        CatalogStrategistView.as_view(),
+        name="ai-catalog-strategist",
+    ),
+    path(
+        "projects/<slug:project_slug>/ai/handoff-pack/",
+        HandoffPackView.as_view(),
+        name="ai-handoff-pack",
+    ),
+    path(
+        "projects/<slug:project_slug>/ai/webhook-incident/",
+        WebhookIncidentView.as_view(),
+        name="ai-webhook-incident",
+    ),
+    path(
+        "projects/<slug:project_slug>/drift/",
+        DriftView.as_view(),
+        name="project-drift",
+    ),
+    path(
+        "projects/<slug:project_slug>/drift/resync/",
+        DriftResyncView.as_view(),
+        name="project-drift-resync",
+    ),
+    path(
+        "projects/<slug:project_slug>/webhook-health/",
+        WebhookHealthView.as_view(),
+        name="webhook-health",
     ),
 ]

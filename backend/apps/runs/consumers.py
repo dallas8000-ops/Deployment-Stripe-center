@@ -14,10 +14,17 @@ from apps.runs.models import PipelineRun
 
 @database_sync_to_async
 def get_run_for_user(run_id: str, user_id: int) -> PipelineRun | None:
+    from django.contrib.auth import get_user_model
+
+    from apps.core.access import projects_for_user
+
+    User = get_user_model()
+    user = User.objects.get(id=user_id)
+    accessible = projects_for_user(user).values_list("id", flat=True)
     try:
         return PipelineRun.objects.select_related("project").get(
             id=run_id,
-            project__owner_id=user_id,
+            project_id__in=accessible,
         )
     except PipelineRun.DoesNotExist:
         return None

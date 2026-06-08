@@ -96,6 +96,19 @@ export default function VaultPanel({
     setDraftValue("");
   }
 
+  async function importFromEnv() {
+    setBusy("vault-import");
+    onError("");
+    try {
+      const res = await vaultApi.importFromEnv(projectSlug);
+      onUpdate(res.entries, true);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setBusy("");
+    }
+  }
+
   if (!initialized) {
     return (
       <section className="card vault-card">
@@ -125,6 +138,15 @@ export default function VaultPanel({
           <h2>Secure vault</h2>
           <p className="muted">Write-only secrets · AES-256-GCM · verified against Stripe</p>
         </div>
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={importFromEnv}
+          disabled={busy === "vault-import" || !!busy}
+          title="Import STRIPE_* and DATABASE_URL from .env.local in project path"
+        >
+          {busy === "vault-import" ? "Importing…" : "Import .env.local"}
+        </button>
       </div>
 
       <ul className="vault-items">

@@ -14,6 +14,7 @@ def _assert_safe(text: str) -> None:
             raise ValueError(f"Unsafe content detected ({pat}) — secrets must not reach AI layer")
 
 
+
 def local_recommendations(project: Project) -> str:
     scan = project.scan_data or {}
     framework = project.framework or scan.get("framework") or "unknown"

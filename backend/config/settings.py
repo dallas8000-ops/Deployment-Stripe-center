@@ -24,7 +24,9 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "channels",
+    "apps.core",
     "apps.accounts",
+    "apps.organizations",
     "apps.projects",
     "apps.vault",
     "apps.stripe_engine",
@@ -36,6 +38,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -101,7 +104,21 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+FRONTEND_DIST = BASE_DIR.parent / "frontend" / "dist"
+if FRONTEND_DIST.is_dir():
+    STATICFILES_DIRS = [FRONTEND_DIST]
+else:
+    STATICFILES_DIRS = []
+
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
+
+PROJECT_CLONE_ROOT = os.environ.get("PROJECT_CLONE_ROOT", str(BASE_DIR / "clones"))
+GIT_SSH_KEY_PATH = os.environ.get("GIT_SSH_KEY_PATH", "")
+GIT_CREDENTIALS_PATH = os.environ.get("GIT_CREDENTIALS_PATH", "")
 
 CORS_ALLOWED_ORIGINS = [
     o.strip()
@@ -125,7 +142,7 @@ SIMPLE_JWT = {
 # 32-byte master key — hex (64 chars) or base64. Generate: python -c "import secrets; print(secrets.token_hex(32))"
 VAULT_MASTER_KEY = os.environ.get("VAULT_MASTER_KEY", "")
 
-# Optional path to stripe-installer dist/cli.js for codegen step
+# Optional path to legacy Node CLI (legacy/node/dist/cli.js) — Python codegen works without this
 STRIPE_INSTALLER_CLI = os.environ.get("STRIPE_INSTALLER_CLI", "")
 
 # Platform billing (Stripe Installer SaaS — dogfood our own integration)
@@ -144,6 +161,37 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 600
 CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_EAGER", "").lower() == "true"
 
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    "check-all-projects-drift": {
+        "task": "stripe_engine.check_all_projects_drift",
+        "schedule": crontab(minute=0, hour="*/6"),
+    },
+}
+
+# GitHub App (optional — PR check runs + webhooks)
+GITHUB_APP_ID = os.environ.get("GITHUB_APP_ID", "")
+GITHUB_APP_PRIVATE_KEY = os.environ.get("GITHUB_APP_PRIVATE_KEY", "")
+GITHUB_APP_SLUG = os.environ.get("GITHUB_APP_SLUG", "")
+GITHUB_APP_SETUP_URL = os.environ.get("GITHUB_APP_SETUP_URL", "")
+GITHUB_WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
+
+# Org billing free tier (when SAAS_STRIPE_* is configured)
+ORG_FREE_MEMBER_LIMIT = os.environ.get("ORG_FREE_MEMBER_LIMIT", "3")
+ORG_FREE_PROJECT_LIMIT = os.environ.get("ORG_FREE_PROJECT_LIMIT", "5")
+
+# Public app URL (invites, billing return). Defaults to SAAS_BILLING_RETURN_URL.
+APP_PUBLIC_URL = os.environ.get("APP_PUBLIC_URL", "")
+APP_VERSION = os.environ.get("APP_VERSION", "1.0.0")
+ORG_INVITE_EXPIRY_DAYS = os.environ.get("ORG_INVITE_EXPIRY_DAYS", "14")
+INVITE_EMAIL_ENABLED = os.environ.get("INVITE_EMAIL_ENABLED", "true").lower() == "true"
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend",
+)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@stripe-installer.local")
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -155,3 +203,5 @@ if os.environ.get("CHANNEL_LAYER_INMEMORY", "").lower() == "true":
     CHANNEL_LAYERS = {
         "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
     }
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

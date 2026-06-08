@@ -6,18 +6,86 @@ services:
     volumes:
       - redis_data:/data
 
-  # Optional — use SQLite by default; uncomment for Postgres in production
-  # postgres:
-  #   image: postgres:16-alpine
-  #   environment:
-  #     POSTGRES_USER: stripe_installer
-  #     POSTGRES_PASSWORD: stripe_installer
-  #     POSTGRES_DB: stripe_installer
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - pg_data:/var/lib/postgresql/data
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: stripe_installer
+      POSTGRES_PASSWORD: stripe_installer
+      POSTGRES_DB: stripe_installer
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    profiles: ["prod"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stripe_installer"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - backend/.env
+    environment:
+      DATABASE_URL: postgres://stripe_installer:stripe_installer@postgres:5432/stripe_installer
+      REDIS_URL: redis://redis:6379/0
+      CELERY_EAGER: "false"
+      CHANNEL_LAYER_INMEMORY: "false"
+      CORS_ALLOWED_ORIGINS: http://localhost:8000,http://127.0.0.1:8000
+      PROJECT_CLONE_ROOT: /app/backend/clones
+      GIT_SSH_KEY_PATH: /run/git-ssh/id_ed25519
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - clone_data:/app/backend/clones
+      - ${GIT_SSH_KEY_PATH:-./.git-secrets/id_ed25519}:/run/git-ssh/id_ed25519:ro
+    profiles: ["prod"]
+
+  celery-beat:
+    build: .
+    command: ["celery", "-A", "config", "beat", "-l", "info"]
+    env_file:
+      - backend/.env
+    environment:
+      DATABASE_URL: postgres://stripe_installer:stripe_installer@postgres:5432/stripe_installer
+      REDIS_URL: redis://redis:6379/0
+      CELERY_EAGER: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    profiles: ["prod"]
+
+  celery:
+    build: .
+    command: ["celery", "-A", "config", "worker", "-l", "info"]
+    env_file:
+      - backend/.env
+    environment:
+      DATABASE_URL: postgres://stripe_installer:stripe_installer@postgres:5432/stripe_installer
+      REDIS_URL: redis://redis:6379/0
+      CELERY_EAGER: "false"
+      CHANNEL_LAYER_INMEMORY: "false"
+      PROJECT_CLONE_ROOT: /app/backend/clones
+      GIT_SSH_KEY_PATH: /run/git-ssh/id_ed25519
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - clone_data:/app/backend/clones
+      - ${GIT_SSH_KEY_PATH:-./.git-secrets/id_ed25519}:/run/git-ssh/id_ed25519:ro
+    profiles: ["prod"]
 
 volumes:
   redis_data:
-  # pg_data:
+  pg_data:
+  clone_data:
