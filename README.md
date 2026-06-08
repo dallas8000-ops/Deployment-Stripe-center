@@ -21,6 +21,7 @@ AI-assisted Stripe setup that **never exposes secrets to AI or logs**. One Djang
 | **GitHub App** | Install flow + webhook — PR readiness checks and optional check runs |
 | **CI gate** | Readiness gate API (`si_` keys), GitHub CI status, workflow template |
 | **Org billing** | Per-org Stripe Checkout, free-tier limits, webhook sync, pipeline upgrade banners |
+| **License protection** | Issue keys on SaaS checkout, instance validation, readonly/block enforcement for deployed copies |
 | **MCP** | Cursor/stdio tools — projects, readiness, drift, vault status, pipeline, PR prep |
 
 **Optional:** charge for Stripe Installer itself via `SAAS_STRIPE_*` in `backend/.env`.
@@ -70,7 +71,7 @@ npm run dev
 | Project settings | `/projects/{slug}/settings` — paths, git, org assignment, production URL |
 | Agency | `/agency` — orgs, members, **email invites**, GitHub App, org projects |
 | GitHub App callback | `/agency/github/callback` |
-| Billing | `/billing` — personal + **organization** subscriptions |
+| Billing | `/billing` — personal + **organization** subscriptions, deployment domain, license keys |
 
 ### Agency invites
 
@@ -80,6 +81,34 @@ npm run dev
 4. On register, they auto-join the org.
 
 Dev: invite emails print to the **backend console** (`EMAIL_BACKEND=console`).
+
+### License protection (deployed instances)
+
+When you sell Stripe Installer as a product ($79/mo model), deployed copies validate against **your** licensing server:
+
+1. Customer subscribes on **Billing** with their deployment domain (e.g. `app.client.com`).
+2. Stripe webhook issues a license key (also emailed).
+3. Customer adds to `backend/.env` on their instance:
+
+```env
+STRIPE_INSTALLER_LICENSE_KEY=<from billing or email>
+STRIPE_INSTALLER_DOMAIN=app.client.com
+STRIPE_INSTALLER_VALIDATION_SERVER=https://your-licensing-server.com
+LICENSE_ENFORCEMENT_ENABLED=true
+LICENSE_ENFORCEMENT_MODE=readonly
+```
+
+4. Invalid/missing license → writes blocked (402) or full block (403). Docker startup validates before serving.
+
+**Local dev test:**
+
+```powershell
+cd backend
+python manage.py issue_dev_license --email you@test.com --domain localhost
+# Add printed vars to .env, set LICENSE_ENFORCEMENT_ENABLED=true, restart
+```
+
+Enforcement is **off by default** (`LICENSE_ENFORCEMENT_ENABLED=false`). See [backend/apps/licenses/README.md](backend/apps/licenses/README.md).
 
 ## Production
 
@@ -121,6 +150,8 @@ See [docs/MCP.md](docs/MCP.md).
 | POST | `/projects/{slug}/clone/`, `.../open-pr/`, `.../deploy/run/` |
 | GET | `/projects/{slug}/readiness/`, `.../audit/` |
 | GET | `/billing/plans/`, `.../org/subscription/` |
+| GET | `/license/me/` — authenticated user's license keys |
+| POST | `/license/validate/` — instance heartbeat (deployed copies) |
 | POST | `/billing/org/checkout/`, `/billing/webhook/` |
 | POST | `/webhooks/github/` |
 | POST | `/ci/readiness/` — CI gate (API key) |
@@ -140,6 +171,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `SAAS_STRIPE_*` | Platform billing (optional) |
 | `GITHUB_APP_*` | GitHub App install + PR checks (optional) |
 | `EMAIL_*` / `APP_PUBLIC_URL` | Org invite emails (optional) |
+| `STRIPE_INSTALLER_*` / `LICENSE_ENFORCEMENT_*` | License protection on deployed instances (optional) |
 
 ## Verify
 
@@ -158,6 +190,8 @@ python manage.py stripe_installer run <project-slug>
 python manage.py stripe_installer deploy <project-slug> --push
 python manage.py rotate_vault_key --new-key <hex> --dry-run
 python manage.py check_production
+python manage.py issue_dev_license --email you@test.com --domain localhost
+python manage.py validate_license_startup
 ```
 
 ## npm scripts
