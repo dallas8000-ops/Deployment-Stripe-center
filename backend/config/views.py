@@ -64,6 +64,16 @@ def health(_request):
     checks["saas_billing"] = "configured" if getattr(settings, "SAAS_STRIPE_SECRET_KEY", "") else "disabled"
     checks["email"] = getattr(settings, "EMAIL_BACKEND", "").rsplit(".", 1)[-1]
 
+    try:
+        from apps.licenses.service import license_status
+
+        lic = license_status()
+        checks["license"] = "ok" if lic.get("valid") else lic.get("message", "invalid")
+        if lic.get("enforcement") == "enabled" and not lic.get("valid"):
+            ok = False
+    except Exception as exc:
+        checks["license"] = str(exc)
+
     payload = {
         "status": "ok" if ok else "degraded",
         "version": getattr(settings, "APP_VERSION", "1.0.0"),

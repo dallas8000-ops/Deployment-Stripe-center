@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { billingApi, orgsApi, type BillingPlan, type OrgSubscriptionInfo, type Organization, type SubscriptionInfo } from "../api/client";
+import {
+  billingApi,
+  licenseApi,
+  orgsApi,
+  type BillingPlan,
+  type MyLicense,
+  type OrgSubscriptionInfo,
+  type Organization,
+  type SubscriptionInfo,
+} from "../api/client";
 import ScoreRing from "../components/ScoreRing";
 
 export default function BillingPage() {
@@ -15,6 +24,10 @@ export default function BillingPage() {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [licenseDomain, setLicenseDomain] = useState(
+    () => (typeof window !== "undefined" ? window.location.hostname : "") || ""
+  );
+  const [licenses, setLicenses] = useState<MyLicense[]>([]);
 
   const success = search.get("success") === "1";
 
@@ -53,6 +66,16 @@ export default function BillingPage() {
       // Org billing is optional — old backends return 404 here
       setOrgs([]);
       setOrgSubscription(null);
+    }
+
+    try {
+      const { licenses: mine } = await licenseApi.myLicenses();
+      setLicenses(mine);
+      if (mine[0]?.domain && !licenseDomain) {
+        setLicenseDomain(mine[0].domain);
+      }
+    } catch {
+      setLicenses([]);
     } finally {
       setLoading(false);
     }
@@ -63,10 +86,14 @@ export default function BillingPage() {
   }, []);
 
   async function checkout(priceId: string) {
+    if (!licenseDomain.trim()) {
+      setError("Enter the domain where you will deploy Stripe Installer");
+      return;
+    }
     setBusy(priceId);
     setError("");
     try {
-      const { url } = await billingApi.checkout(priceId);
+      const { url } = await billingApi.checkout(priceId, licenseDomain.trim());
       window.location.href = url;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed");
@@ -88,10 +115,14 @@ export default function BillingPage() {
 
   async function orgCheckout(priceId: string) {
     if (!selectedOrg) return;
+    if (!licenseDomain.trim()) {
+      setError("Enter the domain where you will deploy Stripe Installer");
+      return;
+    }
     setBusy(`org-${priceId}`);
     setError("");
     try {
-      const { url } = await billingApi.orgCheckout(selectedOrg, priceId);
+      const { url } = await billingApi.orgCheckout(selectedOrg, priceId, licenseDomain.trim());
       window.location.href = url;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Org checkout failed");
@@ -130,7 +161,9 @@ export default function BillingPage() {
       {loading && <p className="muted">Loading billing…</p>}
 
       {success && (
-        <div className="alert alert-success">Subscription updated — welcome aboard!</div>
+        <div className="alert alert-success">
+          Subscription updated — check your email for the license key, or see below.
+        </div>
       )}
       {error && <div className="alert alert-error">{error}</div>}
 
@@ -154,6 +187,34 @@ SAAS_BILLING_RETURN_URL=http://127.0.0.1:5173`}</pre>
             For your <strong>client app&apos;s</strong> Stripe integration, use Projects → vault → pipeline — not
             this page.
           </p>
+        </section>
+      )}
+
+      {licenses.length > 0 && (
+        <section className="card">
+          <h2>Your license keys</h2>
+          <p className="muted">
+            Add these to your deployed instance <code>backend/.env</code> and set{" "}
+            <code>LICENSE_ENFORCEMENT_ENABLED=true</code>.
+          </p>
+          {licenses.map((lic) => (
+            <div key={lic.key} className="billing-status-grid" style={{ marginTop: 12 }}>
+              <div>
+                <span className="muted">Domain</span>
+                <strong>{lic.domain}</strong>
+              </div>
+              <div>
+                <span className="muted">Status</span>
+                <strong>{lic.status}</strong>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <span className="muted">License key</span>
+                <pre className="verify-pre" style={{ marginTop: 4 }}>
+                  {`STRIPE_INSTALLER_LICENSE_KEY=${lic.key}\nSTRIPE_INSTALLER_DOMAIN=${lic.domain}\nSTRIPE_INSTALLER_VALIDATION_SERVER=<your-licensing-server>\nLICENSE_ENFORCEMENT_ENABLED=true`}
+                </pre>
+              </div>
+            </div>
+          ))}
         </section>
       )}
 
@@ -262,6 +323,21 @@ SAAS_BILLING_RETURN_URL=http://127.0.0.1:5173`}</pre>
 
       <section className="card">
         <h2>Plans</h2>
+        {configured && (
+          <label style={{ display: "block", marginBottom: 16 }}>
+            Deployment domain
+            <input
+              type="text"
+              value={licenseDomain}
+              onChange={(e) => setLicenseDomain(e.target.value)}
+              placeholder="app.yourcompany.com"
+              spellCheck={false}
+            />
+            <span className="muted vault-hint">
+              Registered on your license — must match the URL where you run Stripe Installer.
+            </span>
+          </label>
+        )}
         {!configured ? (
           <p className="muted">Plans appear here after <code>SAAS_STRIPE_*</code> is set in <code>backend/.env</code>.</p>
         ) : !subscription?.isActive ? (

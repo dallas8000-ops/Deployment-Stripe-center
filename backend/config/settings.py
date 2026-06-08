@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.billing",
     "apps.deploy",
     "apps.ai",
+    "apps.licenses",
 ]
 
 MIDDLEWARE = [
@@ -146,12 +147,23 @@ VAULT_MASTER_KEY = os.environ.get("VAULT_MASTER_KEY", "")
 STRIPE_INSTALLER_CLI = os.environ.get("STRIPE_INSTALLER_CLI", "")
 
 # Platform billing (Stripe Installer SaaS — dogfood our own integration)
+# Pricing: $79/mo flat rate per customer (7900 cents)
 SAAS_STRIPE_SECRET_KEY = os.environ.get("SAAS_STRIPE_SECRET_KEY", "")
 SAAS_STRIPE_WEBHOOK_SECRET = os.environ.get("SAAS_STRIPE_WEBHOOK_SECRET", "")
 SAAS_STRIPE_PRICE_STARTER = os.environ.get("SAAS_STRIPE_PRICE_STARTER", "")
 SAAS_STRIPE_PRICE_PRO = os.environ.get("SAAS_STRIPE_PRICE_PRO", "")
 SAAS_STRIPE_PRICE_ENTERPRISE = os.environ.get("SAAS_STRIPE_PRICE_ENTERPRISE", "")
 SAAS_BILLING_RETURN_URL = os.environ.get("SAAS_BILLING_RETURN_URL", "http://localhost:5173")
+
+# License enforcement settings
+LICENSE_ENFORCEMENT_ENABLED = os.environ.get("LICENSE_ENFORCEMENT_ENABLED", "false").lower() == "true"
+LICENSE_ENFORCEMENT_MODE = os.environ.get("LICENSE_ENFORCEMENT_MODE", "readonly")
+LICENSE_READ_ONLY_MESSAGE = os.environ.get("LICENSE_READ_ONLY_MESSAGE", "License invalid - running in read-only mode")
+LICENSE_VALIDATION_SERVER = os.environ.get("STRIPE_INSTALLER_VALIDATION_SERVER", "")
+LICENSE_EMAIL_ENABLED = os.environ.get("LICENSE_EMAIL_ENABLED", "true").lower() == "true"
+
+if LICENSE_ENFORCEMENT_ENABLED:
+    MIDDLEWARE.append("apps.licenses.middleware.LicenseEnforcementMiddleware")
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 

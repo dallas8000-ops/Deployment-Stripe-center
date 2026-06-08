@@ -638,16 +638,16 @@ export const billingApi = {
   orgSubscription: (orgSlug: string) =>
     apiFetch<OrgSubscriptionInfo>(`/billing/org/subscription/?org=${encodeURIComponent(orgSlug)}`),
 
-  checkout: (priceId: string) =>
+  checkout: (priceId: string, domain: string) =>
     apiFetch<{ url: string }>("/billing/checkout/", {
       method: "POST",
-      body: JSON.stringify({ priceId }),
+      body: JSON.stringify({ priceId, domain }),
     }),
 
-  orgCheckout: (orgSlug: string, priceId: string) =>
+  orgCheckout: (orgSlug: string, priceId: string, domain: string) =>
     apiFetch<{ url: string }>("/billing/org/checkout/", {
       method: "POST",
-      body: JSON.stringify({ org: orgSlug, priceId }),
+      body: JSON.stringify({ org: orgSlug, priceId, domain }),
     }),
 
   portal: () =>
@@ -661,6 +661,20 @@ export const billingApi = {
       method: "POST",
       body: JSON.stringify({ org: orgSlug }),
     }),
+};
+
+export interface MyLicense {
+  key: string;
+  domain: string;
+  status: string;
+  maxInstances: number;
+  activeInstances: number;
+  expiryDate: string | null;
+  createdAt: string;
+}
+
+export const licenseApi = {
+  myLicenses: () => apiFetch<{ licenses: MyLicense[] }>("/license/me/"),
 };
 
 export interface PostgresStatus {

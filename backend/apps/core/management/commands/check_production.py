@@ -119,6 +119,36 @@ class Command(BaseCommand):
         else:
             warnings.append("frontend/dist missing — run: npm run build:frontend")
 
+        if getattr(settings, "LICENSE_ENFORCEMENT_ENABLED", False):
+            ok.append("LICENSE_ENFORCEMENT_ENABLED is true")
+            import os
+
+            require(
+                bool(os.environ.get("STRIPE_INSTALLER_LICENSE_KEY")),
+                "STRIPE_INSTALLER_LICENSE_KEY set",
+            )
+            require(
+                bool(os.environ.get("STRIPE_INSTALLER_DOMAIN")),
+                "STRIPE_INSTALLER_DOMAIN set",
+            )
+            require(
+                bool(
+                    os.environ.get("STRIPE_INSTALLER_VALIDATION_SERVER")
+                    or getattr(settings, "LICENSE_VALIDATION_SERVER", "")
+                ),
+                "STRIPE_INSTALLER_VALIDATION_SERVER set",
+                warn_only=not strict,
+            )
+            try:
+                from apps.licenses.service import license_status
+
+                lic = license_status()
+                require(lic.get("valid"), f"License valid ({lic.get('message', 'invalid')})")
+            except Exception as exc:
+                errors.append(f"License validation failed: {exc}")
+        else:
+            warnings.append("LICENSE_ENFORCEMENT_ENABLED is false (protection off)")
+
         for line in ok:
             self.stdout.write(self.style.SUCCESS(f"  OK  {line}"))
         for line in warnings:

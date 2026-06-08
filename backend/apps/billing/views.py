@@ -25,9 +25,9 @@ def _get_stripe():
 def _plans() -> list[dict]:
     plans = []
     for tier, price_id, label, amount in (
-        ("Starter", getattr(settings, "SAAS_STRIPE_PRICE_STARTER", ""), "Starter", 900),
-        ("Pro", getattr(settings, "SAAS_STRIPE_PRICE_PRO", ""), "Pro", 2900),
-        ("Enterprise", getattr(settings, "SAAS_STRIPE_PRICE_ENTERPRISE", ""), "Enterprise", 99000),
+        ("Starter", getattr(settings, "SAAS_STRIPE_PRICE_STARTER", ""), "Starter", 7900),
+        ("Pro", getattr(settings, "SAAS_STRIPE_PRICE_PRO", ""), "Pro", 7900),
+        ("Enterprise", getattr(settings, "SAAS_STRIPE_PRICE_ENTERPRISE", ""), "Enterprise", 7900),
     ):
         if price_id:
             plans.append(
@@ -93,8 +93,17 @@ class OrgCheckoutView(APIView):
 
         org_slug = request.data.get("org") or request.data.get("organization_slug")
         price_id = request.data.get("priceId") or request.data.get("price_id")
+        domain = (request.data.get("domain") or "").strip()
         if not org_slug or not price_id:
             return Response({"error": "org and priceId required"}, status=400)
+        if not domain:
+            return Response({"error": "domain required for license issuance"}, status=400)
+
+        from apps.licenses.utils import normalize_domain, validate_domain_format
+
+        domain = normalize_domain(domain)
+        if not validate_domain_format(domain):
+            return Response({"error": "Invalid domain format"}, status=400)
 
         from apps.core.access import ROLE_RANK, org_membership
         from apps.organizations.models import Organization
@@ -115,9 +124,17 @@ class OrgCheckoutView(APIView):
             "line_items": [{"price": price_id, "quantity": 1}],
             "success_url": f"{app_url.rstrip('/')}/billing?success=1&org={org.slug}",
             "cancel_url": f"{app_url.rstrip('/')}/billing?canceled=1&org={org.slug}",
-            "metadata": {"organization_id": str(org.pk), "organization_slug": org.slug},
+            "metadata": {
+                "organization_id": str(org.pk),
+                "organization_slug": org.slug,
+                "domain": domain,
+            },
             "subscription_data": {
-                "metadata": {"organization_id": str(org.pk), "organization_slug": org.slug},
+                "metadata": {
+                    "organization_id": str(org.pk),
+                    "organization_slug": org.slug,
+                    "domain": domain,
+                },
             },
         }
         if sub.stripe_customer_id:
@@ -200,8 +217,17 @@ class CheckoutView(APIView):
             )
 
         price_id = request.data.get("priceId") or request.data.get("price_id")
+        domain = (request.data.get("domain") or "").strip()
         if not price_id:
             return Response({"error": "priceId required"}, status=status.HTTP_400_BAD_REQUEST)
+        if not domain:
+            return Response({"error": "domain required for license issuance"}, status=400)
+
+        from apps.licenses.utils import normalize_domain, validate_domain_format
+
+        domain = normalize_domain(domain)
+        if not validate_domain_format(domain):
+            return Response({"error": "Invalid domain format"}, status=400)
 
         app_url = getattr(settings, "SAAS_BILLING_RETURN_URL", "http://localhost:5173")
         _get_stripe()
@@ -214,8 +240,8 @@ class CheckoutView(APIView):
             "line_items": [{"price": price_id, "quantity": 1}],
             "success_url": f"{app_url.rstrip('/')}/billing?success=1",
             "cancel_url": f"{app_url.rstrip('/')}/billing?canceled=1",
-            "metadata": {"user_id": str(request.user.pk)},
-            "subscription_data": {"metadata": {"user_id": str(request.user.pk)}},
+            "metadata": {"user_id": str(request.user.pk), "domain": domain},
+            "subscription_data": {"metadata": {"user_id": str(request.user.pk), "domain": domain}},
         }
         if sub.stripe_customer_id:
             session_params["customer"] = sub.stripe_customer_id

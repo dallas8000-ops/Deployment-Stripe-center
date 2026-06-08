@@ -189,12 +189,27 @@ def process_billing_event(event: dict) -> None:
 
     if event_type == "checkout.session.completed":
         _handle_checkout_completed(data)
+        # Also trigger license issuance
+        try:
+            from apps.licenses.webhooks import handle_checkout_session_completed
+
+            handle_checkout_session_completed(data)
+        except ImportError:
+            logger.debug("License webhook not available")
     elif event_type in (
         "customer.subscription.created",
         "customer.subscription.updated",
         "customer.subscription.deleted",
     ):
         _handle_subscription_event(data)
+        # Handle license revocation on subscription deletion
+        if event_type == "customer.subscription.deleted":
+            try:
+                from apps.licenses.webhooks import handle_subscription_deleted
+
+                handle_subscription_deleted(data)
+            except ImportError:
+                logger.debug("License webhook not available")
     elif event_type == "invoice.payment_failed":
         _handle_invoice_payment_failed(data)
     elif event_type == "invoice.paid":

@@ -66,3 +66,8 @@ Write-Host "  npm run dev"
 Write-Host "  # or: .\scripts\dev.ps1"
 Write-Host ""
 Write-Host "Open http://localhost:5173" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Optional — test software protection locally:" -ForegroundColor Cyan
+Write-Host "  cd backend"
+Write-Host "  .\.venv\Scripts\python.exe manage.py issue_dev_license --email you@test.com --domain localhost"
+Write-Host "  # Add printed env vars to backend/.env, set LICENSE_ENFORCEMENT_ENABLED=true, restart"
