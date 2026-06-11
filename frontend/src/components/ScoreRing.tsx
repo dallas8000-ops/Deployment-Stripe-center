@@ -44,7 +44,11 @@ export default function ScoreRing({ score, size = 88, label, sublabel }: ScoreRi
         />
       </svg>
       <div className="score-ring-center">
-        <strong style={{ color }}>{display}</strong>
+        {score == null ? (
+          <span className="score-ring-empty-hint">Run setup</span>
+        ) : (
+          <strong style={{ color }}>{display}</strong>
+        )}
         {label && <span>{label}</span>}
         {sublabel && <small>{sublabel}</small>}
       </div>

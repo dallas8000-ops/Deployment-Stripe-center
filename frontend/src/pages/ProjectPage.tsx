@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
@@ -24,6 +24,7 @@ import DeployConfigPanel from "../components/DeployConfigPanel";
 import DeployNextSteps from "../components/DeployNextSteps";
 import DiagnosePanel from "../components/DiagnosePanel";
 import InfraPanel from "../components/InfraPanel";
+import PipelineCompleteCard, { type CompletionData } from "../components/PipelineCompleteCard";
 import PipelineTerminal from "../components/PipelineTerminal";
 import ReadinessPanel from "../components/ReadinessPanel";
 import RunsPanel from "../components/RunsPanel";
@@ -50,6 +51,7 @@ export default function ProjectPage() {
   const [busy, setBusy] = useState("");
   const [fixing, setFixing] = useState("");
   const [nextSteps, setNextSteps] = useState<string[]>([]);
+  const [completionData, setCompletionData] = useState<CompletionData | null>(null);
 
   const { events, connected, clear } = usePipelineWebSocket(activeRunId);
   const pipelineRunning =
@@ -98,6 +100,22 @@ export default function ProjectPage() {
       pipelineApi.get(slug, activeRunId).then((run) => {
         const deploy = run.result?.deploy as DeployRunResult | undefined;
         setNextSteps(deploy?.nextSteps || []);
+        if (last.step === "run.completed") {
+          const result = run.result || {};
+          const provision = result.provision as Record<string, unknown> | undefined;
+          const filesRaw = result.files_written ?? result.filesWritten;
+          const files = Array.isArray(filesRaw)
+            ? (filesRaw as string[]).map((f) => f.split("/").pop() ?? f).filter(Boolean)
+            : [];
+          setCompletionData({
+            score: run.readiness_score,
+            filesGenerated: files,
+            productsProvisioned: typeof provision?.products === "number" ? provision.products : 0,
+            pricesProvisioned: typeof provision?.prices === "number" ? provision.prices : 0,
+            webhookRegistered: provision?.webhook === true,
+            nextSteps: deploy?.nextSteps || [],
+          });
+        }
       }).catch(() => setNextSteps([]));
     }
   }, [events, activeRunId, pipelineRunning]);
@@ -158,6 +176,7 @@ export default function ProjectPage() {
     setError("");
     clear();
     setNextSteps([]);
+    setCompletionData(null);
     try {
       const run = await pipelineApi.start(slug, { sync_env: syncEnv, force: forceOverwrite });
       setActiveRunId(run.id);
@@ -265,6 +284,20 @@ export default function ProjectPage() {
   const displayReadinessScore =
     pipelineScore ?? readiness?.score ?? project?.latest_readiness_score ?? null;
 
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [moreOpen]);
+
   if (!project) {
     return (
       <div className="page">
@@ -313,50 +346,81 @@ export default function ProjectPage() {
           </div>
         </div>
         <div className="page-actions">
-          <button type="button" className="btn btn-secondary" onClick={runVerify} disabled={busy === "verify"}>
-            {busy === "verify" ? "Verifying…" : "Verify keys"}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={runReadiness}
-            disabled={busy === "readiness"}
-          >
-            {busy === "readiness" ? "Checking…" : "Readiness"}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={runDeploy}
-            disabled={busy === "deploy" || pipelineRunning}
-          >
-            {busy === "deploy" ? "Starting…" : "Deploy prep"}
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={runFullSetup}
-            disabled={busy === "pipeline" || pipelineRunning}
-          >
-            {pipelineRunning ? "Running…" : "Run full setup"}
-          </button>
-          {pipelineComplete && activeRunId && (
-            <button type="button" className="btn btn-secondary" onClick={downloadLastRun} disabled={busy === "download"}>
-              Download zip
+          {/* Step-indicator: primary flow */}
+          <div className="action-flow">
+            <button type="button" className="btn btn-secondary btn-flow" onClick={runVerify} disabled={busy === "verify"}>
+              {busy === "verify" ? "Verifying…" : "① Verify keys"}
             </button>
-          )}
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => runOpenPr()}
-            disabled={busy === "open-pr" || !project.local_path}
-            title="Requires GITHUB_TOKEN in vault and uncommitted generated files"
-          >
-            {busy === "open-pr" ? "Opening…" : "Open GitHub PR"}
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={downloadCodegenOnly} disabled={busy === "download"}>
-            Codegen zip
-          </button>
+            <span className="flow-arrow">→</span>
+            <button
+              type="button"
+              className="btn btn-secondary btn-flow"
+              onClick={runReadiness}
+              disabled={busy === "readiness"}
+            >
+              {busy === "readiness" ? "Checking…" : "② Readiness"}
+            </button>
+            <span className="flow-arrow">→</span>
+            <button
+              type="button"
+              className="btn btn-primary btn-flow"
+              onClick={runFullSetup}
+              disabled={busy === "pipeline" || pipelineRunning}
+            >
+              {pipelineRunning ? "Running…" : "③ Run full setup"}
+            </button>
+          </div>
+
+          {/* Secondary actions in overflow menu */}
+          <div className="more-menu-wrapper" ref={moreRef}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setMoreOpen((v) => !v)}
+              aria-label="More actions"
+            >
+              ···
+            </button>
+            {moreOpen && (
+              <div className="more-menu">
+                <button
+                  type="button"
+                  className="more-menu-item"
+                  onClick={() => { runDeploy(); setMoreOpen(false); }}
+                  disabled={busy === "deploy" || pipelineRunning}
+                >
+                  Deploy prep
+                </button>
+                {pipelineComplete && activeRunId && (
+                  <button
+                    type="button"
+                    className="more-menu-item"
+                    onClick={() => { downloadLastRun(); setMoreOpen(false); }}
+                    disabled={busy === "download"}
+                  >
+                    Download zip
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="more-menu-item"
+                  onClick={() => { void runOpenPr(); setMoreOpen(false); }}
+                  disabled={busy === "open-pr" || !project.local_path}
+                  title="Requires GITHUB_TOKEN in vault and uncommitted generated files"
+                >
+                  Open GitHub PR
+                </button>
+                <button
+                  type="button"
+                  className="more-menu-item"
+                  onClick={() => { downloadCodegenOnly(); setMoreOpen(false); }}
+                  disabled={busy === "download"}
+                >
+                  Codegen zip
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -462,6 +526,18 @@ export default function ProjectPage() {
       />
 
       <DeployNextSteps steps={nextSteps} />
+
+      {completionData && pipelineComplete && (
+        <PipelineCompleteCard
+          data={completionData}
+          runId={activeRunId}
+          hasLocalPath={!!project.local_path}
+          onOpenPr={runOpenPr}
+          onDownload={downloadLastRun}
+          downloading={busy === "download"}
+          openingPr={busy === "open-pr"}
+        />
+      )}
 
       {/* ──────────────────────────────────────────── SECTION: HEALTH & READINESS ──────────────────────────────────────────── */}
       <div className="section-header">
