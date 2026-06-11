@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { projectsApi, type Project } from "../api/client";
 import ScoreRing from "../components/ScoreRing";
+import WelcomeWizard from "../components/WelcomeWizard";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -12,6 +13,9 @@ export default function DashboardPage() {
   const [gitUrl, setGitUrl] = useState("");
   const [cloneOnCreate, setCloneOnCreate] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [wizardDismissed, setWizardDismissed] = useState(
+    () => localStorage.getItem("wizard-dismissed") === "true"
+  );
 
   const stats = useMemo(() => {
     const scores = projects
@@ -53,6 +57,8 @@ export default function DashboardPage() {
       setName("");
       setLocalPath("");
       setGitUrl("");
+      localStorage.setItem("wizard-dismissed", "true");
+      setWizardDismissed(true);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
@@ -61,14 +67,23 @@ export default function DashboardPage() {
     }
   }
 
+  function handleWizardComplete() {
+    localStorage.setItem("wizard-dismissed", "true");
+    setWizardDismissed(true);
+  }
+
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1>Projects</h1>
-          <p className="muted">Manage Stripe integrations for your apps.</p>
+    <>
+      {!loading && projects.length === 0 && !wizardDismissed && (
+        <WelcomeWizard onComplete={handleWizardComplete} />
+      )}
+      <div className="page">
+        <div className="page-header">
+          <div>
+            <h1>Projects</h1>
+            <p className="muted">Manage Stripe integrations for your apps.</p>
+          </div>
         </div>
-      </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
@@ -165,5 +180,6 @@ export default function DashboardPage() {
         )}
       </section>
     </div>
+    </>
   );
 }

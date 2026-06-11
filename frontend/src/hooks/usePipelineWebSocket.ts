@@ -6,6 +6,7 @@ export interface PipelineEvent {
   message: string;
   detail?: boolean;
   score?: number;
+  timestamp?: number;
 }
 
 interface WsMessage {
@@ -44,7 +45,11 @@ export function usePipelineWebSocket(runId: string | null) {
       try {
         const data = JSON.parse(msg.data as string) as WsMessage;
         if (data.type === "pipeline.event" && data.event) {
-          setEvents((prev) => [...prev, data.event]);
+          const eventWithTime = {
+            ...data.event,
+            timestamp: data.event.timestamp || Date.now(),
+          };
+          setEvents((prev) => [...prev, eventWithTime]);
         }
       } catch {
         /* ignore */

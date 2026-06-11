@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
 import { stripeConfigApi, type StripeConfig } from "../api/client";
+import EmptyState from "./EmptyState";
 
 type Props = {
   projectSlug: string;
@@ -68,8 +69,12 @@ export default function StripeConfigPanel({ projectSlug, hasLocalPath, onError }
   if (!hasLocalPath) {
     return (
       <section className="card">
-        <h2>Stripe config</h2>
-        <p className="muted">Set a local path to edit stripe.config.json (catalog tiers, app URL).</p>
+        <EmptyState
+          icon="⚙️"
+          title="Set local path first"
+          description="Edit project settings to specify your local repository path"
+          helpText="Once configured, we can read and write stripe.config.json"
+        />
       </section>
     );
   }
@@ -77,8 +82,15 @@ export default function StripeConfigPanel({ projectSlug, hasLocalPath, onError }
   if (loading || !config) {
     return (
       <section className="card">
-        <h2>Stripe config</h2>
-        <p className="muted">{loading ? "Loading…" : "Could not load config."}</p>
+        <EmptyState
+          icon="📦"
+          title={loading ? "Loading config…" : "Config unavailable"}
+          description={
+            loading
+              ? "Reading stripe.config.json from your project"
+              : "Could not load Stripe configuration"
+          }
+        />
       </section>
     );
   }

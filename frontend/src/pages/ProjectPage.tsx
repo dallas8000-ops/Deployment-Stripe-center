@@ -370,6 +370,48 @@ export default function ProjectPage() {
         </div>
       )}
 
+      {/* ──────────────────────────────────────────── SECTION: SETUP ──────────────────────────────────────────── */}
+      <div className="section-header">
+        <h2>Setup</h2>
+        <p className="muted">Secure keys and code scanning</p>
+      </div>
+
+      <div className="grid-2">
+        <VaultPanel
+          projectSlug={slug}
+          initialized={vaultInitialized}
+          entries={vaultEntries}
+          onUpdate={handleVaultUpdate}
+          busy={busy}
+          setBusy={setBusy}
+          onError={setError}
+        />
+
+        <section className="card">
+          <h2>Scanner</h2>
+          <label>
+            Local path
+            <input value={scanPath} onChange={(e) => setScanPath(e.target.value)} />
+          </label>
+          <button type="button" className="btn btn-primary" onClick={runScan} disabled={busy === "scan"}>
+            {busy === "scan" ? "Scanning…" : "Run scan"}
+          </button>
+          {Array.isArray(project.scan_data?.recommendations) && (
+            <ul className="rec-list">
+              {(project.scan_data.recommendations as string[]).map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      {/* ──────────────────────────────────────────── SECTION: PIPELINE & HISTORY ──────────────────────────────────────────── */}
+      <div className="section-header">
+        <h2>Pipeline & History</h2>
+        <p className="muted">Live events, runs, and next steps</p>
+      </div>
+
       <section className="card pipeline-card">
         <div className="card-header-row">
           <h2>Live pipeline</h2>
@@ -421,6 +463,12 @@ export default function ProjectPage() {
 
       <DeployNextSteps steps={nextSteps} />
 
+      {/* ──────────────────────────────────────────── SECTION: HEALTH & READINESS ──────────────────────────────────────────── */}
+      <div className="section-header">
+        <h2>Health & Readiness</h2>
+        <p className="muted">Diagnostics and readiness checks</p>
+      </div>
+
       <div className="grid-2">
         <ReadinessPanel
           score={displayReadinessScore}
@@ -449,34 +497,28 @@ ${verifyResult.accountName ? `Account         ${verifyResult.accountName}` : ""}
         </section>
       )}
 
-      <div className="grid-2">
-        <section className="card">
-          <h2>Scanner</h2>
-          <label>
-            Local path
-            <input value={scanPath} onChange={(e) => setScanPath(e.target.value)} />
-          </label>
-          <button type="button" className="btn btn-primary" onClick={runScan} disabled={busy === "scan"}>
-            {busy === "scan" ? "Scanning…" : "Run scan"}
-          </button>
-          {Array.isArray(project.scan_data?.recommendations) && (
-            <ul className="rec-list">
-              {(project.scan_data.recommendations as string[]).map((r) => (
-                <li key={r}>{r}</li>
-              ))}
-            </ul>
-          )}
-        </section>
+      {/* ──────────────────────────────────────────── SECTION: CONFIGURATION ──────────────────────────────────────────── */}
+      <div className="section-header">
+        <h2>Configuration</h2>
+        <p className="muted">Stripe, deployment, and CI settings</p>
+      </div>
 
-        <VaultPanel
+      <div className="grid-2">
+        <StripeConfigPanel projectSlug={slug} hasLocalPath={!!project.local_path} onError={setError} />
+        <DeployConfigPanel
           projectSlug={slug}
-          initialized={vaultInitialized}
-          entries={vaultEntries}
-          onUpdate={handleVaultUpdate}
-          busy={busy}
-          setBusy={setBusy}
+          hasLocalPath={!!project.local_path}
+          onSaved={load}
           onError={setError}
         />
+      </div>
+
+      <CiGatePanel projectSlug={slug} hasGitUrl={!!project.git_url} onError={setError} />
+
+      {/* ──────────────────────────────────────────── SECTION: GENERATION & DEPLOYMENT ──────────────────────────────────────────── */}
+      <div className="section-header">
+        <h2>Generation & Deployment</h2>
+        <p className="muted">Database, infrastructure, and codegen</p>
       </div>
 
       <div className="grid-2">
@@ -496,18 +538,11 @@ ${verifyResult.accountName ? `Account         ${verifyResult.accountName}` : ""}
         />
       </div>
 
-      <DeployConfigPanel
-        projectSlug={slug}
-        hasLocalPath={!!project.local_path}
-        onSaved={load}
-        onError={setError}
-      />
-
-      <div className="grid-2">
-        <StripeConfigPanel projectSlug={slug} hasLocalPath={!!project.local_path} onError={setError} />
+      {/* ──────────────────────────────────────────── SECTION: MONITORING & AI ──────────────────────────────────────────── */}
+      <div className="section-header">
+        <h2>Monitoring & AI</h2>
+        <p className="muted">Drift detection, audit logs, and intelligent suggestions</p>
       </div>
-
-      <CiGatePanel projectSlug={slug} hasGitUrl={!!project.git_url} onError={setError} />
 
       <div className="grid-2">
         <AiCopilotPanel

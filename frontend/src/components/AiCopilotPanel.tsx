@@ -8,6 +8,7 @@ import {
 } from "../api/client";
 import type { DiagnosticReport } from "./DiagnosePanel";
 import type { ReadinessCheck } from "./ReadinessPanel";
+import EmptyState from "./EmptyState";
 
 type Props = {
   projectSlug: string;
@@ -157,7 +158,23 @@ export default function AiCopilotPanel({
         <button type="button" className="btn btn-secondary btn-sm" onClick={runFixCopilot} disabled={busy === "fix-copilot" || !diagnoseReport}>
           {busy === "fix-copilot" ? "Explaining…" : "Explain issues"}
         </button>
-        {diagnoseReport && fixItems.length > 0 && (
+        {!diagnoseReport ? (
+          <div style={{ marginTop: "16px" }}>
+            <EmptyState
+              icon="🔍"
+              title="Run diagnostics first"
+              description="Get copilot suggestions after running a diagnostics scan"
+            />
+          </div>
+        ) : diagnoseReport.issues.length === 0 ? (
+          <div style={{ marginTop: "16px" }}>
+            <EmptyState
+              icon="✅"
+              title="No issues found"
+              description="Your Stripe setup looks good — diagnostics found no problems"
+            />
+          </div>
+        ) : fixItems.length > 0 ? (
           <ul className="copilot-fix-list">
             {diagnoseReport.issues.map((issue) => {
               const copilot = fixMap.get(issue.id);
@@ -179,7 +196,7 @@ export default function AiCopilotPanel({
               );
             })}
           </ul>
-        )}
+        ) : null}
       </div>
 
       <div className="copilot-section">

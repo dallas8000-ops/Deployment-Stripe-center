@@ -62,6 +62,25 @@ npm run dev:stop
 npm run dev
 ```
 
+## Demo
+
+**First run** — 3-step onboarding wizard guides new users through:
+1. **GitHub Setup** — Connect repository for code generation
+2. **Stripe Config** — Add API keys securely to vault
+3. **Create Project** — See readiness dashboard light up in ~60 seconds
+
+After onboarding, the **project workspace** shows:
+- **Readiness Score** — 0–100 health indicator updated in real-time
+- **Live Pipeline** — Stream events with auto-scroll and timestamps
+- **Vault** — One-way secrets (never exposed in logs or frontend)
+- **AI Copilot** — "Fix this" suggestions powered by LLM
+- **Diagnostics** — Auto-scan for common Stripe misconfigs
+- **Code Gen** — Download production-ready SDK (Node.js, Python, etc.)
+- **Deploy Prep** — Readiness report, manifest, platform auto-detection
+- **Monitoring** — Webhook health, drift detection, audit log
+
+*Demo video + screenshots: [coming soon]*
+
 ## UI (after sign-in)
 
 | Page | Route |
