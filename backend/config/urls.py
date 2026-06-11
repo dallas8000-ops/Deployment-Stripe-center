@@ -22,5 +22,6 @@ urlpatterns = [
     path("api/v1/", include("apps.deploy.urls")),
     path("api/v1/", include("apps.ai.urls")),
     path("api/v1/", include("apps.licenses.urls")),
+    path("api/v1/", include("apps.stripe_engine.urls")),
     re_path(r"^(?!api/|admin/|health/|static/|ws/).*$", spa_index),
 ]

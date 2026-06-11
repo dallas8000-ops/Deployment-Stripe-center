@@ -180,6 +180,22 @@ CELERY_BEAT_SCHEDULE = {
         "task": "stripe_engine.check_all_projects_drift",
         "schedule": crontab(minute=0, hour="*/6"),
     },
+    "auto-heal-all-projects": {
+        "task": "stripe_engine.auto_heal_all_projects",
+        "schedule": crontab(minute=30, hour="*/12"),
+    },
+    "health-monitor-all-projects": {
+        "task": "stripe_engine.health_monitor_all_projects",
+        "schedule": crontab(minute="*/30"),
+    },
+    "anomaly-detection-all-projects": {
+        "task": "stripe_engine.anomaly_detection_all_projects",
+        "schedule": crontab(minute=0, hour="*/4"),
+    },
+    "auto-backup-all-projects": {
+        "task": "stripe_engine.auto_backup_all_projects",
+        "schedule": crontab(minute=0, hour=3),  # Daily at 3 AM UTC
+    },
 }
 
 # GitHub App (optional — PR check runs + webhooks)
