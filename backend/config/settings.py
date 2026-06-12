@@ -127,10 +127,18 @@ PROJECT_CLONE_ROOT = os.environ.get("PROJECT_CLONE_ROOT", str(BASE_DIR / "clones
 GIT_SSH_KEY_PATH = os.environ.get("GIT_SSH_KEY_PATH", "")
 GIT_CREDENTIALS_PATH = os.environ.get("GIT_CREDENTIALS_PATH", "")
 
-CORS_ALLOWED_ORIGINS = [
-    o.strip()
-    for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+_cors_env = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(",") if o.strip()] or [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
+for _co in ["https://stripe-installer-production.up.railway.app"]:
+    if _co not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(_co)
+if os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
+    _co = f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}"
+    if _co not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(_co)
 CORS_ALLOW_CREDENTIALS = True
 
 REST_FRAMEWORK = {
