@@ -41,6 +41,10 @@ jobs:
         working-directory: backend
         run: python manage.py test apps.deploy apps.vault apps.projects apps.stripe_engine
 
+      - name: Migrate (smoke test DB)
+        working-directory: backend
+        run: python manage.py migrate --noinput
+
       - name: Smoke test
         working-directory: backend
         run: python manage.py smoke_test
