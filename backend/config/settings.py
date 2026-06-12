@@ -11,8 +11,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-change-me-in-production")
 DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
 
-default_allowed_hosts = "localhost,127.0.0.1,.railway.app,.up.railway.app"
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", default_allowed_hosts).split(",")]
+_env_hosts = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()]
+ALLOWED_HOSTS = _env_hosts or ["localhost", "127.0.0.1"]
+for _h in [".railway.app", ".up.railway.app"]:
+    if _h not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_h)
+if os.environ.get("RAILWAY_PUBLIC_DOMAIN") and os.environ["RAILWAY_PUBLIC_DOMAIN"] not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(os.environ["RAILWAY_PUBLIC_DOMAIN"])
 
 INSTALLED_APPS = [
     "django.contrib.admin",
