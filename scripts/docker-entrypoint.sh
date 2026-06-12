@@ -8,4 +8,4 @@ if [ "${LICENSE_ENFORCEMENT_ENABLED}" = "true" ]; then
   python manage.py validate_license_startup
 fi
 
-exec "$@"
+exec daphne -b 0.0.0.0 -p "${PORT:-8000}" config.asgi:application
