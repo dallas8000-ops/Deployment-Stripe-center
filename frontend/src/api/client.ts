@@ -816,6 +816,21 @@ export const deployApi = {
       method: "POST",
       body: JSON.stringify(opts),
     }),
+
+  pushEnvToPlatform: (
+    projectSlug: string,
+    opts: {
+      platform: "render" | "railway";
+      service_id: string;
+      project_id?: string;
+      environment_id?: string;
+      keys?: string[];
+    }
+  ) =>
+    apiFetch<{ pushed: string[]; message: string; environmentId?: string }>(
+      `/projects/${projectSlug}/deploy/env-push/`,
+      { method: "POST", body: JSON.stringify(opts) }
+    ),
 };
 
 export const aiApi = {

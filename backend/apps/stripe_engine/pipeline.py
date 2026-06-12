@@ -49,14 +49,17 @@ def _project_root(project: Project) -> Path:
     return root
 
 
-def _webhook_path(framework: str) -> str:
+def _webhook_path(framework: str, scan_data: dict | None = None) -> str:
+    # Use the path detected from the codebase first — most accurate
+    if scan_data and scan_data.get("webhook_path"):
+        return scan_data["webhook_path"]
     if framework in ("nextjs", "remix", "nuxt", "sveltekit"):
         return "/api/stripe/webhook"
     return "/stripe/webhook"
 
 
 def _sync_env(project_root: Path, project: Project) -> None:
-    lines = []
+    updates: dict[str, str] = {}
     for key in (
         "STRIPE_SECRET_KEY",
         "STRIPE_PUBLISHABLE_KEY",
@@ -66,13 +69,24 @@ def _sync_env(project_root: Path, project: Project) -> None:
     ):
         value = get_secret(project, key)
         if value:
-            lines.append(f"{key}={value}")
-    if not lines:
+            updates[key] = value
+    if not updates:
         return
     env_path = project_root / ".env.local"
     existing = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
-    merged = existing.rstrip() + "\n" + "\n".join(lines) + "\n"
-    env_path.write_text(merged, encoding="utf-8")
+    out_lines: list[str] = []
+    written_keys: set[str] = set()
+    for line in existing.splitlines():
+        key = line.split("=", 1)[0].strip() if "=" in line else ""
+        if key in updates:
+            out_lines.append(f"{key}={updates[key]}")
+            written_keys.add(key)
+        else:
+            out_lines.append(line)
+    for key, value in updates.items():
+        if key not in written_keys:
+            out_lines.append(f"{key}={value}")
+    env_path.write_text("\n".join(out_lines).rstrip() + "\n", encoding="utf-8")
 
 
 def _run_codegen(
@@ -145,7 +159,7 @@ def run_pipeline(
         project.scan_data = scan.to_dict()
         project.save(update_fields=["framework", "language", "scan_data", "updated_at"])
 
-    webhook_path = _webhook_path(project.framework)
+    webhook_path = _webhook_path(project.framework, project.scan_data)
     app_url = options.app_url.rstrip("/")
     provision_data = None
     files_written: list[str] = []

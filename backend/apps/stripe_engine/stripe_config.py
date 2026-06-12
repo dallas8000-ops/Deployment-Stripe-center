@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,55 @@ def normalize_stripe_config(raw: dict[str, Any]) -> dict[str, Any]:
     return config
 
 
+def _amount_from_price(value: str) -> tuple[int, str] | None:
+    text = value.lower().strip()
+    if "custom" in text or "contact" in text or "call" in text:
+        return None
+    match = re.search(r"\$?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)", text)
+    if not match:
+        return None
+    amount = int(round(float(match.group(1).replace(",", "")) * 100))
+    interval = "year" if re.search(r"\b(yr|year|annual|annually)\b", text) else "month"
+    return amount, interval
+
+
+def tiers_from_readme(root: Path) -> list[dict[str, Any]]:
+    for filename in ("README.md", "readme.md", "Readme.md"):
+        path = root / filename
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        tiers: list[dict[str, Any]] = []
+        for line in text.splitlines():
+            if not line.strip().startswith("|"):
+                continue
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            if len(cells) < 2:
+                continue
+            if all(set(cell) <= {"-", ":", " "} for cell in cells):
+                continue
+            name, price = cells[0], cells[1]
+            if name.lower() in {"tier", "plan", "name"} or price.lower() in {"price", "pricing"}:
+                continue
+            parsed = _amount_from_price(price)
+            if not parsed:
+                continue
+            amount, interval = parsed
+            tier: dict[str, Any] = {
+                "name": name,
+                "amount": amount,
+                "currency": "usd",
+                "interval": interval,
+                "trialDays": 0,
+            }
+            if len(cells) > 2 and cells[2]:
+                tier["features"] = [part.strip(" +") for part in re.split(r",|;", cells[2]) if part.strip(" +")]
+            tiers.append(tier)
+        if tiers:
+            return tiers
+    return []
+
+
 def write_stripe_config(root: Path, config: dict[str, Any]) -> Path:
     normalized = normalize_stripe_config(config)
     path = stripe_config_path(root)
@@ -68,6 +118,9 @@ def config_from_disk(root: Path) -> dict[str, Any]:
             return normalize_stripe_config(on_disk)
     except ValueError:
         pass
+    readme_tiers = tiers_from_readme(root)
+    if readme_tiers:
+        return normalize_stripe_config({"tiers": readme_tiers})
     return normalize_stripe_config({})
 
 
@@ -75,7 +128,16 @@ def provision_config_from_stripe_file(root: Path, *, app_url: str, webhook_path:
     """Build kwargs for ProvisionConfig from stripe.config.json."""
     cfg = config_from_disk(root)
     prov = cfg.get("provision") or {}
-    url = app_url or cfg.get("appUrl") or DEFAULT_CONFIG["appUrl"]
+    # Caller-supplied app_url wins when it's a real production URL; only fall back to
+    # config file's appUrl when the caller didn't provide one (or provided localhost).
+    from .provision import _is_public_url
+    cfg_url = cfg.get("appUrl") or ""
+    if app_url and _is_public_url(app_url):
+        url = app_url
+    elif cfg_url and _is_public_url(cfg_url):
+        url = cfg_url
+    else:
+        url = app_url or cfg_url or DEFAULT_CONFIG["appUrl"]
     return {
         "tiers": cfg.get("tiers"),
         "app_url": url,

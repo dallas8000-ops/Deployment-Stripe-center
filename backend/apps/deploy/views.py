@@ -12,6 +12,8 @@ from .infra import generate_and_write_infra, generate_infra_files, infra_summary
 from .postgres import apply_postgres_schema, get_production_url, postgres_status, schema_sql, test_postgres_connection
 from .provision import provision_postgres
 
+_ERR_NO_LOCAL_PATH = "Set project local_path first."
+
 
 class PostgresStatusView(ProjectOwnedMixin, APIView):
     permission_classes = (permissions.IsAuthenticated,)
@@ -88,7 +90,7 @@ class DeployReadinessView(ProjectOwnedMixin, APIView):
         from pathlib import Path
 
         if not project.local_path:
-            return Response({"error": "Set project local_path first."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": _ERR_NO_LOCAL_PATH}, status=status.HTTP_400_BAD_REQUEST)
         root = Path(project.local_path).resolve()
         if not root.is_dir():
             return Response({"error": f"Project path not found: {root}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -115,7 +117,7 @@ class DeployRunView(ProjectOwnedMixin, APIView):
     def post(self, request, project_slug: str):
         project = self.get_project(project_slug)
         if not project.local_path:
-            return Response({"error": "Set project local_path first."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": _ERR_NO_LOCAL_PATH}, status=status.HTTP_400_BAD_REQUEST)
 
         options = {
             "mode": "deploy",
@@ -153,7 +155,7 @@ class DeployPushView(ProjectOwnedMixin, APIView):
 
         project = self.get_project(project_slug)
         if not project.local_path:
-            return Response({"error": "Set project local_path first."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": _ERR_NO_LOCAL_PATH}, status=status.HTTP_400_BAD_REQUEST)
         root = Path(project.local_path).resolve()
         if not root.is_dir():
             return Response({"error": f"Project path not found: {root}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -179,7 +181,7 @@ class DeployConfigView(ProjectOwnedMixin, APIView):
 
         project = self.get_project(project_slug)
         if not project.local_path:
-            return Response({"error": "Set project local_path first."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": _ERR_NO_LOCAL_PATH}, status=status.HTTP_400_BAD_REQUEST)
         root = Path(project.local_path).resolve()
         if not root.is_dir():
             return Response({"error": f"Project path not found: {root}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -200,7 +202,7 @@ class DeployConfigView(ProjectOwnedMixin, APIView):
 
         project = self.get_project(project_slug)
         if not project.local_path:
-            return Response({"error": "Set project local_path first."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": _ERR_NO_LOCAL_PATH}, status=status.HTTP_400_BAD_REQUEST)
         root = Path(project.local_path).resolve()
         if not root.is_dir():
             return Response({"error": f"Project path not found: {root}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -218,6 +220,47 @@ class DeployConfigView(ProjectOwnedMixin, APIView):
         return Response({"config": normalized, "exists": True, "path": "deploy.config.json"})
 
 
+class EnvPushView(ProjectOwnedMixin, APIView):
+    """Push vault secrets directly to a Render or Railway service's environment variables."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, project_slug: str):
+        from .env_push import push_vault_env_to_platform
+
+        project = self.get_project(project_slug)
+        platform = request.data.get("platform")
+        service_id = request.data.get("service_id") or request.data.get("serviceId", "")
+        project_id = request.data.get("project_id") or request.data.get("projectId")
+        environment_id = request.data.get("environment_id") or request.data.get("environmentId")
+        keys = request.data.get("keys")
+
+        if not platform:
+            return Response(
+                {"error": "platform is required (render or railway)"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not service_id:
+            return Response(
+                {"error": "service_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = push_vault_env_to_platform(
+                project,
+                platform,
+                service_id,
+                project_id=project_id,
+                environment_id=environment_id,
+                keys=keys if isinstance(keys, list) else None,
+            )
+        except (RuntimeError, ValueError) as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(result)
+
+
 class InfraPreviewView(ProjectOwnedMixin, APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -226,7 +269,7 @@ class InfraPreviewView(ProjectOwnedMixin, APIView):
         from pathlib import Path
 
         if not project.local_path:
-            return Response({"error": "Set project local_path first."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": _ERR_NO_LOCAL_PATH}, status=status.HTTP_400_BAD_REQUEST)
         root = Path(project.local_path).resolve()
         prod_url = request.query_params.get("app_url") or get_production_url(
             project, request.build_absolute_uri("/").rstrip("/")

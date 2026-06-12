@@ -73,7 +73,7 @@ export default function ProjectPage() {
       setVaultEntries(vault.entries);
       setVaultInitialized(vault.initialized);
       const scan = p.scan_data || {};
-      if (typeof scan.lastHealthScore === "number" && !diagnoseReport) {
+      if (typeof scan.lastHealthScore === "number" && scan.lastHealthScore > 0 && !diagnoseReport) {
         setDiagnoseReport({
           scannedAt: String(scan.lastDiagnosedAt || ""),
           projectName: p.name,
@@ -283,6 +283,29 @@ export default function ProjectPage() {
 
   const displayReadinessScore =
     pipelineScore ?? readiness?.score ?? project?.latest_readiness_score ?? null;
+
+  const [envPushPlatform, setEnvPushPlatform] = useState<"render" | "railway">("railway");
+  const [envPushServiceId, setEnvPushServiceId] = useState("");
+  const [envPushProjectId, setEnvPushProjectId] = useState("");
+  const [envPushResult, setEnvPushResult] = useState<string | null>(null);
+
+  async function runEnvPush() {
+    setBusy("env-push");
+    setError("");
+    setEnvPushResult(null);
+    try {
+      const result = await deployApi.pushEnvToPlatform(slug, {
+        platform: envPushPlatform,
+        service_id: envPushServiceId,
+        project_id: envPushProjectId || undefined,
+      });
+      setEnvPushResult(result.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Env push failed");
+    } finally {
+      setBusy("");
+    }
+  }
 
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
@@ -613,6 +636,53 @@ ${verifyResult.accountName ? `Account         ${verifyResult.accountName}` : ""}
           onGenerated={load}
         />
       </div>
+
+      <section className="card">
+        <h2>Push env vars to platform</h2>
+        <p className="muted">
+          Send vault secrets (Stripe keys, webhook secret, DATABASE_URL) directly to your deployed
+          service — no manual copy-paste into the Render or Railway dashboard.
+        </p>
+        <div className="option-row">
+          <label>
+            Platform
+            <select
+              value={envPushPlatform}
+              onChange={(e) => setEnvPushPlatform(e.target.value as "render" | "railway")}
+            >
+              <option value="railway">Railway</option>
+              <option value="render">Render</option>
+            </select>
+          </label>
+          <label>
+            Service ID
+            <input
+              placeholder={envPushPlatform === "railway" ? "Railway service UUID" : "Render service ID (srv-…)"}
+              value={envPushServiceId}
+              onChange={(e) => setEnvPushServiceId(e.target.value)}
+            />
+          </label>
+          {envPushPlatform === "railway" && (
+            <label>
+              Project ID
+              <input
+                placeholder="Railway project UUID"
+                value={envPushProjectId}
+                onChange={(e) => setEnvPushProjectId(e.target.value)}
+              />
+            </label>
+          )}
+        </div>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={runEnvPush}
+          disabled={busy === "env-push" || !envPushServiceId}
+        >
+          {busy === "env-push" ? "Pushing…" : "Push env vars"}
+        </button>
+        {envPushResult && <p className="success-msg">{envPushResult}</p>}
+      </section>
 
       {/* ──────────────────────────────────────────── SECTION: MONITORING & AI ──────────────────────────────────────────── */}
       <div className="section-header">

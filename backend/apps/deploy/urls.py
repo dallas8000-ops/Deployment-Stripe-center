@@ -5,6 +5,7 @@ from .views import (
     DeployPushView,
     DeployReadinessView,
     DeployRunView,
+    EnvPushView,
     InfraGenerateView,
     InfraPreviewView,
     PostgresApplySchemaView,
@@ -59,6 +60,11 @@ urlpatterns = [
         "projects/<slug:project_slug>/deploy/config/",
         DeployConfigView.as_view(),
         name="deploy-config",
+    ),
+    path(
+        "projects/<slug:project_slug>/deploy/env-push/",
+        EnvPushView.as_view(),
+        name="deploy-env-push",
     ),
     path(
         "projects/<slug:project_slug>/deploy/infra/preview/",

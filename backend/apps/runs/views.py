@@ -168,7 +168,11 @@ class ReadinessView(ProjectOwnedMixin, APIView):
             root = _require_local_path(project)
         except (ValueError, FileNotFoundError) as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        app_url = request.query_params.get("app_url") or request.build_absolute_uri("/").rstrip("/")
+        app_url = (
+            request.query_params.get("app_url")
+            or (project.scan_data or {}).get("productionUrl")
+            or request.build_absolute_uri("/").rstrip("/")
+        )
         checks = run_readiness_checks(project, root, production_url=app_url)
         score = score_readiness(checks)
         scan_data = dict(project.scan_data or {})
