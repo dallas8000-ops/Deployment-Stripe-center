@@ -284,7 +284,6 @@ export default function ProjectPage() {
   const displayReadinessScore =
     pipelineScore ?? readiness?.score ?? project?.latest_readiness_score ?? null;
 
-  const [envPushPlatform, setEnvPushPlatform] = useState<"render" | "railway">("railway");
   const [envPushServiceId, setEnvPushServiceId] = useState("");
   const [envPushProjectId, setEnvPushProjectId] = useState("");
   const [envPushResult, setEnvPushResult] = useState<string | null>(null);
@@ -295,7 +294,7 @@ export default function ProjectPage() {
     setEnvPushResult(null);
     try {
       const result = await deployApi.pushEnvToPlatform(slug, {
-        platform: envPushPlatform,
+        platform: "railway",
         service_id: envPushServiceId,
         project_id: envPushProjectId || undefined,
       });
@@ -638,40 +637,28 @@ ${verifyResult.accountName ? `Account         ${verifyResult.accountName}` : ""}
       </div>
 
       <section className="card">
-        <h2>Push env vars to platform</h2>
+        <h2>Push env vars to Railway</h2>
         <p className="muted">
           Send vault secrets (Stripe keys, webhook secret, DATABASE_URL) directly to your deployed
-          service — no manual copy-paste into the Render or Railway dashboard.
+          Railway service — no manual copy-paste into the dashboard.
         </p>
         <div className="option-row">
           <label>
-            Platform
-            <select
-              value={envPushPlatform}
-              onChange={(e) => setEnvPushPlatform(e.target.value as "render" | "railway")}
-            >
-              <option value="railway">Railway</option>
-              <option value="render">Render</option>
-            </select>
-          </label>
-          <label>
             Service ID
             <input
-              placeholder={envPushPlatform === "railway" ? "Railway service UUID" : "Render service ID (srv-…)"}
+              placeholder="Railway service UUID"
               value={envPushServiceId}
               onChange={(e) => setEnvPushServiceId(e.target.value)}
             />
           </label>
-          {envPushPlatform === "railway" && (
-            <label>
-              Project ID
-              <input
-                placeholder="Railway project UUID"
-                value={envPushProjectId}
-                onChange={(e) => setEnvPushProjectId(e.target.value)}
-              />
-            </label>
-          )}
+          <label>
+            Project ID
+            <input
+              placeholder="Railway project UUID"
+              value={envPushProjectId}
+              onChange={(e) => setEnvPushProjectId(e.target.value)}
+            />
+          </label>
         </div>
         <button
           type="button"

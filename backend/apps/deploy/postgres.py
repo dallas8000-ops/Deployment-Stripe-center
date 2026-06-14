@@ -18,7 +18,7 @@ def get_database_url(project: Project) -> str | None:
 def _needs_ssl(url: str) -> bool:
     return any(
         token in url
-        for token in ("sslmode=require", "neon.tech", "supabase.co", "render.com", "railway.app")
+        for token in ("sslmode=require", "neon.tech", "supabase.co", "railway.app")
     )
 
 

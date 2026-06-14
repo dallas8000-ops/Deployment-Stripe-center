@@ -117,7 +117,6 @@ export default function DeployConfigPanel({ projectSlug, hasLocalPath, onSaved, 
             <option value="unknown">Auto-detect</option>
             <option value="vercel">Vercel</option>
             <option value="railway">Railway</option>
-            <option value="render">Render</option>
             <option value="fly">Fly.io</option>
             <option value="docker">Docker</option>
           </select>
@@ -139,7 +138,6 @@ export default function DeployConfigPanel({ projectSlug, hasLocalPath, onSaved, 
             <option value="neon">Neon</option>
             <option value="supabase">Supabase</option>
             <option value="railway">Railway</option>
-            <option value="render">Render</option>
             <option value="self-hosted">Self-hosted</option>
           </select>
         </label>

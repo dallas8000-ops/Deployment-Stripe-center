@@ -8,9 +8,9 @@ from typing import Any
 
 from apps.projects.models import Project
 
-VALID_PLATFORMS = frozenset({"vercel", "railway", "render", "fly", "docker", "unknown"})
+VALID_PLATFORMS = frozenset({"vercel", "railway", "fly", "docker", "unknown"})
 VALID_POSTGRES_PROVIDERS = frozenset(
-    {"neon", "supabase", "railway", "render", "self-hosted", "unknown"}
+    {"neon", "supabase", "railway", "self-hosted", "unknown"}
 )
 
 VALID_ENVIRONMENTS = frozenset({"test", "staging", "production"})
@@ -72,13 +72,19 @@ def normalize_deploy_config(raw: dict[str, Any]) -> dict[str, Any]:
         config["environments"] = merged_envs
 
     platform = str(config.get("platform") or "unknown")
+    if platform == "render":
+        platform = "unknown"
     if platform not in VALID_PLATFORMS:
         raise ValueError(f"Invalid platform: {platform}")
+    config["platform"] = platform
 
     postgres = config.get("postgres") or {}
     provider = str(postgres.get("provider") or "neon")
+    if provider == "render":
+        provider = "neon"
     if provider not in VALID_POSTGRES_PROVIDERS:
         raise ValueError(f"Invalid postgres.provider: {provider}")
+    config["postgres"] = {**DEFAULT_CONFIG["postgres"], **postgres, "provider": provider}
 
     domain = config.get("domain")
     production_url = str(config.get("productionUrl") or "").rstrip("/")

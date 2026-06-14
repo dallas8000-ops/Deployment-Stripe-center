@@ -221,7 +221,7 @@ class DeployConfigView(ProjectOwnedMixin, APIView):
 
 
 class EnvPushView(ProjectOwnedMixin, APIView):
-    """Push vault secrets directly to a Render or Railway service's environment variables."""
+    """Push vault secrets directly to a Railway service's environment variables."""
 
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -237,7 +237,7 @@ class EnvPushView(ProjectOwnedMixin, APIView):
 
         if not platform:
             return Response(
-                {"error": "platform is required (render or railway)"},
+                {"error": "platform is required (railway)"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not service_id:

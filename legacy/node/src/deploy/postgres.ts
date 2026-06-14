@@ -303,12 +303,6 @@ export function postgresSetupGuide(provider: PostgresProvider): string {
 3. Run: stripe-installer vault set DATABASE_URL "..."
 4. Apply schema: railway run psql $DATABASE_URL -f db/schema.sql
 `,
-    render: `# Render PostgreSQL Setup
-1. Create PostgreSQL instance in Render dashboard
-2. Copy Internal/External Database URL
-3. Add DATABASE_URL to environment variables
-4. Apply schema: psql $DATABASE_URL -f db/schema.sql
-`,
     "self-hosted": `# Self-hosted PostgreSQL
 1. Ensure PostgreSQL 14+ is running
 2. Create database: createdb myapp

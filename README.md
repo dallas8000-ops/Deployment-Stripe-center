@@ -11,7 +11,7 @@ AI-assisted Stripe setup that **never exposes secrets to AI or logs**. One Djang
 | **Core** | Auth, projects, vault (import, rotation), scanner, pipeline, WebSocket logs, runs, diagnose/fix |
 | **Stripe** | Verify, provision, codegen, `stripe.config.json` UI |
 | **Deploy** | Unified deploy prep, infra codegen, readiness report, manifest, platform push |
-| **Database** | Neon, Supabase, Railway, Render, self-hosted provision + schema apply |
+| **Database** | Neon, Supabase, Railway, self-hosted provision + schema apply |
 | **Git** | Clone (sync/async), private repo auth (token/SSH/credentials), GitHub PR |
 | **Ops** | Docker prod stack, health checks, `check:prod`, `deploy:prod`, GitHub Actions CI, CLI |
 | **AI copilot** | Fix copilot, NL→config, readiness coach, handoff pack, catalog strategist, webhook incident |

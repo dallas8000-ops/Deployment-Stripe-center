@@ -5,7 +5,6 @@ import type { DeployPlatform, ProjectProfile } from "../types.js";
 export async function detectDeployPlatform(root: string, profile: ProjectProfile): Promise<DeployPlatform> {
   if (await exists(join(root, "vercel.json")) || await exists(join(root, ".vercel"))) return "vercel";
   if (await exists(join(root, "railway.json")) || await exists(join(root, "railway.toml"))) return "railway";
-  if (await exists(join(root, "render.yaml"))) return "render";
   if (await exists(join(root, "fly.toml"))) return "fly";
   if (await exists(join(root, "Dockerfile"))) return "docker";
 
@@ -37,7 +36,6 @@ export function platformDeployCommand(platform: DeployPlatform): string {
   switch (platform) {
     case "vercel": return "vercel --prod";
     case "railway": return "railway up";
-    case "render": return "render deploy";
     case "fly": return "fly deploy";
     case "docker": return "docker build -t app . && docker run -p 3000:3000 app";
     default: return "npm run build && npm start";

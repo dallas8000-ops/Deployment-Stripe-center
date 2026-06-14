@@ -158,9 +158,9 @@ export interface StripeManifest {
   nextRouter?: NextRouter;
 }
 
-export type DeployPlatform = "vercel" | "railway" | "render" | "fly" | "docker" | "unknown";
+export type DeployPlatform = "vercel" | "railway" | "fly" | "docker" | "unknown";
 
-export type PostgresProvider = "neon" | "supabase" | "railway" | "render" | "self-hosted" | "unknown";
+export type PostgresProvider = "neon" | "supabase" | "railway" | "self-hosted" | "unknown";
 
 export interface DeployConfig {
   domain?: string;

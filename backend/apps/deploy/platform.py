@@ -7,7 +7,7 @@ from pathlib import Path
 
 from apps.projects.models import Project
 
-PLATFORMS = ("vercel", "railway", "render", "fly", "docker", "unknown")
+PLATFORMS = ("vercel", "railway", "fly", "docker", "unknown")
 
 
 def detect_deploy_platform(project_root: Path, framework: str = "unknown") -> str:
@@ -16,8 +16,6 @@ def detect_deploy_platform(project_root: Path, framework: str = "unknown") -> st
         return "vercel"
     if (root / "railway.json").is_file() or (root / "railway.toml").is_file():
         return "railway"
-    if (root / "render.yaml").is_file():
-        return "render"
     if (root / "fly.toml").is_file():
         return "fly"
     if (root / "Dockerfile").is_file():
@@ -48,7 +46,6 @@ def platform_deploy_command(platform: str) -> str:
     return {
         "vercel": "vercel --prod",
         "railway": "railway up",
-        "render": "render deploy",
         "fly": "fly deploy",
         "docker": "docker build -t app . && docker run -p 3000:3000 --env-file .env.production app",
     }.get(platform, "npm run build && npm start")

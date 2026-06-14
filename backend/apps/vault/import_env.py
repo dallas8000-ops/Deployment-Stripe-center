@@ -21,7 +21,6 @@ IMPORT_KEYS = frozenset(
         "SUPABASE_ACCESS_TOKEN",
         "SUPABASE_ORG_ID",
         "RAILWAY_API_TOKEN",
-        "RENDER_API_KEY",
         "GITHUB_TOKEN",
         "GIT_TOKEN",
     }

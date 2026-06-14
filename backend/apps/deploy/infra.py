@@ -102,7 +102,7 @@ Domain: {domain}
 Framework: {framework}
 
 ## SSL
-SSL/TLS is automatic on Vercel, Railway, Render, and Fly.io custom domains.
+SSL/TLS is automatic on Vercel, Railway, and Fly.io custom domains.
 
 ## Stripe Webhook (production)
 Update webhook URL to: `{webhook_url}`
@@ -228,22 +228,6 @@ startCommand = "{framework_start_command(project.framework)}"
 healthcheckPath = "{health_path}"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
-"""
-    elif platform == "render":
-        app_key = "NEXT_PUBLIC_APP_URL" if project.framework == "nextjs" else "APP_URL"
-        runtime = "python" if project.framework in ("django", "flask") else "node"
-        files["render.yaml"] = f"""services:
-  - type: web
-    name: {project.slug}
-    runtime: {runtime}
-    buildCommand: {framework_build_command(project.framework)}
-    startCommand: {framework_start_command(project.framework)}
-    healthCheckPath: {health_path}
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: {app_key}
-        value: {prod_url}
 """
     return files
 

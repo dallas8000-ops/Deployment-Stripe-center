@@ -1,4 +1,4 @@
-"""Push vault secrets directly to Render or Railway service environment variables."""
+"""Push vault secrets directly to Railway service environment variables."""
 
 from __future__ import annotations
 
@@ -18,34 +18,7 @@ STRIPE_ENV_KEYS = [
     "DATABASE_URL",
 ]
 
-RENDER_API = "https://api.render.com/v1"
 RAILWAY_GQL = "https://backboard.railway.app/graphql/v2"
-
-
-def _http_json(method: str, url: str, headers: dict, body: Any = None) -> Any:
-    data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            return json.loads(resp.read().decode())
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode()[:300]
-        raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
-
-
-def push_to_render(api_key: str, service_id: str, env_vars: dict[str, str]) -> dict[str, Any]:
-    payload = [{"key": k, "value": v} for k, v in sorted(env_vars.items())]
-    _http_json(
-        "PUT",
-        f"{RENDER_API}/services/{service_id}/env-vars",
-        {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
-        payload,
-    )
-    return {"pushed": sorted(env_vars.keys())}
 
 
 def _railway_gql(token: str, query: str, variables: dict | None = None) -> dict:
@@ -118,26 +91,17 @@ def push_vault_env_to_platform(
     if not env_vars:
         return {"pushed": [], "message": "No matching secrets found in vault"}
 
-    if platform == "render":
-        api_key = get_secret(project, "RENDER_API_KEY")
-        if not api_key:
-            raise RuntimeError(
-                "RENDER_API_KEY not in vault — add it at https://dashboard.render.com/u/settings#api-keys"
-            )
-        result = push_to_render(api_key, service_id, env_vars)
+    if platform != "railway":
+        raise ValueError(f"Unsupported platform '{platform}' — supported: railway")
 
-    elif platform == "railway":
-        token = get_secret(project, "RAILWAY_API_TOKEN")
-        if not token:
-            raise RuntimeError(
-                "RAILWAY_API_TOKEN not in vault — create at https://railway.com/account/tokens"
-            )
-        if not project_id:
-            raise RuntimeError("project_id is required for Railway env push")
-        result = push_to_railway(token, project_id, service_id, env_vars, environment_id)
-
-    else:
-        raise ValueError(f"Unsupported platform '{platform}' — supported: render, railway")
+    token = get_secret(project, "RAILWAY_API_TOKEN")
+    if not token:
+        raise RuntimeError(
+            "RAILWAY_API_TOKEN not in vault — create at https://railway.com/account/tokens"
+        )
+    if not project_id:
+        raise RuntimeError("project_id is required for Railway env push")
+    result = push_to_railway(token, project_id, service_id, env_vars, environment_id)
 
     result["message"] = (
         f"Pushed {len(env_vars)} var(s) to {platform}: {', '.join(sorted(env_vars.keys()))}"

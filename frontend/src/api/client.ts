@@ -709,9 +709,9 @@ export interface DeployConfig {
     staging?: DeployEnvironment;
     production?: DeployEnvironment;
   };
-  platform: "vercel" | "railway" | "render" | "fly" | "docker" | "unknown";
+  platform: "vercel" | "railway" | "fly" | "docker" | "unknown";
   postgres: {
-    provider: "neon" | "supabase" | "railway" | "render" | "self-hosted" | "unknown";
+    provider: "neon" | "supabase" | "railway" | "self-hosted" | "unknown";
     connectionEnvVar: string;
     autoProvision: boolean;
   };
@@ -729,7 +729,7 @@ export const deployApi = {
   provisionPostgres: (
     projectSlug: string,
     opts: {
-      provider?: "neon" | "supabase" | "railway" | "render" | "self-hosted";
+      provider?: "neon" | "supabase" | "railway" | "self-hosted";
       region?: string;
       reuse?: boolean;
       apply_schema?: boolean;
@@ -820,7 +820,7 @@ export const deployApi = {
   pushEnvToPlatform: (
     projectSlug: string,
     opts: {
-      platform: "render" | "railway";
+      platform: "railway";
       service_id: string;
       project_id?: string;
       environment_id?: string;

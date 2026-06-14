@@ -146,7 +146,7 @@ export async function runReadinessChecks(
       category: "ssl",
       name: "HTTPS enabled",
       status: "warn",
-      message: "SSL auto-provisioned by Vercel/Railway/Render on deploy",
+      message: "SSL auto-provisioned by Vercel/Railway/Fly.io on deploy",
       fix: "Deploy with HTTPS URL — most platforms handle SSL automatically",
     });
   }

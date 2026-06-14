@@ -19,9 +19,9 @@ import { DEFAULT_SAAS_TIERS } from "../stripe/default-tiers.js";
 const deployConfigSchema = z.object({
   domain: z.string().optional(),
   productionUrl: z.string().url().optional(),
-  platform: z.enum(["vercel", "railway", "render", "fly", "docker", "unknown"]).optional(),
+  platform: z.enum(["vercel", "railway", "fly", "docker", "unknown"]).optional(),
   postgres: z.object({
-    provider: z.enum(["neon", "supabase", "railway", "render", "self-hosted", "unknown"]).optional(),
+    provider: z.enum(["neon", "supabase", "railway", "self-hosted", "unknown"]).optional(),
     connectionEnvVar: z.string().optional(),
     autoProvision: z.boolean().optional(),
     region: z.string().optional(),

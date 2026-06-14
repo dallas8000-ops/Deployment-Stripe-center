@@ -1,4 +1,4 @@
-"""Neon / Supabase / Railway / Render / self-hosted postgres provision."""
+"""Neon / Supabase / Railway / self-hosted postgres provision."""
 
 from __future__ import annotations
 
@@ -20,10 +20,9 @@ from apps.vault.models import get_secret, set_secret
 
 from .postgres import apply_postgres_schema, test_postgres_connection
 
-Provider = Literal["neon", "supabase", "railway", "render", "self-hosted"]
+Provider = Literal["neon", "supabase", "railway", "self-hosted"]
 NEON_API = "https://console.neon.tech/api/v2"
 SUPABASE_API = "https://api.supabase.com/v1"
-RENDER_API = "https://api.render.com/v1"
 RAILWAY_GQL = "https://backboard.railway.app/graphql/v2"
 
 
@@ -153,52 +152,6 @@ def _provision_supabase(project: Project, region: str, reuse: bool) -> tuple[str
         f"@db.{ref}.supabase.co:5432/postgres?sslmode=require"
     )
     return url, ref, False
-
-
-def _render_request(api_key: str, method: str, path: str, body: dict | None = None) -> dict:
-    return _http_json(
-        method,
-        f"{RENDER_API}{path}",
-        {"Accept": "application/json", "Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        body,
-    )
-
-
-def _provision_render(project: Project, region: str, reuse: bool) -> tuple[str, str, bool]:
-    api_key = get_secret(project, "RENDER_API_KEY")
-    if not api_key:
-        raise RuntimeError("RENDER_API_KEY not in vault — create at https://dashboard.render.com/u/settings#api-keys")
-    safe = _sanitize_name(project.slug or project.name)
-    render_region = region if region in ("oregon", "frankfurt", "singapore", "ohio", "virginia") else "oregon"
-
-    if reuse:
-        listed = _render_request(api_key, "GET", "/postgres?limit=100")
-        for item in listed if isinstance(listed, list) else listed.get("items", []):
-            if item.get("name") == safe and item.get("status") == "available":
-                return item["connectionString"], item["id"], True
-
-    created = _render_request(
-        api_key,
-        "POST",
-        "/postgres",
-        {
-            "name": safe,
-            "databaseName": "stripe_installer",
-            "user": "stripe_installer",
-            "region": render_region,
-            "plan": "free",
-            "postgresMajorVersion": "16",
-        },
-    )
-    postgres_id = created["id"]
-    for _ in range(60):
-        status = _render_request(api_key, "GET", f"/postgres/{postgres_id}")
-        if status.get("status") == "available" and status.get("connectionString"):
-            return status["connectionString"], postgres_id, False
-        if status.get("status") == "failed":
-            raise RuntimeError("Render Postgres provisioning failed")
-        time.sleep(5)
-    raise RuntimeError("Render Postgres did not become available in time")
 
 
 def _railway_graphql(token: str, query: str, variables: dict | None = None) -> dict:
@@ -386,9 +339,6 @@ def provision_postgres(
     elif provider == "railway":
         url, project_id, reused = _provision_railway(project, region or "us-west", reuse)
         manifest = {"provider": "railway", "projectId": project_id, "reused": reused}
-    elif provider == "render":
-        url, postgres_id, reused = _provision_render(project, region or "oregon", reuse)
-        manifest = {"provider": "render", "postgresId": postgres_id, "reused": reused}
     elif provider == "self-hosted":
         url, host_id, reused = _provision_self_hosted(project)
         manifest = {"provider": "self-hosted", "hostId": host_id, "reused": reused}

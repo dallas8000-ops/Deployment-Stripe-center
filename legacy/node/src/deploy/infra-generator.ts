@@ -45,8 +45,6 @@ export class InfraCodeGenerator {
       files["vercel.json"] = this.vercelConfig(prodUrl, paths.webhookPath);
     } else if (this.platform === "railway") {
       files["railway.toml"] = this.railwayConfig(paths.healthUrl);
-    } else if (this.platform === "render") {
-      files["render.yaml"] = this.renderConfig(prodUrl, paths.healthUrl);
     }
 
     if (this.config.monitoring?.sentry) {
@@ -89,26 +87,6 @@ restartPolicyType = "on_failure"
 
 # Add PostgreSQL plugin in Railway dashboard
 # SSL is automatic on Railway
-`;
-  }
-
-  private renderConfig(prodUrl: string, healthUrl: string): string {
-    const healthPath = healthUrl.replace(/^https?:\/\/[^/]+/, "") || healthCheckPath(this.profile.framework);
-    const appUrlKey = this.profile.framework === "nextjs" ? "NEXT_PUBLIC_APP_URL" : "APP_URL";
-    return `services:
-  - type: web
-    name: ${this.profile.name}
-    runtime: ${this.profile.serverRuntime === "python" ? "python" : "node"}
-    buildCommand: ${frameworkBuildCommand(this.profile)}
-    startCommand: ${frameworkStartCommand(this.profile)}
-    healthCheckPath: ${healthPath}
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: ${appUrlKey}
-        value: ${prodUrl}
-    # Add PostgreSQL database in Render dashboard
-    # SSL is automatic on Render
 `;
   }
 
@@ -181,7 +159,6 @@ Framework: ${this.profile.framework}
 SSL/TLS is **automatic** on these platforms (no manual cert setup):
 - **Vercel** — Let's Encrypt, auto-renewed
 - **Railway** — HTTPS on *.up.railway.app and custom domains
-- **Render** — Auto SSL for custom domains
 - **Fly.io** — fly certs add ${domain}
 
 ## DNS Records (custom domain)
@@ -192,7 +169,7 @@ SSL/TLS is **automatic** on these platforms (no manual cert setup):
 | A     | @    | 76.76.21.21          |
 | CNAME | www  | cname.vercel-dns.com |
 
-### Railway / Render
+### Railway
 Follow dashboard instructions — typically CNAME to platform hostname.
 
 ## Stripe Webhook (production)

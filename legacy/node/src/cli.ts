@@ -607,7 +607,7 @@ program
   .option("--no-generate", "Skip Stripe code generation")
   .option("--no-infra", "Skip infra file generation")
   .option("--provision-db", "Auto-provision PostgreSQL via Neon/Supabase API")
-  .option("--push", "Run platform deploy command after pipeline (vercel/railway/render/fly)")
+  .option("--push", "Run platform deploy command after pipeline (vercel/railway/fly)")
   .option("--force", "Overwrite existing files")
   .option("--stripe-config <file>", "Stripe config", "stripe.config.json")
   .option("--deploy-config <file>", "Deploy config", "deploy.config.json")
