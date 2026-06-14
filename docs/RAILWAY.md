@@ -63,8 +63,14 @@ Expect `"status":"ok"` with database and vault checks passing.
 1. **PostgreSQL plugin** attached and `DATABASE_URL` visible in Variables.
 2. **`VAULT_MASTER_KEY`** set (app health fails without it).
 3. **`LICENSE_ENFORCEMENT_ENABLED`** — if `true`, valid license required or startup exits.
-4. **Deploy logs** in Railway → Deployments → View logs (migrate errors show here).
-5. Redeploy after setting variables — local `backend/.env` is **not** uploaded to Railway unless you copy vars manually.
+4. **Remove dev-only vars** from Railway Raw Editor if you copied local `.env`:
+   - `REDIS_URL=redis://127.0.0.1:6379/0` (breaks health checks — Railway stops routing)
+   - `CELERY_EAGER=true`, `CHANNEL_LAYER_INMEMORY=true` (not needed; Django auto-configures on Railway)
+   - `CORS_ALLOWED_ORIGINS=http://localhost:...`
+   - `SAAS_BILLING_RETURN_URL=http://localhost:5173`
+5. **Deploy logs** in Railway → Deployments → View logs (migrate errors show here).
+6. **Networking** — public domain must be on the **web service**, not Postgres. Latest deploy must be **Active**.
+7. Redeploy after setting variables — local `backend/.env` is **not** uploaded to Railway unless you copy vars manually.
 
 ## Custom domain
 

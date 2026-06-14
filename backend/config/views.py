@@ -48,7 +48,9 @@ def health(_request):
             checks["redis"] = "ok"
         except Exception as exc:
             checks["redis"] = str(exc)
-            ok = False
+            # Railway single-container deploys run without Redis — don't fail the probe.
+            if not getattr(settings, "ON_RAILWAY", False):
+                ok = False
     else:
         checks["redis"] = "skipped (dev mode)"
         checks["celery"] = "skipped (eager mode)"

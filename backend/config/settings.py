@@ -112,7 +112,7 @@ if os.environ.get("DATABASE_URL"):
     import urllib.parse as urlparse
 
     url = urlparse.urlparse(os.environ["DATABASE_URL"])
-    DATABASES["default"] = {
+    db = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": url.path[1:],
         "USER": url.username,
@@ -120,6 +120,11 @@ if os.environ.get("DATABASE_URL"):
         "HOST": url.hostname,
         "PORT": url.port or 5432,
     }
+    qs = urlparse.parse_qs(url.query)
+    sslmode = (qs.get("sslmode") or [None])[0]
+    if sslmode or "railway" in (url.hostname or ""):
+        db["OPTIONS"] = {"sslmode": sslmode or "require"}
+    DATABASES["default"] = db
 
 AUTH_USER_MODEL = "accounts.User"
 
@@ -209,13 +214,23 @@ if LICENSE_ENFORCEMENT_ENABLED:
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 
+
+def _is_local_redis(url: str) -> bool:
+    return "127.0.0.1" in url or "localhost" in url
+
+
+# Pasted dev .env often sets REDIS_URL=127.0.0.1 — treat as no Redis on Railway.
+RAILWAY_SINGLE_CONTAINER = ON_RAILWAY and (
+    not os.environ.get("REDIS_URL") or _is_local_redis(REDIS_URL)
+)
+
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL)
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", REDIS_URL)
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 600
 CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_EAGER", "").lower() == "true"
 
-if ON_RAILWAY and not os.environ.get("REDIS_URL"):
+if RAILWAY_SINGLE_CONTAINER:
     # Single-service Railway deploy: no Redis addon required for the web process
     CELERY_TASK_ALWAYS_EAGER = True
 
@@ -276,7 +291,7 @@ if os.environ.get("CHANNEL_LAYER_INMEMORY", "").lower() == "true":
     CHANNEL_LAYERS = {
         "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
     }
-elif ON_RAILWAY and not os.environ.get("REDIS_URL"):
+elif RAILWAY_SINGLE_CONTAINER:
     CHANNEL_LAYERS = {
         "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
     }
