@@ -39,7 +39,7 @@ def get_validator():
         domain = os.environ.get("STRIPE_INSTALLER_DOMAIN", "")
         server = os.environ.get(
             "STRIPE_INSTALLER_VALIDATION_SERVER",
-            getattr(settings, "LICENSE_VALIDATION_SERVER", "") or "http://127.0.0.1:8000",
+            getattr(settings, "APP_PUBLIC_URL", "") or "http://127.0.0.1:8000",
         )
         if not key or not domain:
             return None

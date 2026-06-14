@@ -20,6 +20,18 @@ import requests
 logger = logging.getLogger(__name__)
 
 
+def _default_validation_server() -> str:
+    env = os.environ.get("STRIPE_INSTALLER_VALIDATION_SERVER", "").strip()
+    if env:
+        return env.rstrip("/")
+    try:
+        from django.conf import settings as dj_settings
+
+        return (getattr(dj_settings, "APP_PUBLIC_URL", "") or "http://127.0.0.1:8000").rstrip("/")
+    except Exception:
+        return "http://127.0.0.1:8000"
+
+
 class LicenseValidator:
     """
     Validates license keys against the Stripe Installer licensing server.
@@ -41,14 +53,14 @@ class LicenseValidator:
         self,
         license_key: str,
         domain: str,
-        validation_server: str = "https://api.stripe-installer.com",
+        validation_server: str | None = None,
         instance_id: Optional[str] = None,
     ):
         self.license_key = license_key
         from apps.licenses.utils import normalize_domain
 
         self.domain = normalize_domain(domain)
-        self.validation_server = validation_server.rstrip("/")
+        self.validation_server = (validation_server or _default_validation_server()).rstrip("/")
         self.instance_id = instance_id or self._get_or_create_instance_id()
         self._last_validation: Optional[dict] = None
         self._last_validation_time: Optional[datetime] = None
@@ -193,9 +205,11 @@ def validate_on_startup(
     """
     license_key = license_key or os.environ.get("STRIPE_INSTALLER_LICENSE_KEY")
     domain = domain or os.environ.get("STRIPE_INSTALLER_DOMAIN")
-    validation_server = validation_server or os.environ.get(
-        "STRIPE_INSTALLER_VALIDATION_SERVER", "https://api.stripe-installer.com"
-    )
+    validation_server = validation_server or os.environ.get("STRIPE_INSTALLER_VALIDATION_SERVER")
+    if not validation_server:
+        from django.conf import settings as dj_settings
+
+        validation_server = getattr(dj_settings, "APP_PUBLIC_URL", "") or "http://127.0.0.1:8000"
 
     if not license_key or not domain:
         logger.error("License key and domain must be provided (via args or env vars)")
@@ -243,9 +257,7 @@ def require_valid_license(func):
         validator = LicenseValidator(
             license_key=license_key,
             domain=domain,
-            validation_server=os.environ.get(
-                "STRIPE_INSTALLER_VALIDATION_SERVER", "https://api.stripe-installer.com"
-            ),
+            validation_server=os.environ.get("STRIPE_INSTALLER_VALIDATION_SERVER"),
         )
         
         if not validator.validate():

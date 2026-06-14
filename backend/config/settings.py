@@ -8,6 +8,31 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+RAILWAY_PUBLIC_DOMAIN = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
+ON_RAILWAY = bool(os.environ.get("RAILWAY_ENVIRONMENT") or RAILWAY_PUBLIC_DOMAIN)
+
+
+def _public_app_url() -> str:
+    for key in ("APP_PUBLIC_URL", "SAAS_BILLING_RETURN_URL"):
+        val = os.environ.get(key, "").strip().rstrip("/")
+        if val:
+            return val
+    if RAILWAY_PUBLIC_DOMAIN:
+        return f"https://{RAILWAY_PUBLIC_DOMAIN}".rstrip("/")
+    return "http://localhost:5173"
+
+
+def _normalize_database_url(url: str) -> str:
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://") :]
+    if "railway" in url and "sslmode=" not in url:
+        url += "&sslmode=require" if "?" in url else "?sslmode=require"
+    return url
+
+
+if os.environ.get("DATABASE_URL"):
+    os.environ["DATABASE_URL"] = _normalize_database_url(os.environ["DATABASE_URL"])
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-change-me-in-production")
 DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
 
@@ -132,12 +157,12 @@ CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(",") if o.strip()] or
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
-for _co in ["https://stripe-installer-production.up.railway.app"]:
+if RAILWAY_PUBLIC_DOMAIN:
+    _co = f"https://{RAILWAY_PUBLIC_DOMAIN}"
     if _co not in CORS_ALLOWED_ORIGINS:
         CORS_ALLOWED_ORIGINS.append(_co)
-if os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
-    _co = f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}"
-    if _co not in CORS_ALLOWED_ORIGINS:
+for _co in (_public_app_url(),):
+    if _co.startswith("http") and _co not in CORS_ALLOWED_ORIGINS:
         CORS_ALLOWED_ORIGINS.append(_co)
 CORS_ALLOW_CREDENTIALS = True
 
@@ -167,7 +192,10 @@ SAAS_STRIPE_WEBHOOK_SECRET = os.environ.get("SAAS_STRIPE_WEBHOOK_SECRET", "")
 SAAS_STRIPE_PRICE_STARTER = os.environ.get("SAAS_STRIPE_PRICE_STARTER", "")
 SAAS_STRIPE_PRICE_PRO = os.environ.get("SAAS_STRIPE_PRICE_PRO", "")
 SAAS_STRIPE_PRICE_ENTERPRISE = os.environ.get("SAAS_STRIPE_PRICE_ENTERPRISE", "")
-SAAS_BILLING_RETURN_URL = os.environ.get("SAAS_BILLING_RETURN_URL", "http://localhost:5173")
+SAAS_BILLING_RETURN_URL = os.environ.get("SAAS_BILLING_RETURN_URL") or _public_app_url()
+
+# Public app URL (invites, billing return, license validation server default)
+APP_PUBLIC_URL = os.environ.get("APP_PUBLIC_URL") or _public_app_url()
 
 # License enforcement settings
 LICENSE_ENFORCEMENT_ENABLED = os.environ.get("LICENSE_ENFORCEMENT_ENABLED", "false").lower() == "true"
@@ -186,6 +214,10 @@ CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", REDIS_URL)
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 600
 CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_EAGER", "").lower() == "true"
+
+if ON_RAILWAY and not os.environ.get("REDIS_URL"):
+    # Single-service Railway deploy: no Redis addon required for the web process
+    CELERY_TASK_ALWAYS_EAGER = True
 
 from celery.schedules import crontab  # noqa: E402
 
@@ -223,8 +255,7 @@ GITHUB_WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
 ORG_FREE_MEMBER_LIMIT = os.environ.get("ORG_FREE_MEMBER_LIMIT", "3")
 ORG_FREE_PROJECT_LIMIT = os.environ.get("ORG_FREE_PROJECT_LIMIT", "5")
 
-# Public app URL (invites, billing return). Defaults to SAAS_BILLING_RETURN_URL.
-APP_PUBLIC_URL = os.environ.get("APP_PUBLIC_URL", "")
+# Public app URL (invites, billing return). Set APP_PUBLIC_URL or SAAS_BILLING_RETURN_URL in production.
 APP_VERSION = os.environ.get("APP_VERSION", "1.0.0")
 ORG_INVITE_EXPIRY_DAYS = os.environ.get("ORG_INVITE_EXPIRY_DAYS", "14")
 INVITE_EMAIL_ENABLED = os.environ.get("INVITE_EMAIL_ENABLED", "true").lower() == "true"
@@ -245,5 +276,13 @@ if os.environ.get("CHANNEL_LAYER_INMEMORY", "").lower() == "true":
     CHANNEL_LAYERS = {
         "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
     }
+elif ON_RAILWAY and not os.environ.get("REDIS_URL"):
+    CHANNEL_LAYERS = {
+        "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
+    }
+
+if ON_RAILWAY:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

@@ -15,6 +15,10 @@ VALID_POSTGRES_PROVIDERS = frozenset(
 
 VALID_ENVIRONMENTS = frozenset({"test", "staging", "production"})
 
+# Removed hosting platforms still saved in older deploy.config.json files
+_LEGACY_PLATFORM_ALIASES = {"render": "unknown"}
+_LEGACY_POSTGRES_ALIASES = {"render": "neon"}
+
 DEFAULT_CONFIG: dict[str, Any] = {
     "productionUrl": "",
     "environments": {
@@ -72,16 +76,14 @@ def normalize_deploy_config(raw: dict[str, Any]) -> dict[str, Any]:
         config["environments"] = merged_envs
 
     platform = str(config.get("platform") or "unknown")
-    if platform == "render":
-        platform = "unknown"
+    platform = _LEGACY_PLATFORM_ALIASES.get(platform, platform)
     if platform not in VALID_PLATFORMS:
         raise ValueError(f"Invalid platform: {platform}")
     config["platform"] = platform
 
     postgres = config.get("postgres") or {}
     provider = str(postgres.get("provider") or "neon")
-    if provider == "render":
-        provider = "neon"
+    provider = _LEGACY_POSTGRES_ALIASES.get(provider, provider)
     if provider not in VALID_POSTGRES_PROVIDERS:
         raise ValueError(f"Invalid postgres.provider: {provider}")
     config["postgres"] = {**DEFAULT_CONFIG["postgres"], **postgres, "provider": provider}

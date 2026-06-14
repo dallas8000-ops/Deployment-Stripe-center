@@ -7,7 +7,7 @@ def root(_request):
         {
             "service": "Stripe Installer SaaS API",
             "status": "ok",
-            "ui": getattr(settings, "SAAS_BILLING_RETURN_URL", "http://localhost:5173"),
+            "ui": getattr(settings, "APP_PUBLIC_URL", "http://localhost:5173"),
             "api": "/api/v1/",
         }
     )

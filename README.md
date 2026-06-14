@@ -140,7 +140,7 @@ npm run deploy:prod             # build + check + docker prod
 
 - Stack: Postgres, Redis, Daphne, Celery worker + **Beat** (drift checks)
 - Health: `GET /health/` — database, vault, Redis, `frontend/dist`
-- Docs: [docs/PRODUCTION.md](docs/PRODUCTION.md)
+- Docs: [docs/PRODUCTION.md](docs/PRODUCTION.md) · [docs/RAILWAY.md](docs/RAILWAY.md) (single-service Railway deploy)
 
 ## MCP (Cursor)
 

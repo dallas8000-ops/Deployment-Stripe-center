@@ -124,7 +124,7 @@ from apps.licenses.client_validation import LicenseValidator
 validator = LicenseValidator(
     license_key="your-license-key",
     domain="your-domain.com",
-    validation_server="https://api.stripe-installer.com"
+    validation_server="https://your-app.up.railway.app"
 )
 
 if validator.validate():
@@ -199,7 +199,7 @@ For deployed instances:
 ```bash
 STRIPE_INSTALLER_LICENSE_KEY=your-license-key
 STRIPE_INSTALLER_DOMAIN=your-domain.com
-STRIPE_INSTALLER_VALIDATION_SERVER=https://api.stripe-installer.com
+STRIPE_INSTALLER_VALIDATION_SERVER=https://your-app.up.railway.app
 ```
 
 ## Stripe Checkout Integration
