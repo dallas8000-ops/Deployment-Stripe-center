@@ -1,16 +1,48 @@
+import hashlib
+import hmac
+import json
+import time
+
 from django.test import Client, TestCase, override_settings
 
 
-@override_settings(SAAS_STRIPE_WEBHOOK_SECRET="whsec_test_secret")
-class BillingWebhookCsrfTests(TestCase):
-    def test_post_reaches_handler_not_csrf_blocked(self):
-        """Stripe POSTs without CSRF cookie — must not get 403 Forbidden."""
+@override_settings(
+    SAAS_STRIPE_WEBHOOK_SECRET="whsec_test_secret",
+    SAAS_STRIPE_SECRET_KEY="sk_test_fake",
+)
+class BillingWebhookDeliveryTests(TestCase):
+    def _sign(self, payload: str) -> dict[str, str]:
+        ts = str(int(time.time()))
+        sig = hmac.new(
+            b"whsec_test_secret",
+            f"{ts}.{payload}".encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        return {
+            "HTTP_STRIPE_SIGNATURE": f"t={ts},v1={sig}",
+        }
+
+    def test_post_not_csrf_blocked(self):
+        client = Client()
+        response = client.post("/api/v1/billing/webhook/", data="{}", content_type="application/json")
+        self.assertNotEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 400)
+
+    def test_unhandled_event_returns_200(self):
+        payload = json.dumps(
+            {
+                "id": "evt_test_unhandled",
+                "object": "event",
+                "type": "customer.updated",
+                "data": {"object": {"id": "cus_x", "object": "customer"}},
+            }
+        )
         client = Client()
         response = client.post(
             "/api/v1/billing/webhook/",
-            data="{}",
+            data=payload,
             content_type="application/json",
+            **self._sign(payload),
         )
-        self.assertNotEqual(response.status_code, 403)
-        # Missing Stripe-Signature → invalid payload (400), not CSRF block
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertIn(b"received", response.content)

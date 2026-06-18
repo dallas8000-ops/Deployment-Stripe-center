@@ -235,12 +235,18 @@ def billing_webhook(request):
     sig = request.META.get("HTTP_STRIPE_SIGNATURE")
     _get_stripe()
     try:
-        event = stripe.Webhook.construct_event(payload, sig, secret)
+        stripe.Webhook.construct_event(payload, sig, secret)
     except (ValueError, stripe.SignatureVerificationError):
         return HttpResponse("Invalid payload", status=400)
 
-    event_id = event.get("id", "")
-    event_type = event.get("type", "")
+    # Use verified JSON payload — Stripe Event objects do not support dict .get().
+    try:
+        event_payload = json.loads(payload)
+    except json.JSONDecodeError:
+        return HttpResponse("Invalid payload", status=400)
+
+    event_id = str(event_payload.get("id") or "")
+    event_type = str(event_payload.get("type") or "")
     if not event_id:
         return HttpResponse("Missing event id", status=400)
 
@@ -253,7 +259,7 @@ def billing_webhook(request):
         return HttpResponse(json.dumps({"received": True, "duplicate": True}), content_type="application/json")
 
     try:
-        process_billing_event(event)
+        process_billing_event(event_payload)
     except Exception:
         logger.exception("Billing webhook handler failed for %s", event_id)
         BillingWebhookEvent.objects.filter(stripe_event_id=event_id).delete()
