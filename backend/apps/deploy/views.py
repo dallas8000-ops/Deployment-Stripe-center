@@ -234,6 +234,8 @@ class EnvPushView(ProjectOwnedMixin, APIView):
         project_id = request.data.get("project_id") or request.data.get("projectId")
         environment_id = request.data.get("environment_id") or request.data.get("environmentId")
         keys = request.data.get("keys")
+        variables = request.data.get("variables")
+        preset = request.data.get("preset")
 
         if not platform:
             return Response(
@@ -254,6 +256,8 @@ class EnvPushView(ProjectOwnedMixin, APIView):
                 project_id=project_id,
                 environment_id=environment_id,
                 keys=keys if isinstance(keys, list) else None,
+                variables=variables if isinstance(variables, dict) else None,
+                preset=preset if isinstance(preset, str) and preset.strip() else None,
             )
         except (RuntimeError, ValueError) as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

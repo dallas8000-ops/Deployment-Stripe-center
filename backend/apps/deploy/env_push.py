@@ -1,4 +1,4 @@
-"""Push vault secrets directly to Railway service environment variables."""
+"""Push vault secrets and/or inline variables to Railway service environment."""
 
 from __future__ import annotations
 
@@ -18,7 +18,58 @@ STRIPE_ENV_KEYS = [
     "DATABASE_URL",
 ]
 
+# Non-secret defaults — override DATABASE_URL / secrets via vault or request `variables`.
+KISTIE_STORE_PRESET: dict[str, str] = {
+    "DJANGO_DEBUG": "False",
+    "DJANGO_ENABLE_ADMIN": "False",
+    "DATABASE_URL": "${{Postgres.DATABASE_URL}}",
+    "ALLOWED_HOSTS": ".railway.app kistie-store-production.up.railway.app",
+    "CSRF_TRUSTED_ORIGINS": "https://kistie-store-production.up.railway.app",
+    "SITE_URL": "https://kistie-store-production.up.railway.app",
+    "DJANGO_EMAIL_BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+    "EMAIL_HOST": "smtp.gmail.com",
+    "EMAIL_PORT": "587",
+    "EMAIL_USE_TLS": "True",
+    "CONTACT_RECIPIENT_EMAIL": "dallas8000@gmail.com",
+    "DJANGO_DEFAULT_FROM_EMAIL": "dallas8000@gmail.com",
+    "ORDER_ALERT_EMAIL": "dallas8000@gmail.com",
+    "WHATSAPP_STORE_NUMBER": "256704757198",
+    "INSTAGRAM_PROFILE_URL": "https://www.instagram.com/kistie_storeug/",
+}
+
+KISTIE_STORE_VAULT_KEYS = [
+    "DJANGO_SECRET_KEY",
+    "DATABASE_URL",
+    "EMAIL_HOST_USER",
+    "EMAIL_HOST_PASSWORD",
+]
+
+ENV_PRESETS: dict[str, dict[str, str]] = {
+    "kistie-store": KISTIE_STORE_PRESET,
+}
+
+PRESET_VAULT_KEYS: dict[str, list[str]] = {
+    "kistie-store": KISTIE_STORE_VAULT_KEYS,
+}
+
 RAILWAY_GQL = "https://backboard.railway.app/graphql/v2"
+
+
+def merge_env_vars(
+    *,
+    preset: dict[str, str] | None = None,
+    vault: dict[str, str] | None = None,
+    inline: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Merge preset → vault → inline (later sources override earlier)."""
+    merged: dict[str, str] = {}
+    if preset:
+        merged.update({k: v for k, v in preset.items() if v is not None and str(v).strip()})
+    if vault:
+        merged.update({k: v for k, v in vault.items() if v})
+    if inline:
+        merged.update({k: str(v).strip() for k, v in inline.items() if v is not None and str(v).strip()})
+    return merged
 
 
 def _railway_gql(token: str, query: str, variables: dict | None = None) -> dict:
@@ -76,6 +127,27 @@ def push_to_railway(
     return {"pushed": sorted(env_vars.keys()), "environmentId": environment_id}
 
 
+def _vault_subset(project: Project, keys: list[str]) -> dict[str, str]:
+    return {k: v for k in keys if (v := get_secret(project, k))}
+
+
+def build_env_var_payload(
+    project: Project,
+    *,
+    keys: list[str] | None = None,
+    variables: dict[str, str] | None = None,
+    preset: str | None = None,
+) -> dict[str, str]:
+    preset_vars = ENV_PRESETS.get(preset or "", {})
+    vault_keys = keys
+    if preset and not vault_keys:
+        vault_keys = PRESET_VAULT_KEYS.get(preset, [])
+    if not vault_keys and not preset_vars and not variables:
+        vault_keys = STRIPE_ENV_KEYS
+    vault_vars = _vault_subset(project, vault_keys or [])
+    return merge_env_vars(preset=preset_vars or None, vault=vault_vars or None, inline=variables)
+
+
 def push_vault_env_to_platform(
     project: Project,
     platform: str,
@@ -84,13 +156,10 @@ def push_vault_env_to_platform(
     project_id: str | None = None,
     environment_id: str | None = None,
     keys: list[str] | None = None,
+    variables: dict[str, str] | None = None,
+    preset: str | None = None,
 ) -> dict[str, Any]:
-    """Read vault secrets and push them to the given platform service."""
-    target_keys = keys or STRIPE_ENV_KEYS
-    env_vars = {k: v for k in target_keys if (v := get_secret(project, k))}
-    if not env_vars:
-        return {"pushed": [], "message": "No matching secrets found in vault"}
-
+    """Push vault secrets, optional preset defaults, and inline variables to Railway."""
     if platform != "railway":
         raise ValueError(f"Unsupported platform '{platform}' — supported: railway")
 
@@ -101,8 +170,22 @@ def push_vault_env_to_platform(
         )
     if not project_id:
         raise RuntimeError("project_id is required for Railway env push")
-    result = push_to_railway(token, project_id, service_id, env_vars, environment_id)
 
+    if preset and preset not in ENV_PRESETS:
+        raise ValueError(f"Unknown preset '{preset}' — available: {', '.join(sorted(ENV_PRESETS))}")
+
+    inline = None
+    if variables:
+        if not isinstance(variables, dict):
+            raise ValueError("variables must be an object of key/value strings")
+        inline = {str(k): str(v) for k, v in variables.items()}
+
+    env_vars = build_env_var_payload(project, keys=keys, variables=inline, preset=preset)
+    if not env_vars:
+        return {"pushed": [], "message": "No variables to push (empty preset, vault, and inline)"}
+
+    result = push_to_railway(token, project_id, service_id, env_vars, environment_id)
+    result["preset"] = preset
     result["message"] = (
         f"Pushed {len(env_vars)} var(s) to {platform}: {', '.join(sorted(env_vars.keys()))}"
     )

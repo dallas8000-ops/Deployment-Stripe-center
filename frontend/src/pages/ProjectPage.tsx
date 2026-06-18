@@ -23,6 +23,7 @@ import MonitoringPanel from "../components/MonitoringPanel";
 import DeployConfigPanel from "../components/DeployConfigPanel";
 import DeployNextSteps from "../components/DeployNextSteps";
 import DiagnosePanel from "../components/DiagnosePanel";
+import StripeAdvisorPanel from "../components/StripeAdvisorPanel";
 import InfraPanel from "../components/InfraPanel";
 import PipelineCompleteCard, { type CompletionData } from "../components/PipelineCompleteCard";
 import PipelineTerminal from "../components/PipelineTerminal";
@@ -286,6 +287,8 @@ export default function ProjectPage() {
 
   const [envPushServiceId, setEnvPushServiceId] = useState("");
   const [envPushProjectId, setEnvPushProjectId] = useState("");
+  const [envPushPreset, setEnvPushPreset] = useState("");
+  const [envPushVariables, setEnvPushVariables] = useState("");
   const [envPushResult, setEnvPushResult] = useState<string | null>(null);
 
   async function runEnvPush() {
@@ -293,10 +296,22 @@ export default function ProjectPage() {
     setError("");
     setEnvPushResult(null);
     try {
+      let variables: Record<string, string> | undefined;
+      if (envPushVariables.trim()) {
+        const parsed = JSON.parse(envPushVariables) as unknown;
+        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+          throw new Error("Extra variables must be a JSON object, e.g. {\"DATABASE_URL\": \"${{Postgres.DATABASE_URL}}\"}");
+        }
+        variables = Object.fromEntries(
+          Object.entries(parsed).map(([k, v]) => [k, String(v)])
+        );
+      }
       const result = await deployApi.pushEnvToPlatform(slug, {
         platform: "railway",
         service_id: envPushServiceId,
         project_id: envPushProjectId || undefined,
+        preset: envPushPreset || undefined,
+        variables,
       });
       setEnvPushResult(result.message);
     } catch (err) {
@@ -584,6 +599,8 @@ export default function ProjectPage() {
         />
       </div>
 
+      <StripeAdvisorPanel projectSlug={slug} />
+
       {verifyResult && (
         <section className="card">
           <h2>Verification</h2>
@@ -639,8 +656,8 @@ ${verifyResult.accountName ? `Account         ${verifyResult.accountName}` : ""}
       <section className="card">
         <h2>Push env vars to Railway</h2>
         <p className="muted">
-          Send vault secrets (Stripe keys, webhook secret, DATABASE_URL) directly to your deployed
-          Railway service — no manual copy-paste into the dashboard.
+          Push vault secrets, a preset template, and/or inline JSON variables to a Railway service —
+          no manual Raw Editor copy-paste. Requires <code>RAILWAY_API_TOKEN</code> in vault.
         </p>
         <div className="option-row">
           <label>
@@ -659,7 +676,23 @@ ${verifyResult.accountName ? `Account         ${verifyResult.accountName}` : ""}
               onChange={(e) => setEnvPushProjectId(e.target.value)}
             />
           </label>
+          <label>
+            Preset
+            <select value={envPushPreset} onChange={(e) => setEnvPushPreset(e.target.value)}>
+              <option value="">Stripe / vault keys only</option>
+              <option value="kistie-store">Kistie Store (Django)</option>
+            </select>
+          </label>
         </div>
+        <label className="block-label">
+          Extra variables (JSON, optional — overrides preset/vault)
+          <textarea
+            rows={4}
+            placeholder={'{"DATABASE_URL": "${{Postgres.DATABASE_URL}}"}'}
+            value={envPushVariables}
+            onChange={(e) => setEnvPushVariables(e.target.value)}
+          />
+        </label>
         <button
           type="button"
           className="btn btn-primary"

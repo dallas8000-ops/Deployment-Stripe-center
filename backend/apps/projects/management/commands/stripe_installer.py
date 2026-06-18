@@ -47,11 +47,31 @@ class Command(BaseCommand):
         diag = subs.add_parser("diagnose", help="Run diagnostics")
         diag.add_argument("slug")
 
+        portfolio = subs.add_parser(
+            "portfolio-audit",
+            help="Audit all Stripe webhooks; write local report (~/.stripe-installer/reports/)",
+        )
+        portfolio.add_argument(
+            "--project",
+            default="",
+            help="Project slug whose vault STRIPE_SECRET_KEY audits the whole Stripe account",
+        )
+        portfolio.add_argument("--user", default="", help="Owner email (default: first user)")
+        portfolio.add_argument(
+            "--fix",
+            action="store_true",
+            help="Re-register webhooks for registry apps (matched projects only)",
+        )
+        portfolio.add_argument("--dry-run", action="store_true", help="With --fix, show actions only")
+
         ready = subs.add_parser("readiness", help="Run readiness checks")
         ready.add_argument("slug")
 
     def handle(self, *args, **options):
         cmd = options["command"]
+        if cmd == "portfolio-audit":
+            self._portfolio_audit(options)
+            return
         slug = options.get("slug")
         project = self._project(slug, options.get("user", ""))
 
@@ -181,3 +201,60 @@ class Command(BaseCommand):
         checks = run_readiness_checks(project, Path(project.local_path))
         score = score_readiness(checks)
         self.stdout.write(f"Readiness: {score}/100")
+
+    def _portfolio_audit(self, options: dict) -> None:
+        import os
+
+        from apps.stripe_engine.portfolio_audit import (
+            fix_webhooks_for_projects,
+            run_portfolio_audit,
+            write_portfolio_report,
+        )
+        from apps.stripe_engine.portfolio_registry import ensure_registry_template, load_registry
+        from apps.vault.models import get_secret
+
+        ensure_registry_template()
+        registry = load_registry()
+        self.stdout.write(f"Registry: {ensure_registry_template()}")
+
+        secret = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+        publishable = os.environ.get("STRIPE_PUBLISHABLE_KEY", "").strip() or None
+        project_slug = (options.get("project") or "").strip()
+
+        owner = self._user(options.get("user", ""))
+        projects = list(Project.objects.filter(owner=owner))
+
+        if project_slug:
+            project = Project.objects.get(slug=project_slug, owner=owner)
+            secret = secret or (get_secret(project, "STRIPE_SECRET_KEY") or "")
+            publishable = publishable or get_secret(project, "STRIPE_PUBLISHABLE_KEY")
+
+        if not secret:
+            raise CommandError(
+                "Set STRIPE_SECRET_KEY in env or pass --project <slug> with keys in vault"
+            )
+
+        data = run_portfolio_audit(
+            secret_key=secret,
+            publishable_key=publishable,
+            registry_apps=registry,
+        )
+        md_path, json_path = write_portfolio_report(data)
+        self.stdout.write(self.style.SUCCESS(f"Report: {md_path}"))
+        self.stdout.write(f"JSON: {json_path}")
+        self.stdout.write(
+            f"Endpoints: {data['summary']['endpointCount']} total, "
+            f"{data['summary']['failingCount']} with issues"
+        )
+
+        if options.get("fix"):
+            fixes = fix_webhooks_for_projects(
+                projects,
+                registry,
+                dry_run=options.get("dry_run", False),
+            )
+            for row in fixes:
+                if row.get("ok"):
+                    self.stdout.write(self.style.SUCCESS(f"Fix {row['app']}: {row.get('webhookUrl', 'ok')}"))
+                else:
+                    self.stdout.write(self.style.ERROR(f"Fix {row['app']}: {row.get('message')}"))

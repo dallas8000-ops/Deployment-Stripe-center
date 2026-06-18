@@ -17,6 +17,7 @@ from apps.stripe_engine.diagnostics import run_diagnostics
 from apps.stripe_engine.provision import load_manifest
 from apps.stripe_engine.readiness import readiness_label, run_readiness_checks, score_readiness
 from apps.stripe_engine.repair import run_auto_fix, run_repair_action
+from apps.stripe_engine.stripe_advisor import run_stripe_advisor
 from apps.stripe_engine.verify import verify_stripe_keys
 from apps.vault.models import get_secret
 
@@ -157,6 +158,28 @@ class DiagnoseView(ProjectOwnedMixin, APIView):
         project.scan_data = scan_data
         project.save(update_fields=["scan_data", "updated_at"])
         return Response(report.to_dict())
+
+
+class StripeAdvisorView(ProjectOwnedMixin, APIView):
+    """Classify webhook failures and return step-by-step Dashboard/hosting playbooks."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, project_slug: str):
+        project = self.get_project(project_slug)
+        root = None
+        if project.local_path:
+            candidate = Path(project.local_path).resolve()
+            if candidate.is_dir():
+                root = candidate
+        report = run_stripe_advisor(project, root)
+        scan_data = dict(project.scan_data or {})
+        scan_data["lastAdvisorAt"] = report["scannedAt"]
+        scan_data["lastAdvisorRootCause"] = report["primaryRootCause"]
+        scan_data["webhookErrorRisk"] = report["webhookErrorRisk"]
+        project.scan_data = scan_data
+        project.save(update_fields=["scan_data", "updated_at"])
+        return Response(report)
 
 
 class ReadinessView(ProjectOwnedMixin, APIView):

@@ -592,9 +592,42 @@ export interface FixResult {
   report: DiagnosticReport;
 }
 
+export interface PlaybookStep {
+  order: number;
+  title: string;
+  detail: string;
+  where: "stripe_dashboard" | "hosting" | "vault" | "installer";
+  url?: string | null;
+  confirm?: string;
+}
+
+export interface AdvisorFinding {
+  rootCause: string;
+  severity: "error" | "warning" | "info";
+  title: string;
+  summary: string;
+  playbook: PlaybookStep[];
+  metrics?: Record<string, unknown>;
+}
+
+export interface StripeAdvisorReport {
+  scannedAt: string;
+  projectName: string;
+  projectSlug: string;
+  primaryRootCause: string;
+  webhookErrorRisk: boolean;
+  summary: string;
+  dashboardLinks: { keys: string; webhooks: string };
+  findings: AdvisorFinding[];
+  checks: Record<string, unknown>;
+}
+
 export const healthApi = {
   diagnose: (projectSlug: string) =>
     apiFetch<DiagnosticReport>(`/projects/${projectSlug}/diagnose/`, { method: "POST" }),
+
+  stripeAdvisor: (projectSlug: string) =>
+    apiFetch<StripeAdvisorReport>(`/projects/${projectSlug}/stripe-advisor/`, { method: "POST" }),
 
   readiness: (projectSlug: string) =>
     apiFetch<ReadinessResult>(`/projects/${projectSlug}/readiness/`),
@@ -825,9 +858,13 @@ export const deployApi = {
       project_id?: string;
       environment_id?: string;
       keys?: string[];
+      /** Inline vars merged last (override preset + vault). */
+      variables?: Record<string, string>;
+      /** Named template, e.g. kistie-store */
+      preset?: string;
     }
   ) =>
-    apiFetch<{ pushed: string[]; message: string; environmentId?: string }>(
+    apiFetch<{ pushed: string[]; message: string; environmentId?: string; preset?: string }>(
       `/projects/${projectSlug}/deploy/env-push/`,
       { method: "POST", body: JSON.stringify(opts) }
     ),

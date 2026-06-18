@@ -16,6 +16,7 @@ AI-assisted Stripe setup that **never exposes secrets to AI or logs**. One Djang
 | **Ops** | Docker prod stack, health checks, `check:prod`, `deploy:prod`, GitHub Actions CI, CLI |
 | **AI copilot** | Fix copilot, NL→config, readiness coach, handoff pack, catalog strategist, webhook incident |
 | **Monitoring** | Catalog drift (Celery Beat), webhook health, re-sync, audit log |
+| **Portfolio audit** | Account-wide webhook probe + local report (`~/.stripe-installer/reports/`) — [docs/PORTFOLIO-AUDIT.md](docs/PORTFOLIO-AUDIT.md) |
 | **Environments** | Test / staging / production URLs in `deploy.config.json`, per-project selector |
 | **Agency** | Organizations, RBAC, **email invites** (register link → auto-join), shared projects |
 | **GitHub App** | Install flow + webhook — PR readiness checks and optional check runs |

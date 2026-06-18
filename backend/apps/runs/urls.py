@@ -8,6 +8,7 @@ from .views import (
     PipelineRunDownloadView,
     PipelineRunListCreateView,
     ReadinessView,
+    StripeAdvisorView,
     StripeConfigView,
     VerifyKeysView,
 )
@@ -42,6 +43,11 @@ urlpatterns = [
         "projects/<slug:project_slug>/diagnose/",
         DiagnoseView.as_view(),
         name="project-diagnose",
+    ),
+    path(
+        "projects/<slug:project_slug>/stripe-advisor/",
+        StripeAdvisorView.as_view(),
+        name="project-stripe-advisor",
     ),
     path(
         "projects/<slug:project_slug>/readiness/",
