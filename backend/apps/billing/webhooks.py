@@ -9,6 +9,7 @@ import stripe
 from django.conf import settings
 from django.db import IntegrityError
 from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 
 from apps.billing.models import BillingWebhookEvent, OrgSubscription, Subscription
 
@@ -221,6 +222,7 @@ def process_billing_event(event: dict) -> None:
         logger.debug("Unhandled billing webhook event: %s", event_type)
 
 
+@csrf_exempt
 def billing_webhook(request):
     if request.method != "POST":
         return HttpResponse(status=405)
