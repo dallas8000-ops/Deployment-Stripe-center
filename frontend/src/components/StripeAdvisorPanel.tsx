@@ -132,9 +132,9 @@ export default function StripeAdvisorPanel({ projectSlug }: Props) {
         </ul>
       )}
 
-      {report?.checks?.expectedWebhookUrl && (
+      {typeof report?.checks?.expectedWebhookUrl === "string" && (
         <p className="vault-hint">
-          Expected webhook: <code>{String(report.checks.expectedWebhookUrl)}</code>
+          Expected webhook: <code>{report.checks.expectedWebhookUrl}</code>
         </p>
       )}
     </section>
