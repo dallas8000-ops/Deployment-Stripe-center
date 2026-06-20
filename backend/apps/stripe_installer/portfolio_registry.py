@@ -21,17 +21,7 @@ EXAMPLE_REGISTRY: dict[str, Any] = {
             "projectSlug": "stripe-installer",
             "localPath": r"C:\Software Projects\Deployment-Stripe-center",
             "transferAllowedTo": [],
-            "notes": "Unified Automation Center. Portfolio live demo: FrontlineDigital portfolioLiveUrls.stripeInstaller",
-        },
-        {
-            "id": "api-transfer-legacy",
-            "name": "API Transfer (legacy — retire after cutover)",
-            "productionUrl": "https://api-transfer-production.up.railway.app",
-            "webhookPath": "/api/billing/webhook",
-            "healthPath": "/health/",
-            "projectSlug": "api-transfer",
-            "transferAllowedTo": [],
-            "notes": "Remove this entry after docs/CUTOVER.md checklist is complete.",
+            "notes": "Unified Automation Center. Portfolio live demo: stripe-installer-production.up.railway.app/login",
         },
     ],
 }
