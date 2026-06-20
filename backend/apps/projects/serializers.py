@@ -14,6 +14,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     organization_slug = serializers.SerializerMethodField()
     organization_name = serializers.SerializerMethodField()
     org_billing = serializers.SerializerMethodField()
+    stripe_exempt = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
@@ -37,6 +38,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "organization_slug",
             "organization_name",
             "org_billing",
+            "stripe_exempt",
         )
         read_only_fields = (
             "id",
@@ -61,6 +63,11 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     def get_organization_name(self, obj: Project) -> str | None:
         return obj.organization.name if obj.organization_id else None
+
+    def get_stripe_exempt(self, obj: Project) -> bool:
+        from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
+
+        return is_stripe_exempt_slug(obj.slug)
 
     def get_org_billing(self, obj: Project) -> dict | None:
         if not obj.organization_id:
@@ -104,7 +111,13 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     def get_last_run_status(self, obj: Project) -> str | None:
         run = PipelineRun.objects.filter(project=obj).order_by("-created_at").first()
-        return run.status if run else None
+        if not run:
+            return None
+        if run.status == PipelineRun.Status.FAILED:
+            score = self.get_latest_readiness_score(obj)
+            if score is not None and score >= 75:
+                return None
+        return run.status
 
 
 class ProjectUpdateSerializer(serializers.ModelSerializer):

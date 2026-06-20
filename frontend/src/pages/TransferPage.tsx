@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { transferApi, type TransferProviderStatus } from "../api/client";
+import { projectsApi, transferApi, type Project, type TransferProviderStatus } from "../api/client";
+import SetupHubPanel from "../components/SetupHubPanel";
 
 export default function TransferPage() {
   const [providers, setProviders] = useState<TransferProviderStatus[]>([]);
@@ -8,22 +9,30 @@ export default function TransferPage() {
   const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
   const [auditValid, setAuditValid] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [flagship, setFlagship] = useState<Project | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [mod, prov, metricData, auditData] = await Promise.all([
+        const [mod, prov, metricData, auditData, projects] = await Promise.all([
           transferApi.moduleStatus(),
           transferApi.providerStatus(),
           transferApi.transferMetrics(),
           transferApi.transferAudit(),
+          projectsApi.list(),
         ]);
         if (!cancelled) {
           setModuleStatus(mod.status);
           setProviders(prov.providers);
           setMetrics(metricData.summary as Record<string, unknown>);
           setAuditValid(Boolean(auditData.valid?.valid));
+          setFlagship(
+            projects.find((p) => p.slug === "stripe-installer") ||
+              projects.find((p) => p.name.includes("Automation Center")) ||
+              projects[0] ||
+              null
+          );
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Could not load transfer status");
@@ -46,6 +55,25 @@ export default function TransferPage() {
       {error && (
         <section className="card card-error">
           <p>{error}</p>
+        </section>
+      )}
+
+      {flagship && (
+        <>
+          <SetupHubPanel projectSlug={flagship.slug} />
+          <p className="muted page-footer-link">
+            <Link to={`/projects/${flagship.slug}`}>Open project workspace</Link> to run the full setup pipeline (step 4).
+          </p>
+        </>
+      )}
+
+      {!flagship && !error && (
+        <section className="card">
+          <h2>Platform setup</h2>
+          <p className="muted">
+            Open your flagship project workspace to use Setup Hub (reset, Stripe scan, webhooks).{" "}
+            <Link to="/">Go to projects</Link>
+          </p>
         </section>
       )}
 

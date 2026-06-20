@@ -1,6 +1,7 @@
 import { FormEvent, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { APP_LOGIN_SUBTITLE } from "../config/branding";
 import AuthLayout from "../components/AuthLayout";
 
 export default function LoginPage() {
@@ -43,7 +44,7 @@ export default function LoginPage() {
   return (
     <AuthLayout
       title="Welcome back"
-      subtitle="Sign in to your Stripe Installer workspace"
+      subtitle={APP_LOGIN_SUBTITLE}
       footer={
         <>
           No account? <Link to="/register">Create one</Link>

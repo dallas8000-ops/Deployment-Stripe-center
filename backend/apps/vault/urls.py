@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import VaultDeleteView, VaultImportAllView, VaultImportView, VaultInitView, VaultKeysView, VaultSetView, VaultSourcesView
+from .views_copy import VaultCopyView
+from .views_pull import VaultPullFromHubView
 
 urlpatterns = [
     path(
@@ -22,6 +24,16 @@ urlpatterns = [
         "projects/<slug:project_slug>/vault/keys/delete/",
         VaultDeleteView.as_view(),
         name="vault-delete",
+    ),
+    path(
+        "projects/<slug:project_slug>/vault/keys/copy/",
+        VaultCopyView.as_view(),
+        name="vault-copy",
+    ),
+    path(
+        "projects/<slug:project_slug>/vault/pull-from-hub/",
+        VaultPullFromHubView.as_view(),
+        name="vault-pull-from-hub",
     ),
     path(
         "projects/<slug:project_slug>/vault/import-all/",

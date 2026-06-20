@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.access import ProjectOwnedMixin
+from apps.deploy.postgres import get_production_url
 from apps.projects.models import Project
 from apps.stripe_installer.readiness import readiness_label, run_readiness_checks, score_readiness
 from apps.stripe_installer.repair import run_auto_fix, run_repair_action
@@ -50,7 +51,7 @@ class ReadinessView(ProjectOwnedMixin, APIView):
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         app_url = (
             request.query_params.get("app_url")
-            or (project.scan_data or {}).get("productionUrl")
+            or get_production_url(project, "")
             or request.build_absolute_uri("/").rstrip("/")
         )
         checks = run_readiness_checks(project, root, production_url=app_url)

@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 
 import { vaultApi, type SecretSourceInfo, type VaultEntry } from "../api/client";
 
+const HUB_SLUG = "stripe-installer";
+
 const STRIPE_KEYS = [
-  { id: "STRIPE_SECRET_KEY", label: "Secret key", placeholder: "sk_live_…" },
-  { id: "STRIPE_PUBLISHABLE_KEY", label: "Publishable key", placeholder: "pk_live_…" },
-  { id: "STRIPE_WEBHOOK_SECRET", label: "Webhook secret", placeholder: "whsec_…" },
+  { id: "STRIPE_SECRET_KEY", label: "Secret key", placeholder: "sk_live_…", copyable: false },
+  { id: "STRIPE_PUBLISHABLE_KEY", label: "Publishable key", placeholder: "pk_live_…", copyable: true },
+  { id: "STRIPE_WEBHOOK_SECRET", label: "Webhook secret", placeholder: "whsec_…", copyable: true },
 ];
 
 type VaultPanelProps = Readonly<{
@@ -32,6 +34,29 @@ export default function VaultPanel({
   const [legacyPassphrase, setLegacyPassphrase] = useState("");
   const [showLegacyPass, setShowLegacyPass] = useState(false);
   const [vaultError, setVaultError] = useState("");
+  const [vaultNotice, setVaultNotice] = useState("");
+
+  const isHub = projectSlug === HUB_SLUG;
+  const hasStripeSecret = entries.some((e) => e.key === "STRIPE_SECRET_KEY" && e.readable !== false);
+
+  useEffect(() => {
+    if (!initialized || isHub || hasStripeSecret) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await vaultApi.pullFromHub(projectSlug);
+        if (!cancelled && res.copied.length > 0) {
+          onUpdate(res.entries, true);
+          setVaultNotice(res.message);
+        }
+      } catch {
+        /* hub empty or not configured — user adds keys on hub */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialized, isHub, hasStripeSecret, projectSlug, onUpdate]);
 
   useEffect(() => {
     if (!initialized) return;
@@ -69,6 +94,20 @@ export default function VaultPanel({
       onUpdate(res.entries, true);
     } catch (err) {
       setVaultError(err instanceof Error ? err.message : "Vault init failed");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function copyKey(keyName: string) {
+    setBusy(`copy-${keyName}`);
+    setVaultError("");
+    try {
+      const res = await vaultApi.copy(projectSlug, keyName);
+      await navigator.clipboard.writeText(res.value);
+      setVaultError("");
+    } catch (err) {
+      setVaultError(err instanceof Error ? err.message : "Copy failed");
     } finally {
       setBusy("");
     }
@@ -115,6 +154,21 @@ export default function VaultPanel({
     setDraftValue("");
   }
 
+  async function pullFromHub() {
+    setBusy("pull-hub");
+    setVaultError("");
+    setVaultNotice("");
+    try {
+      const res = await vaultApi.pullFromHub(projectSlug);
+      onUpdate(res.entries, true);
+      setVaultNotice(res.message);
+    } catch (err) {
+      setVaultError(err instanceof Error ? err.message : "Could not pull keys from Automation Center");
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function importFromEnv() {
     setBusy("vault-import");
     setVaultError("");
@@ -122,7 +176,12 @@ export default function VaultPanel({
       const res = await vaultApi.importFromEnv(projectSlug);
       onUpdate(res.entries, true);
     } catch (err) {
-      setVaultError(err instanceof Error ? err.message : "Import failed");
+      const msg = err instanceof Error ? err.message : "Import failed";
+      setVaultError(
+        msg.includes("No env file")
+          ? "No .env in this repo — use Pull from Automation Center (keys live on the hub project)."
+          : msg
+      );
     } finally {
       setBusy("");
     }
@@ -181,9 +240,21 @@ export default function VaultPanel({
           <h2>Secure vault</h2>
           <p className="muted">
             Secrets live in <code>~/.stripe-installer/</code> on this machine only — never pushed to git.
+            After saving, only masked values are shown. Use <strong>Copy</strong> for publishable/webhook keys, or{" "}
+            <strong>Sync keys to billing projects</strong> in Setup Hub for secret keys.
           </p>
         </div>
         <div className="vault-item-actions">
+          {!isHub && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => void pullFromHub()}
+              disabled={busy === "pull-hub" || !!busy}
+            >
+              {busy === "pull-hub" ? "Pulling…" : "Pull from Automation Center"}
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-primary btn-sm"
@@ -204,6 +275,8 @@ export default function VaultPanel({
           </button>
         </div>
       </div>
+
+      {vaultNotice ? <div className="alert">{vaultNotice}</div> : null}
 
       {vaultError ? (
         <div className="alert alert-error" role="alert">
@@ -288,6 +361,26 @@ export default function VaultPanel({
                   )}
                 </div>
                 <div className="vault-item-actions">
+                  {def.copyable && entry.readable !== false ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => void copyKey(def.id)}
+                      disabled={!!busy}
+                    >
+                      {busy === `copy-${def.id}` ? "Copied…" : "Copy"}
+                    </button>
+                  ) : null}
+                  {!def.copyable && entry.readable !== false ? (
+                    <a
+                      href="https://dashboard.stripe.com/apikeys"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-ghost btn-sm"
+                    >
+                      Stripe Dashboard
+                    </a>
+                  ) : null}
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
@@ -325,7 +418,11 @@ export default function VaultPanel({
                   spellCheck={false}
                   aria-label={`${def.label} (write-only)`}
                 />
-                <p className="vault-hint">Value is encrypted and never shown again after saving.</p>
+                <p className="vault-hint">
+                  {def.id === "STRIPE_SECRET_KEY"
+                    ? "Secret keys are never shown after save — copy sk_live_ from Stripe Dashboard only."
+                    : "Value is encrypted and never shown again after saving."}
+                </p>
                 <div className="vault-item-actions">
                   <button
                     type="button"

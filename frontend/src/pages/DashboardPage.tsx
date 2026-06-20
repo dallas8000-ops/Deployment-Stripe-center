@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { projectsApi, type Project } from "../api/client";
+import { filterVisibleProjects } from "../config/portfolio";
 import ScoreRing from "../components/ScoreRing";
 import WelcomeWizard from "../components/WelcomeWizard";
 
@@ -17,14 +18,16 @@ export default function DashboardPage() {
     () => localStorage.getItem("wizard-dismissed") === "true"
   );
 
+  const visibleProjects = useMemo(() => filterVisibleProjects(projects), [projects]);
+
   const stats = useMemo(() => {
-    const scores = projects
+    const scores = visibleProjects
       .map((p) => p.latest_readiness_score)
       .filter((s): s is number => typeof s === "number");
     const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-    const running = projects.filter((p) => p.last_run_status === "running").length;
-    return { avg, running, total: projects.length };
-  }, [projects]);
+    const running = visibleProjects.filter((p) => p.last_run_status === "running").length;
+    return { avg, running, total: visibleProjects.length };
+  }, [visibleProjects]);
 
   async function load() {
     setLoading(true);
@@ -81,7 +84,7 @@ export default function DashboardPage() {
         <div className="page-header">
           <div>
             <h1>Projects</h1>
-            <p className="muted">Manage Stripe integrations for your apps.</p>
+            <p className="muted">Seven Stripe billing workspaces — portfolio demos (Kistie Store, Blog API) are managed separately.</p>
           </div>
         </div>
 
@@ -147,14 +150,14 @@ export default function DashboardPage() {
         <h2>Your projects</h2>
         {loading ? (
           <p className="muted">Loading…</p>
-        ) : projects.length === 0 ? (
+        ) : visibleProjects.length === 0 ? (
           <div className="empty-state">
             <p className="empty-state-title">No projects yet</p>
             <p className="muted">Create a project above, set a local path, then unlock the vault and run the pipeline.</p>
           </div>
         ) : (
           <ul className="project-grid">
-            {projects.map((p) => (
+            {visibleProjects.map((p) => (
               <li key={p.id}>
                 <div className="project-card">
                   <Link to={`/projects/${p.slug}`} className="project-card-link">

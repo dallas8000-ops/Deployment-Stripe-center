@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { APP_SHORT_NAME } from "../config/branding";
+
 type AuthLayoutProps = {
   title: string;
   subtitle: string;
@@ -26,11 +28,11 @@ export default function AuthLayout({ title, subtitle, footer, children }: AuthLa
               />
             </svg>
           </div>
-          <p className="auth-brand-name">Stripe Installer</p>
-          <h2 className="auth-brand-headline">Stripe setup without exposing secrets.</h2>
+          <p className="auth-brand-name">{APP_SHORT_NAME}</p>
+          <h2 className="auth-brand-headline">Stripe setup and deploy — without exposing secrets.</h2>
           <p className="auth-brand-copy">
-            Encrypted vault, live verification, automated provisioning, and deploy readiness — built for
-            production billing apps.
+            Encrypted vault, live verification, API Transfer deploy, and portfolio webhook audit — one
+            workspace for all your apps.
           </p>
           <ul className="auth-brand-features">
             <li>Write-only secret vault</li>

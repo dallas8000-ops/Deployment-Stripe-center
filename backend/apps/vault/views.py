@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.access import ProjectOwnedMixin
+from apps.stripe_installer.hub_keys import pull_stripe_keys_for_user
 
 from .crypto import VaultConfigurationError
 from .import_env import auto_import_env_to_vault, find_env_file, import_env_to_vault
@@ -45,6 +46,7 @@ class VaultKeysView(ProjectOwnedMixin, APIView):
 
     def get(self, request, project_slug: str):
         project = self.get_project(project_slug, min_role="viewer")
+        pull_stripe_keys_for_user(project, request.user)
         initialized = ProjectVault.objects.filter(project=project).exists()
         entries = list_vault_entries(project)
         data = VaultKeyListSerializer(

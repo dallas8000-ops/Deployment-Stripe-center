@@ -24,6 +24,7 @@ import DeployConfigPanel from "../components/DeployConfigPanel";
 import DeployNextSteps from "../components/DeployNextSteps";
 import DiagnosePanel from "../components/DiagnosePanel";
 import StripeAdvisorPanel from "../components/StripeAdvisorPanel";
+import SetupHubPanel from "../components/SetupHubPanel";
 import InfraPanel from "../components/InfraPanel";
 import PipelineCompleteCard, { type CompletionData } from "../components/PipelineCompleteCard";
 import PipelineTerminal from "../components/PipelineTerminal";
@@ -129,12 +130,12 @@ export default function ProjectPage() {
       let title: string | undefined;
       let body: string | undefined;
       if (handoff) {
-        title = `Stripe Installer setup — ${project?.name || slug}`;
+        title = `Automation Center setup — ${project?.name || slug}`;
         body = `${handoff.prDescription}\n\n---\n\n## Test checklist\n\n${handoff.testChecklist}\n\n---\n\n## Ops runbook\n\n${handoff.opsRunbook}`;
       } else {
         try {
           const pack = await aiApi.handoffPack(slug);
-          title = `Stripe Installer setup — ${project?.name || slug}`;
+          title = `Automation Center setup — ${project?.name || slug}`;
           body = `${pack.prDescription}\n\n---\n\n## Test checklist\n\n${pack.testChecklist}`;
         } catch {
           /* open PR with default body if handoff fails */
@@ -475,8 +476,15 @@ export default function ProjectPage() {
       {/* ──────────────────────────────────────────── SECTION: SETUP ──────────────────────────────────────────── */}
       <div className="section-header">
         <h2>Setup</h2>
-        <p className="muted">Secure keys and code scanning</p>
+        <p className="muted">Reset workspace, Stripe scan, webhooks, and vault keys</p>
       </div>
+
+      <SetupHubPanel
+        projectSlug={slug}
+        onRunFullSetup={runFullSetup}
+        pipelineRunning={pipelineRunning}
+        onVaultChanged={load}
+      />
 
       <div className="grid-2">
         <VaultPanel

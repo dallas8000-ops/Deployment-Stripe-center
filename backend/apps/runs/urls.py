@@ -1,5 +1,7 @@
 from django.urls import path
 
+from apps.stripe_installer.views_setup_hub import SetupHubActionView, SetupHubView
+
 from .views import (
     CodegenDownloadView,
     PipelineRunDetailView,
@@ -45,5 +47,15 @@ urlpatterns = [
         "projects/<slug:project_slug>/stripe/config/",
         StripeConfigView.as_view(),
         name="stripe-config",
+    ),
+    path(
+        "projects/<slug:project_slug>/setup-hub/",
+        SetupHubView.as_view(),
+        name="project-setup-hub",
+    ),
+    path(
+        "projects/<slug:project_slug>/setup-hub/actions/",
+        SetupHubActionView.as_view(),
+        name="project-setup-hub-actions",
     ),
 ]

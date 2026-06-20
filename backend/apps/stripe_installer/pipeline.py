@@ -13,6 +13,7 @@ from apps.vault.models import get_secret, hydrate_project_vault, vault_health
 from .codegen import generate_all, write_project_files
 from .events import EventEmitter, PipelineEvent, emit
 from .provision import ProvisionConfig, load_manifest, provision_catalog
+from .hub_keys import HUB_SLUG, pull_stripe_keys_for_user, resolve_production_app_url
 from .readiness import readiness_label, run_readiness_checks, score_readiness
 from .stripe_config import provision_config_from_stripe_file
 from .verify import verify_stripe_keys
@@ -163,6 +164,18 @@ def run_pipeline(
         except Exception as exc:
             emit(on_event, PipelineEvent("vault.hydrate", "warn", str(exc)))
 
+    if project.slug != HUB_SLUG:
+        copied = pull_stripe_keys_for_user(project, project.owner)
+        if copied:
+            emit(
+                on_event,
+                PipelineEvent(
+                    "vault.hydrate",
+                    "ok",
+                    f"Pulled {len(copied)} Stripe key(s) from Automation Center hub",
+                ),
+            )
+
     secret = get_secret(project, "STRIPE_SECRET_KEY")
     publishable = get_secret(project, "STRIPE_PUBLISHABLE_KEY")
 
@@ -195,7 +208,8 @@ def run_pipeline(
         project.save(update_fields=["framework", "language", "scan_data", "updated_at"])
 
     webhook_path = _webhook_path(project.framework, project.scan_data)
-    app_url = options.app_url.rstrip("/")
+    prod_url = resolve_production_app_url(project)
+    app_url = (prod_url or options.app_url).rstrip("/")
     provision_data = None
     files_written: list[str] = []
     generated_files: dict[str, str] | None = None

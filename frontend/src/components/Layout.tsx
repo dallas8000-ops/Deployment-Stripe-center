@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { projectsApi } from "../api/client";
+import { apiConnectionLabel, projectsApi } from "../api/client";
+import { APP_SHORT_NAME } from "../config/branding";
 import { useAuth } from "../auth/AuthContext";
 
 const NAV = [
@@ -49,7 +50,7 @@ export default function Layout() {
             <span className="brand-mark" aria-hidden>
               ◆
             </span>
-            Stripe Automation Center
+            {APP_SHORT_NAME}
           </NavLink>
           <nav className="topbar-nav" aria-label="Main">
             {NAV.map(({ to, label, match }) => (
@@ -90,6 +91,9 @@ export default function Layout() {
         )}
 
         <div className="topbar-right">
+          <span className="muted topbar-env" title="One app: Stripe setup + deploy/transfer (API Transfer is not a separate product)">
+            {apiConnectionLabel()}
+          </span>
           <span className="user-email">{user?.email}</span>
           <button
             type="button"

@@ -5,7 +5,7 @@ from django.http import JsonResponse
 def root(_request):
     return JsonResponse(
         {
-            "service": "Stripe Installer SaaS API",
+            "service": "Deployment & Stripe Automation Center API",
             "status": "ok",
             "ui": getattr(settings, "APP_PUBLIC_URL", "http://localhost:5173"),
             "api": "/api/v1/",

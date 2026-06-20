@@ -1,5 +1,23 @@
 const API_BASE = import.meta.env.VITE_API_BASE ?? "/api/v1";
 
+/** Resolved API origin for UI hints (local dev vs production). */
+export function apiConnectionLabel(): string {
+  const base = import.meta.env.VITE_API_BASE ?? "/api/v1";
+  if (base.startsWith("http")) {
+    try {
+      return new URL(base).host;
+    } catch {
+      return base;
+    }
+  }
+  if (typeof window !== "undefined") {
+    return window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost"
+      ? "local dev (unified app)"
+      : `${window.location.hostname} (unified app)`;
+  }
+  return "unified app";
+}
+
 export interface ApiError {
   error?: string;
   detail?: string | Array<{ message?: string } | string> | Record<string, unknown>;
@@ -94,7 +112,7 @@ export async function apiFetch<T>(
       }
     } catch {
       if (res.status === 404) {
-        message = `API not found (${path}) — restart the backend: npm run dev:stop then npm run dev`;
+        message = `API not found (${path}) — stale backend. Run: npm run dev:stop  and then  npm run dev`;
       } else if (res.status === 409 || res.status === 503) {
         message = "Port 8000 is in use by another process. Close old backend terminals, then run npm run dev again.";
       } else if (res.status >= 500) {
@@ -144,6 +162,7 @@ export interface Project {
     freeMemberLimit: number;
     freeProjectLimit: number;
   } | null;
+  stripe_exempt?: boolean;
 }
 
 export interface InvitePreview {
@@ -445,6 +464,22 @@ export const vaultApi = {
         body: JSON.stringify({ key, confirm: true }),
       }
     ),
+  copy: (projectSlug: string, key: string) =>
+    apiFetch<{ key: string; value: string; copyable: boolean }>(
+      `/projects/${projectSlug}/vault/keys/copy/`,
+      {
+        method: "POST",
+        body: JSON.stringify({ key }),
+      }
+    ),
+  pullFromHub: (projectSlug: string) =>
+    apiFetch<{
+      copied: string[];
+      message: string;
+      keys: string[];
+      entries: VaultEntry[];
+      vaultHealth?: VaultHealth;
+    }>(`/projects/${projectSlug}/vault/pull-from-hub/`, { method: "POST" }),
   importFromEnv: (projectSlug: string, envFile: string | "auto" = "auto") =>
     apiFetch<{
       imported: string[];
@@ -704,6 +739,86 @@ export interface StripeAdvisorReport {
   findings: AdvisorFinding[];
   checks: Record<string, unknown>;
 }
+
+export interface SetupHubStep {
+  id: string;
+  label: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface SetupHubStatus {
+  projectSlug: string;
+  projectName: string;
+  vaultHealth: {
+    unreadableCount: number;
+    totalCount: number;
+  };
+  verification: VerificationResult;
+  registryPath: string;
+  registryApp: Record<string, unknown> | null;
+  expectedWebhookUrl: string;
+  productionUrl: string;
+  lastPortfolioAuditSummary: Record<string, unknown> | null;
+  lastPortfolioAuditRegistryGaps: Array<Record<string, string>>;
+  steps: SetupHubStep[];
+  readyForPipeline: boolean;
+  portfolioSummary?: {
+    totalApps: number;
+    stripeBillingCount: number;
+    stripeExemptCount: number;
+    stripeExemptApps: Array<{ id: string; name: string; projectSlug?: string }>;
+    stripeBillingApps: Array<{ id: string; name: string; projectSlug?: string }>;
+  };
+  stripeExempt?: boolean;
+  isHubProject?: boolean;
+  hubSlug?: string;
+}
+
+export interface SetupHubActionResult {
+  ok?: boolean;
+  error?: string;
+  status?: SetupHubStatus;
+  audit?: Record<string, unknown>;
+  results?: Array<Record<string, unknown>>;
+  expectedWebhookUrl?: string;
+  vaultSecretsCleared?: number;
+}
+
+export const setupHubApi = {
+  status: (projectSlug: string) =>
+    apiFetch<SetupHubStatus>(`/projects/${projectSlug}/setup-hub/`),
+
+  reset: (projectSlug: string, clearVault = false) =>
+    apiFetch<SetupHubActionResult>(`/projects/${projectSlug}/setup-hub/actions/`, {
+      method: "POST",
+      body: JSON.stringify({ action: "reset", clearVault }),
+    }),
+
+  audit: (projectSlug: string) =>
+    apiFetch<SetupHubActionResult>(`/projects/${projectSlug}/setup-hub/actions/`, {
+      method: "POST",
+      body: JSON.stringify({ action: "audit" }),
+    }),
+
+  registerWebhooks: (projectSlug: string, dryRun = false) =>
+    apiFetch<SetupHubActionResult>(`/projects/${projectSlug}/setup-hub/actions/`, {
+      method: "POST",
+      body: JSON.stringify({ action: "register_webhooks", dryRun }),
+    }),
+
+  syncRegistry: (projectSlug: string) =>
+    apiFetch<SetupHubActionResult>(`/projects/${projectSlug}/setup-hub/actions/`, {
+      method: "POST",
+      body: JSON.stringify({ action: "sync_registry" }),
+    }),
+
+  syncVaultToProjects: (projectSlug: string) =>
+    apiFetch<SetupHubActionResult>(`/projects/${projectSlug}/setup-hub/actions/`, {
+      method: "POST",
+      body: JSON.stringify({ action: "sync_vault" }),
+    }),
+};
 
 export const healthApi = {
   diagnose: (projectSlug: string) =>

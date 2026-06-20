@@ -202,7 +202,11 @@ def _deploy_checks(project: Project, project_root: Path, scan: dict) -> list[Rea
         or _file_exists(project_root / "scripts" / "backup-db.ps1")
     )
     platform = scan.get("deployPlatform") or ("django" if project.framework == "django" else "unknown")
-    has_build = scan.get("has_package_json", False) or project.framework == "django"
+    has_build = (
+        scan.get("has_package_json", False)
+        or _file_exists(project_root / "package.json")
+        or project.framework == "django"
+    )
 
     checks = [
         ReadinessCheck(

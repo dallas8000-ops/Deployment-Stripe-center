@@ -62,10 +62,11 @@ function shutdown(code = 0) {
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
+const python = path.join(root, "backend", ".venv", isWin ? "Scripts" : "bin", isWin ? "python.exe" : "python");
 const daphne = path.join(root, "backend", ".venv", isWin ? "Scripts" : "bin", isWin ? "daphne.exe" : "daphne");
 const viteJs = path.join(root, "frontend", "node_modules", "vite", "bin", "vite.js");
 
-if (!existsSync(daphne)) {
+if (!existsSync(python)) {
   console.error("Backend not set up. Run first:\n  .\\scripts\\setup.ps1\n");
   process.exit(1);
 }
@@ -85,10 +86,18 @@ async function portInUse(port) {
 }
 
 async function backendIsCurrent() {
+  const probes = [
+    "http://127.0.0.1:8000/api/v1/agency/dashboard/",
+    "http://127.0.0.1:8000/api/v1/projects/stripe-installer/setup-hub/",
+    "http://127.0.0.1:8000/api/v1/projects/stripe-installer/vault/pull-from-hub/",
+  ];
   try {
-    const res = await fetch("http://127.0.0.1:8000/api/v1/agency/dashboard/");
-    // 404 = old URLconf without organizations app; 401/403 = route exists, needs auth
-    return res.status !== 404;
+    for (const url of probes) {
+      const res = await fetch(url, { method: url.endsWith("pull-from-hub/") ? "POST" : "GET" });
+      // 404 = old URLconf; 401/403/400/405 = route exists, needs auth or valid body
+      if (res.status === 404) return false;
+    }
+    return true;
   } catch {
     return false;
   }
@@ -128,8 +137,8 @@ if (busy) {
   children.push(
     startProcess(
       "backend",
-      daphne,
-      ["-b", "127.0.0.1", "-p", "8000", "config.asgi:application"],
+      python,
+      ["-m", "daphne", "-b", "127.0.0.1", "-p", "8000", "config.asgi:application"],
       "backend"
     )
   );

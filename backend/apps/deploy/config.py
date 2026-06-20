@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.projects.models import Project
+from apps.stripe_installer.portfolio_catalog import catalog_by_slug
 
 VALID_PLATFORMS = frozenset({"vercel", "railway", "fly", "docker", "unknown"})
 VALID_POSTGRES_PROVIDERS = frozenset(
@@ -160,4 +161,9 @@ def resolve_production_url(project: Project, root: Path | None, fallback: str = 
 
     scan = project.scan_data or {}
     url = str(scan.get("productionUrl") or scan.get("production_url") or "").rstrip("/")
-    return url or fallback.rstrip("/")
+    if url:
+        return url
+    catalog = catalog_by_slug(project.slug)
+    if catalog and catalog.get("productionUrl"):
+        return str(catalog["productionUrl"]).rstrip("/")
+    return fallback.rstrip("/")

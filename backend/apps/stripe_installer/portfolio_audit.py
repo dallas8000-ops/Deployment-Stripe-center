@@ -202,6 +202,10 @@ def run_portfolio_audit(
 
     registry_gaps: list[dict[str, str]] = []
     for app in unmatched_registry:
+        if app.stripe_exempt:
+            continue
+        if not app.requires_stripe_webhook:
+            continue
         if not app.production_url:
             registry_gaps.append({"app": app.id, "issue": "productionUrl missing in registry"})
             continue
@@ -327,6 +331,8 @@ def fix_webhooks_for_projects(
     by_slug = {p.slug: p for p in owner_projects}
 
     for app in registry:
+        if app.stripe_exempt or not app.requires_stripe_webhook:
+            continue
         if not app.project_slug or not app.webhook_url:
             continue
         project = by_slug.get(app.project_slug)

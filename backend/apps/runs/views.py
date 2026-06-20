@@ -13,6 +13,7 @@ from apps.runs.models import PipelineRun
 from apps.runs.serializers import PipelineRunSerializer, StartPipelineSerializer
 from apps.runs.tasks import execute_pipeline
 from apps.stripe_installer.codegen import build_zip, generate_all
+from apps.stripe_installer.hub_keys import pull_stripe_keys_for_user, resolve_production_app_url
 from apps.stripe_installer.provision import load_manifest
 from apps.stripe_installer.stripe_advisor import run_stripe_advisor
 from apps.stripe_installer.verify import verify_stripe_keys
@@ -24,6 +25,7 @@ class VerifyKeysView(ProjectOwnedMixin, APIView):
 
     def post(self, request, project_slug: str):
         project = self.get_project(project_slug)
+        pull_stripe_keys_for_user(project, request.user)
         secret = get_secret(project, "STRIPE_SECRET_KEY")
         publishable = get_secret(project, "STRIPE_PUBLISHABLE_KEY")
         result = verify_stripe_keys(secret, publishable)
@@ -50,8 +52,10 @@ class PipelineRunListCreateView(ProjectOwnedMixin, generics.ListCreateAPIView):
             )
 
         options = dict(body.validated_data)
+        pull_stripe_keys_for_user(project, request.user)
         if not options.get("app_url"):
-            options["app_url"] = request.build_absolute_uri("/").rstrip("/")
+            prod = resolve_production_app_url(project)
+            options["app_url"] = prod or request.build_absolute_uri("/").rstrip("/")
 
         run = PipelineRun.objects.create(
             project=project,
@@ -112,7 +116,8 @@ class CodegenDownloadView(ProjectOwnedMixin, APIView):
 
         root = Path(project.local_path).resolve()
         manifest = load_manifest(root)
-        app_url = request.data.get("app_url") or request.build_absolute_uri("/").rstrip("/")
+        prod = resolve_production_app_url(project)
+        app_url = request.data.get("app_url") or prod or request.build_absolute_uri("/").rstrip("/")
         files = generate_all(
             project.framework,
             manifest,

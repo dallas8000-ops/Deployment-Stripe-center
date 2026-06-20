@@ -11,20 +11,35 @@ from .portfolio_paths import portfolio_data_dir, portfolio_registry_path
 
 EXAMPLE_REGISTRY: dict[str, Any] = {
     "version": 1,
-    "allowedApps": [
-        {
-            "id": "automation-center",
-            "name": "Deployment & Stripe Automation Center",
-            "productionUrl": "https://stripe-installer.gilliomfrontlinedigital.com",
-            "webhookPath": "/api/v1/billing/webhook/",
-            "healthPath": "/health/",
-            "projectSlug": "stripe-installer",
-            "localPath": r"C:\Software Projects\Deployment-Stripe-center",
-            "transferAllowedTo": [],
-            "notes": "Unified Automation Center. Portfolio live demo: stripe-installer.gilliomfrontlinedigital.com/login",
-        },
-    ],
+    "allowedApps": [],
 }
+
+
+def _example_apps_from_catalog() -> list[dict[str, Any]]:
+    from .portfolio_catalog import PORTFOLIO_CATALOG
+
+    apps: list[dict[str, Any]] = []
+    for entry in PORTFOLIO_CATALOG:
+        if entry.get("merged"):
+            continue
+        apps.append(
+            {
+                "id": entry["id"],
+                "name": entry["name"],
+                "productionUrl": entry.get("productionUrl", ""),
+                "webhookPath": entry.get("webhookPath", "/stripe/webhook"),
+                "healthPath": entry.get("healthPath", "/health/"),
+                "projectSlug": entry.get("projectSlug", ""),
+                "localPath": "",
+                "transferAllowedTo": [],
+                "stripeExempt": bool(entry.get("stripeExempt")),
+                "notes": entry.get("notes", ""),
+            }
+        )
+    return apps
+
+
+EXAMPLE_REGISTRY["allowedApps"] = _example_apps_from_catalog()
 
 
 @dataclass
@@ -37,6 +52,12 @@ class PortfolioApp:
     project_slug: str = ""
     local_path: str = ""
     transfer_allowed_to: list[str] = field(default_factory=list)
+    stripe_exempt: bool = False
+    notes: str = ""
+
+    @property
+    def requires_stripe_webhook(self) -> bool:
+        return not self.stripe_exempt and bool(self.production_url) and bool(self.webhook_path)
 
     @property
     def webhook_url(self) -> str:
@@ -51,7 +72,7 @@ class PortfolioApp:
         return f"{base}{path}" if base else ""
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        data = {
             "id": self.id,
             "name": self.name,
             "productionUrl": self.production_url,
@@ -61,6 +82,11 @@ class PortfolioApp:
             "localPath": self.local_path,
             "transferAllowedTo": list(self.transfer_allowed_to),
         }
+        if self.stripe_exempt:
+            data["stripeExempt"] = True
+        if self.notes:
+            data["notes"] = self.notes
+        return data
 
 
 def _parse_app(raw: dict[str, Any]) -> PortfolioApp:
@@ -75,6 +101,8 @@ def _parse_app(raw: dict[str, Any]) -> PortfolioApp:
         transfer_allowed_to=[
             str(x).strip() for x in (raw.get("transferAllowedTo") or []) if str(x).strip()
         ],
+        stripe_exempt=bool(raw.get("stripeExempt")),
+        notes=str(raw.get("notes") or "").strip(),
     )
 
 
