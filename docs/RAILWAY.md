@@ -8,7 +8,7 @@ Set these in **Railway → your service → Variables** (not only in local `back
 
 | Variable | Example / notes |
 |----------|----------------|
-| `VAULT_MASTER_KEY` | 64 hex chars — `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `VAULT_MASTER_KEY` | **Required.** 64 hex chars — `python -c "import secrets; print(secrets.token_hex(32))"`. Pin once and never rotate without `rotate_vault_key`. |
 | `DJANGO_SECRET_KEY` | Random 50+ chars |
 | `DJANGO_DEBUG` | `false` |
 | `DATABASE_URL` | Auto-set when you add the **PostgreSQL** plugin |
@@ -16,6 +16,25 @@ Set these in **Railway → your service → Variables** (not only in local `back
 | `SAAS_STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
 | `SAAS_STRIPE_PRICE_*` | Price IDs for plans |
 | `SAAS_STRIPE_WEBHOOK_SECRET` | From Stripe Dashboard → Webhooks |
+
+### Vault master key (read this first)
+
+Project secrets (Railway API token, Stripe keys, etc.) are encrypted in Postgres with a key derived from **`VAULT_MASTER_KEY`** via scrypt + AES-GCM. If the master key changes between deploys, **every stored secret becomes permanently undecryptable** — this looks like “env vars not retaining.”
+
+| Environment | Where the key comes from |
+|-------------|-------------------------|
+| **Railway** | **`VAULT_MASTER_KEY` env var only** (env wins over any file on ephemeral disk) |
+| **Local dev** | `~/.stripe-installer/vault-master-key` (file first; env migrates to file) |
+
+**Railway checklist:**
+
+1. Generate once: `python -c "import secrets; print(secrets.token_hex(32))"`
+2. Railway → **stripe-installer-production** (unified service) → **Variables** → set `VAULT_MASTER_KEY` to that value
+3. When merging API Transfer onto the same service, **use one key** — if old services had different keys, pick the key that decrypts live secrets or re-enter secrets after pinning a new key
+4. Do **not** rely on `~/.stripe-installer/` on Railway — the filesystem resets on redeploy; the local vault mirror (`projects/*/vault.json`) uses the same master key and does not help if the key is lost
+5. After setting the key, redeploy and verify: `curl https://<your-domain>/health/` shows vault ok; open a project and confirm stored tokens still decrypt
+
+**If secrets were already lost:** set a new permanent `VAULT_MASTER_KEY`, redeploy, re-enter platform tokens in each project vault (Stripe Dashboard, Railway tokens, etc.).
 
 **Auto-configured by Railway** (do not hardcode in repo):
 

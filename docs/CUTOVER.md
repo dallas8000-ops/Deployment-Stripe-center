@@ -68,12 +68,13 @@ FLY_API_TOKEN
 GITHUB_TOKEN
 ORENA_API_TOKEN          (if used)
 SUPABASE_* / CLOUDFLARE_* (if used)
+VAULT_MASTER_KEY         (one permanent 64-char hex — see docs/RAILWAY.md)
 ```
 
-Keep existing Automation Center vars:
+Keep existing Automation Center vars (do not duplicate — merge onto one service):
 
 ```
-VAULT_MASTER_KEY
+VAULT_MASTER_KEY         (must match key that decrypts live vault, or re-enter secrets)
 DJANGO_SECRET_KEY
 DATABASE_URL
 SAAS_STRIPE_SECRET_KEY

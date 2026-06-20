@@ -27,7 +27,7 @@ Last updated: merge session complete for **code + docs + portfolio linking**. Pr
 
 These require Railway Dashboard + Stripe Dashboard access:
 
-1. [ ] Merge API Transfer **env vars** onto `stripe-installer-production` Railway service
+1. [ ] Merge API Transfer **env vars** onto `stripe-installer-production` Railway service — **include one permanent `VAULT_MASTER_KEY`** (see [RAILWAY.md](RAILWAY.md#vault-master-key-read-this-first))
 2. [ ] Verify unified app: `curl https://stripe-installer-production.up.railway.app/health/`
 3. [ ] Test login, one deploy, Render→Railway dry run on a project
 4. [ ] Stripe: disable webhook on `api-transfer-production.../api/billing/webhook`

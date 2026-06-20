@@ -34,6 +34,26 @@ class MasterKeyTests(TestCase):
                     self.assertEqual(key, "a" * 64)
                     self.assertEqual((Path(tmp) / "vault-master-key").read_text().strip(), "a" * 64)
 
+    def test_env_wins_over_file_on_railway(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "vault-master-key").write_text("f" * 64, encoding="utf-8")
+            with patch.dict(
+                "os.environ",
+                {"VAULT_MASTER_KEY": "e" * 64, "RAILWAY_ENVIRONMENT": "production"},
+                clear=False,
+            ):
+                with patch("apps.vault.master_key.portfolio_data_dir", return_value=Path(tmp)):
+                    key = resolve_vault_master_key()
+            self.assertEqual(key, "e" * 64)
+
+    def test_railway_without_env_does_not_persist_generated_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict("os.environ", {"RAILWAY_ENVIRONMENT": "production"}, clear=False):
+                with patch("apps.vault.master_key.portfolio_data_dir", return_value=Path(tmp)):
+                    key = resolve_vault_master_key()
+            self.assertEqual(len(key), 64)
+            self.assertFalse((Path(tmp) / "vault-master-key").exists())
+
 
 @override_settings(VAULT_MASTER_KEY="b" * 64)
 class LocalStoreTests(TestCase):

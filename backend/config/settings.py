@@ -195,8 +195,8 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
 }
 
-# Vault master key: persisted in ~/.stripe-installer/vault-master-key (local only, never in git).
-# Optional VAULT_MASTER_KEY env overrides for Railway; on first run an env value is copied to that file.
+# Vault master key: local dev persists in ~/.stripe-installer/vault-master-key.
+# Railway: set VAULT_MASTER_KEY in Variables (64-char hex) — env wins over ephemeral disk.
 from apps.vault.master_key import resolve_vault_master_key
 
 VAULT_MASTER_KEY = resolve_vault_master_key()
