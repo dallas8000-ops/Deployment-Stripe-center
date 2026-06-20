@@ -1,11 +1,11 @@
-# Production cutover helper — run from repo root after: railway login
+# Production cutover helper - run from repo root after: railway login
 # Docs: docs/CUTOVER.md, docs/MERGE-STATUS.md
 
 $ErrorActionPreference = "Stop"
 $UnifiedUrl = "https://stripe-installer-production.up.railway.app"
 $LegacyUrl = "https://api-transfer-production.up.railway.app"
 
-Write-Host "=== Deployment & Stripe Automation Center — cutover helper ===" -ForegroundColor Cyan
+Write-Host "=== Deployment & Stripe Automation Center - cutover helper ===" -ForegroundColor Cyan
 
 Write-Host "`n1. Health checks"
 try {
@@ -27,7 +27,7 @@ $reg = Join-Path $env:USERPROFILE ".stripe-installer\portfolio-registry.json"
 if (Test-Path $reg) {
     Write-Host "   Found: $reg" -ForegroundColor Green
 } else {
-    Write-Host "   Missing — copy from backend portfolio_registry EXAMPLE_REGISTRY" -ForegroundColor Yellow
+    Write-Host "   Missing - copy from backend portfolio_registry EXAMPLE_REGISTRY" -ForegroundColor Yellow
 }
 
 Write-Host "`n3. Railway env merge (requires: railway login + railway link)"
@@ -65,10 +65,11 @@ if (Get-Command railway -ErrorAction SilentlyContinue) {
 Write-Host "`n4. Stripe webhooks (live mode)"
 Write-Host "   KEEP:    $UnifiedUrl/api/v1/billing/webhook/"
 Write-Host "   DISABLE: $LegacyUrl/api/billing/webhook"
-Write-Host "   CLI:     stripe webhook_endpoints list --live"
+Write-Host "   Dashboard: Developers -> Webhooks -> api-transfer-production -> Disable"
+Write-Host "   CLI (needs secret key with webhook write):"
 Write-Host "            stripe webhook_endpoints update we_1ThOh0RxznXvj6jhjt7jZ3nm --disabled=true --live -c"
 
-Write-Host "`n5. After 48h quiet on legacy URL — delete api-transfer-production in Railway dashboard"
+Write-Host "`n5. After 48h quiet on legacy URL - delete api-transfer-production in Railway dashboard"
 
 Write-Host "`n6. Local verify (from backend/):"
 Write-Host "   python manage.py verify_cutover"
