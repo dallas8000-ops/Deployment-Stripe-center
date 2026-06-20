@@ -24,11 +24,12 @@ function pipe(name, child) {
   });
 }
 
-function startShell(name, command, cwd) {
-  const child = spawn(command, {
+/** Spawn without shell so paths containing & or spaces stay intact on Windows. */
+function startProcess(name, executable, args, cwd) {
+  const child = spawn(executable, args, {
     cwd: path.join(root, cwd),
     stdio: ["ignore", "pipe", "pipe"],
-    shell: true,
+    shell: false,
     windowsHide: true,
     env: process.env,
   });
@@ -41,7 +42,7 @@ function startShell(name, command, cwd) {
     } else if (code) {
       console.error(
         `${prefix(name)}exited with code ${code}\n` +
-          "Port may be in use. Run: .\\scripts\\stop-dev.ps1\n"
+          "Port may be in use. Run: npm run dev:stop\n"
       );
       shutdown(code);
     }
@@ -62,9 +63,15 @@ process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
 const daphne = path.join(root, "backend", ".venv", isWin ? "Scripts" : "bin", isWin ? "daphne.exe" : "daphne");
+const viteJs = path.join(root, "frontend", "node_modules", "vite", "bin", "vite.js");
 
 if (!existsSync(daphne)) {
   console.error("Backend not set up. Run first:\n  .\\scripts\\setup.ps1\n");
+  process.exit(1);
+}
+
+if (!existsSync(viteJs)) {
+  console.error("Frontend not set up. Run first:\n  npm run setup:frontend\n");
   process.exit(1);
 }
 
@@ -118,10 +125,17 @@ if (busy) {
     process.exit(1);
   }
 } else {
-  const backendCmd = `"${daphne}" -b 127.0.0.1 -p 8000 config.asgi:application`;
-  children.push(startShell("backend", backendCmd, "backend"));
+  children.push(
+    startProcess(
+      "backend",
+      daphne,
+      ["-b", "127.0.0.1", "-p", "8000", "config.asgi:application"],
+      "backend"
+    )
+  );
 }
 
-children.push(startShell("frontend", "npm run dev", "frontend"));
+// Invoke vite via node directly — npm/.cmd shims break when the project path contains &.
+children.push(startProcess("frontend", process.execPath, [viteJs], "frontend"));
 
 console.log("Dev servers starting — open http://localhost:5173\n");

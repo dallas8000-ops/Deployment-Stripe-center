@@ -12,13 +12,10 @@ from apps.runs.artifacts import resolve_run_files
 from apps.runs.models import PipelineRun
 from apps.runs.serializers import PipelineRunSerializer, StartPipelineSerializer
 from apps.runs.tasks import execute_pipeline
-from apps.stripe_engine.codegen import build_zip, generate_all
-from apps.stripe_engine.diagnostics import run_diagnostics
-from apps.stripe_engine.provision import load_manifest
-from apps.stripe_engine.readiness import readiness_label, run_readiness_checks, score_readiness
-from apps.stripe_engine.repair import run_auto_fix, run_repair_action
-from apps.stripe_engine.stripe_advisor import run_stripe_advisor
-from apps.stripe_engine.verify import verify_stripe_keys
+from apps.stripe_installer.codegen import build_zip, generate_all
+from apps.stripe_installer.provision import load_manifest
+from apps.stripe_installer.stripe_advisor import run_stripe_advisor
+from apps.stripe_installer.verify import verify_stripe_keys
 from apps.vault.models import get_secret
 
 
@@ -131,35 +128,6 @@ class CodegenDownloadView(ProjectOwnedMixin, APIView):
         return response
 
 
-def _require_local_path(project: Project) -> Path:
-    from pathlib import Path
-
-    if not project.local_path:
-        raise ValueError("Set project local_path first.")
-    root = Path(project.local_path).resolve()
-    if not root.is_dir():
-        raise FileNotFoundError(f"Project path not found: {root}")
-    return root
-
-
-class DiagnoseView(ProjectOwnedMixin, APIView):
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def post(self, request, project_slug: str):
-        project = self.get_project(project_slug)
-        try:
-            root = _require_local_path(project)
-        except (ValueError, FileNotFoundError) as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        report = run_diagnostics(project, root)
-        scan_data = dict(project.scan_data or {})
-        scan_data["lastHealthScore"] = report.health_score
-        scan_data["lastDiagnosedAt"] = report.scanned_at
-        project.scan_data = scan_data
-        project.save(update_fields=["scan_data", "updated_at"])
-        return Response(report.to_dict())
-
-
 class StripeAdvisorView(ProjectOwnedMixin, APIView):
     """Classify webhook failures and return step-by-step Dashboard/hosting playbooks."""
 
@@ -182,92 +150,13 @@ class StripeAdvisorView(ProjectOwnedMixin, APIView):
         return Response(report)
 
 
-class ReadinessView(ProjectOwnedMixin, APIView):
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def get(self, request, project_slug: str):
-        project = self.get_project(project_slug)
-        try:
-            root = _require_local_path(project)
-        except (ValueError, FileNotFoundError) as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        app_url = (
-            request.query_params.get("app_url")
-            or (project.scan_data or {}).get("productionUrl")
-            or request.build_absolute_uri("/").rstrip("/")
-        )
-        checks = run_readiness_checks(project, root, production_url=app_url)
-        score = score_readiness(checks)
-        scan_data = dict(project.scan_data or {})
-        scan_data["lastReadinessScore"] = score
-        scan_data["lastReadinessLabel"] = readiness_label(score)
-        project.scan_data = scan_data
-        project.save(update_fields=["scan_data", "updated_at"])
-        return Response(
-            {
-                "score": score,
-                "label": readiness_label(score),
-                "checks": [c.to_dict() for c in checks],
-            }
-        )
-
-
-class FixView(ProjectOwnedMixin, APIView):
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def post(self, request, project_slug: str):
-        project = self.get_project(project_slug)
-        try:
-            _require_local_path(project)
-        except (ValueError, FileNotFoundError) as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        data = request.data or {}
-        action = data.get("action")
-        issue_ids = data.get("issue_ids") or data.get("issueIds")
-        force = bool(data.get("force"))
-        app_url = data.get("app_url") or request.build_absolute_uri("/").rstrip("/")
-
-        if action:
-            try:
-                repair = run_repair_action(project, action, force=force, app_url=app_url)
-                from pathlib import Path
-
-                report = run_diagnostics(project, Path(project.local_path).resolve())
-                return Response(
-                    {
-                        "repairs": [repair.to_dict()],
-                        "report": report.to_dict(),
-                    }
-                )
-            except Exception as exc:
-                return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        if data.get("all"):
-            repairs, report = run_auto_fix(project, force=force, app_url=app_url)
-        else:
-            repairs, report = run_auto_fix(
-                project,
-                issue_ids=issue_ids,
-                force=force,
-                app_url=app_url,
-            )
-
-        return Response(
-            {
-                "repairs": [r.to_dict() for r in repairs],
-                "report": report.to_dict(),
-            }
-        )
-
-
 class StripeConfigView(ProjectOwnedMixin, APIView):
     """Read/write stripe.config.json in the client project repo."""
 
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request, project_slug: str):
-        from apps.stripe_engine.stripe_config import config_from_disk, stripe_config_path
+        from apps.stripe_installer.stripe_config import config_from_disk, stripe_config_path
 
         project = self.get_project(project_slug)
         if not project.local_path:
@@ -286,7 +175,7 @@ class StripeConfigView(ProjectOwnedMixin, APIView):
         )
 
     def put(self, request, project_slug: str):
-        from apps.stripe_engine.stripe_config import normalize_stripe_config, write_stripe_config
+        from apps.stripe_installer.stripe_config import normalize_stripe_config, write_stripe_config
 
         project = self.get_project(project_slug)
         if not project.local_path:

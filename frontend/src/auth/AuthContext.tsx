@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { authApi, clearTokens, type User } from "../api/client";
+import { authApi, clearTokens, refreshAccessToken, type User } from "../api/client";
 
 interface AuthContextValue {
   user: User | null;
@@ -30,6 +30,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
+    const { access, refresh } = {
+      access: localStorage.getItem("access_token"),
+      refresh: localStorage.getItem("refresh_token"),
+    };
+    if (!access && refresh) {
+      await refreshAccessToken();
+    }
     try {
       const me = await authApi.me();
       setUser(me);

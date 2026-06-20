@@ -7,6 +7,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+REPO_ROOT = BASE_DIR.parent
+
+from config.private_env import load_private_env
+
+load_private_env(REPO_ROOT)
+
+from apps.vault.app_secrets import load_app_secrets_into_environ
+
+load_app_secrets_into_environ(backend_dir=BASE_DIR)
 
 RAILWAY_PUBLIC_DOMAIN = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
 ON_RAILWAY = bool(os.environ.get("RAILWAY_ENVIRONMENT") or RAILWAY_PUBLIC_DOMAIN)
@@ -60,11 +69,13 @@ INSTALLED_APPS = [
     "apps.organizations",
     "apps.projects",
     "apps.vault",
-    "apps.stripe_engine",
+    "apps.stripe_installer",
+    "apps.diagnostics",
     "apps.runs",
     "apps.billing",
     "apps.deploy",
-    "apps.ai",
+    "apps.api_transfer",
+    "apps.ai_assistant",
     "apps.licenses",
 ]
 
@@ -179,13 +190,16 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=12),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
     "ROTATE_REFRESH_TOKENS": True,
 }
 
-# 32-byte master key — hex (64 chars) or base64. Generate: python -c "import secrets; print(secrets.token_hex(32))"
-VAULT_MASTER_KEY = os.environ.get("VAULT_MASTER_KEY", "")
+# Vault master key: persisted in ~/.stripe-installer/vault-master-key (local only, never in git).
+# Optional VAULT_MASTER_KEY env overrides for Railway; on first run an env value is copied to that file.
+from apps.vault.master_key import resolve_vault_master_key
+
+VAULT_MASTER_KEY = resolve_vault_master_key()
 
 # Optional path to legacy Node CLI (legacy/node/dist/cli.js) — Python codegen works without this
 STRIPE_INSTALLER_CLI = os.environ.get("STRIPE_INSTALLER_CLI", "")
@@ -265,6 +279,46 @@ GITHUB_APP_PRIVATE_KEY = os.environ.get("GITHUB_APP_PRIVATE_KEY", "")
 GITHUB_APP_SLUG = os.environ.get("GITHUB_APP_SLUG", "")
 GITHUB_APP_SETUP_URL = os.environ.get("GITHUB_APP_SETUP_URL", "")
 GITHUB_WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_API_BASE_URL = os.environ.get("GITHUB_API_BASE_URL", "https://api.github.com")
+
+# API Transfer provider credentials (private_env/*.env or Railway env)
+FLY_API_TOKEN = os.environ.get("FLY_API_TOKEN", "")
+FLY_API_BASE_URL = os.environ.get("FLY_API_BASE_URL", "https://api.machines.dev")
+FLY_ORG_SLUG = os.environ.get("FLY_ORG_SLUG", "personal")
+
+RENDER_API_TOKEN = os.environ.get("RENDER_API_TOKEN", "")
+RENDER_API_BASE_URL = os.environ.get("RENDER_API_BASE_URL", "https://api.render.com")
+RENDER_OWNER_ID = os.environ.get("RENDER_OWNER_ID", "")
+RENDER_DEFAULT_REGION = os.environ.get("RENDER_DEFAULT_REGION", "oregon")
+RENDER_DEFAULT_PLAN = os.environ.get("RENDER_DEFAULT_PLAN", "starter")
+
+RAILWAY_API_TOKEN = os.environ.get("RAILWAY_API_TOKEN", "")
+RAILWAY_API_BASE_URL = os.environ.get("RAILWAY_API_BASE_URL", "https://backboard.railway.app")
+RAILWAY_PROJECT_ID = os.environ.get("RAILWAY_PROJECT_ID", "")
+
+SUPABASE_ACCESS_TOKEN = os.environ.get("SUPABASE_ACCESS_TOKEN", "")
+SUPABASE_ORG_ID = os.environ.get("SUPABASE_ORG_ID", "")
+SUPABASE_DEFAULT_REGION = os.environ.get("SUPABASE_DEFAULT_REGION", "us-east-1")
+
+CLOUDFLARE_API_TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN", "")
+CLOUDFLARE_ZONE_ID = os.environ.get("CLOUDFLARE_ZONE_ID", "")
+
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "") or os.environ.get("SAAS_STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "") or os.environ.get("SAAS_STRIPE_WEBHOOK_SECRET", "")
+
+ORENA_API_TOKEN = os.environ.get("ORENA_API_TOKEN", "")
+ORENA_API_BASE_URL = os.environ.get("ORENA_API_BASE_URL", "https://api.orena.cloud")
+ORENA_PROJECT_ID = os.environ.get("ORENA_PROJECT_ID", "")
+ORENA_DEFAULT_REGION = os.environ.get("ORENA_DEFAULT_REGION", "nairobi")
+
+TRANSFER_WORKER_LIMIT = int(os.environ.get("TRANSFER_WORKER_LIMIT", "5"))
+TRANSFER_WORKER_POLL_INTERVAL_SECONDS = int(os.environ.get("TRANSFER_WORKER_POLL_INTERVAL_SECONDS", "5"))
+TRANSFER_WORKER_LEASE_TTL_SECONDS = int(os.environ.get("TRANSFER_WORKER_LEASE_TTL_SECONDS", "120"))
+TRANSFER_ORG_CONCURRENCY_CAP = int(os.environ.get("TRANSFER_ORG_CONCURRENCY_CAP", "1"))
+TRANSFER_QUEUE_AGING_WINDOW_SECONDS = int(os.environ.get("TRANSFER_QUEUE_AGING_WINDOW_SECONDS", "300"))
+TRANSFER_QUEUE_MAX_AGING_BOOST = int(os.environ.get("TRANSFER_QUEUE_MAX_AGING_BOOST", "10"))
+
 
 # Org billing free tier (when SAAS_STRIPE_* is configured)
 ORG_FREE_MEMBER_LIMIT = os.environ.get("ORG_FREE_MEMBER_LIMIT", "3")

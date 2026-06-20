@@ -5,9 +5,17 @@ from rest_framework.views import APIView
 from apps.core.access import ProjectOwnedMixin
 
 from .crypto import VaultConfigurationError
-from .import_env import import_env_to_vault
-from .models import ProjectVault, delete_secret, get_or_create_vault, list_secret_keys, list_vault_entries, set_secret
-from .serializers import VaultDeleteSerializer, VaultEntrySerializer, VaultImportSerializer, VaultKeyListSerializer, VaultSetSerializer
+from .import_env import auto_import_env_to_vault, find_env_file, import_env_to_vault
+from .models import ProjectVault, delete_secret, get_or_create_vault, list_secret_keys, list_vault_entries, set_secret, vault_health
+from .serializers import (
+    VaultDeleteSerializer,
+    VaultEntrySerializer,
+    VaultImportAllSerializer,
+    VaultImportSerializer,
+    VaultKeyListSerializer,
+    VaultSetSerializer,
+)
+from .secret_sources import discover_secret_sources, import_all_discovered_secrets, resolve_project_root
 
 
 class VaultInitView(ProjectOwnedMixin, APIView):
@@ -26,6 +34,7 @@ class VaultInitView(ProjectOwnedMixin, APIView):
                 "initialized_at": vault.initialized_at.isoformat(),
                 "keys": list_secret_keys(project),
                 "entries": list_vault_entries(project),
+                "vaultHealth": vault_health(project),
             },
             status=status.HTTP_201_CREATED,
         )
@@ -43,6 +52,7 @@ class VaultKeysView(ProjectOwnedMixin, APIView):
                 "keys": [e["key"] for e in entries],
                 "entries": entries,
                 "initialized": initialized,
+                "vaultHealth": vault_health(project),
             }
         ).data
         return Response(data)
@@ -102,19 +112,28 @@ class VaultImportView(ProjectOwnedMixin, APIView):
         from pathlib import Path
 
         project = self.get_project(project_slug)
-        if not project.local_path:
-            return Response({"error": "Set project local_path first."}, status=status.HTTP_400_BAD_REQUEST)
-        root = Path(project.local_path).resolve()
-        if not root.is_dir():
-            return Response({"error": f"Project path not found: {root}"}, status=status.HTTP_400_BAD_REQUEST)
+        root = resolve_project_root(project)
+        if not root:
+            return Response(
+                {
+                    "error": (
+                        "Project folder not found. Set local_path on the project or add "
+                        "localPath in ~/.stripe-installer/portfolio-registry.json"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         serializer = VaultImportSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        env_file = serializer.validated_data.get("env_file", ".env.local")
+        env_file = serializer.validated_data.get("env_file", "auto").strip() or "auto"
 
         try:
             get_or_create_vault(project)
             imported = import_env_to_vault(project, root, env_file=env_file)
+            if env_file == "auto":
+                found = find_env_file(root)
+                env_file = found.relative_to(root).as_posix() if found else "auto"
         except VaultConfigurationError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except (FileNotFoundError, ValueError) as exc:
@@ -126,6 +145,58 @@ class VaultImportView(ProjectOwnedMixin, APIView):
                 "env_file": env_file,
                 "keys": list_secret_keys(project),
                 "entries": list_vault_entries(project),
+                "vaultHealth": vault_health(project),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class VaultSourcesView(ProjectOwnedMixin, APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, project_slug: str):
+        project = self.get_project(project_slug, min_role="viewer")
+        return Response(discover_secret_sources(project))
+
+
+class VaultImportAllView(ProjectOwnedMixin, APIView):
+    project_min_role = "admin"
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, project_slug: str):
+        project = self.get_project(project_slug)
+        serializer = VaultImportAllSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        root = resolve_project_root(project)
+        if not root:
+            return Response(
+                {
+                    "error": (
+                        "Project folder not found. Set local_path on the project or add "
+                        "localPath in ~/.stripe-installer/portfolio-registry.json"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            get_or_create_vault(project)
+            result = import_all_discovered_secrets(
+                project,
+                legacy_passphrase=serializer.validated_data.get("legacy_passphrase"),
+                include_legacy=serializer.validated_data.get("include_legacy", True),
+                include_env=serializer.validated_data.get("include_env", True),
+            )
+        except VaultConfigurationError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        return Response(
+            {
+                **result,
+                "keys": list_secret_keys(project),
+                "entries": list_vault_entries(project),
+                "vaultHealth": vault_health(project),
             },
             status=status.HTTP_201_CREATED,
         )

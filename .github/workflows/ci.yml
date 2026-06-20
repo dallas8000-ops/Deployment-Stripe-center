@@ -39,7 +39,7 @@ jobs:
 
       - name: Backend tests
         working-directory: backend
-        run: python manage.py test apps.deploy apps.vault apps.projects apps.stripe_engine
+        run: python manage.py test apps.deploy apps.vault apps.projects apps.stripe_installer apps.diagnostics apps.api_transfer
 
       - name: Migrate (smoke test DB)
         working-directory: backend

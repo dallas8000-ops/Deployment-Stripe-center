@@ -1,0 +1,78 @@
+from __future__ import annotations
+
+from rest_framework import serializers
+
+PROVIDERS = ["render", "railway", "fly", "kong", "terraform", "supabase"]
+
+
+class SecretSerializer(serializers.Serializer):
+    key = serializers.CharField(min_length=1)
+    value = serializers.CharField(required=False, allow_blank=True)
+    sealed = serializers.BooleanField(required=False, default=False)
+
+    def validate(self, attrs):
+        if attrs.get("sealed"):
+            return attrs
+        if not attrs.get("value"):
+            raise serializers.ValidationError("Secret value is required unless sealed=true.")
+        return attrs
+
+
+class DeploymentRequestSerializer(serializers.Serializer):
+    appName = serializers.CharField(min_length=1)
+    targetProvider = serializers.ChoiceField(choices=PROVIDERS)
+    region = serializers.CharField(required=False, allow_blank=True)
+    files = serializers.ListField(child=serializers.CharField(allow_blank=True), default=list)
+    packageJson = serializers.DictField(required=False, allow_null=True)
+    repoUrl = serializers.URLField(required=False, allow_blank=True)
+    branch = serializers.CharField(required=False, allow_blank=True)
+    environment = serializers.DictField(child=serializers.CharField(allow_blank=True), default=dict)
+    secrets = SecretSerializer(many=True, default=list)
+    domain = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    enableStripe = serializers.BooleanField(default=False)
+    enableMonitoring = serializers.BooleanField(default=False)
+    enableBackups = serializers.BooleanField(default=False)
+    requestedBy = serializers.CharField(required=False, allow_blank=True)
+    targetEnvironment = serializers.ChoiceField(choices=["dev", "stage", "prod"], default="stage")
+    discoveryId = serializers.CharField(required=False, allow_blank=True)
+
+    def normalized(self) -> dict:
+        data = dict(self.validated_data)
+        data["domain"] = data.get("domain") or None
+        data["packageJson"] = data.get("packageJson") or None
+        data["repoUrl"] = data.get("repoUrl") or ""
+        data["branch"] = data.get("branch") or ""
+        data["secrets"] = [dict(s) for s in data.get("secrets", [])]
+        data["environment"] = dict(data.get("environment", {}))
+        data["files"] = list(data.get("files", []))
+        data["discoveryId"] = data.get("discoveryId") or ""
+        return data
+
+
+class GitHubImportSerializer(serializers.Serializer):
+    repoUrl = serializers.CharField(min_length=1)
+    branch = serializers.CharField(required=False, allow_blank=True)
+    accessToken = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False)
+
+
+class TransferStartSerializer(serializers.Serializer):
+    mode = serializers.ChoiceField(choices=["queue", "demand"], default="queue")
+    only = serializers.ListField(child=serializers.CharField(min_length=1), required=False, default=list)
+    limit = serializers.IntegerField(required=False, min_value=1, max_value=100)
+    redeployExisting = serializers.BooleanField(default=False)
+    verify = serializers.BooleanField(default=True)
+    verifyTimeout = serializers.IntegerField(min_value=10, default=240)
+    verifyInterval = serializers.IntegerField(min_value=3, default=10)
+    serviceTimeout = serializers.IntegerField(min_value=30, default=180)
+    allowOverlap = serializers.BooleanField(default=False)
+    dryRun = serializers.BooleanField(default=False)
+    queueOnly = serializers.BooleanField(default=False)
+    queuePriority = serializers.IntegerField(min_value=0, max_value=100, default=0)
+    maxRetries = serializers.IntegerField(min_value=0, max_value=10, default=3)
+    replayFromCheckpoint = serializers.BooleanField(default=True)
+    workspaceConcurrencyCap = serializers.IntegerField(min_value=1, max_value=10, default=1)
+
+    def validate(self, attrs):
+        if attrs.get("mode") == "demand" and not attrs.get("only"):
+            raise serializers.ValidationError("Demand mode requires at least one 'only' target.")
+        return attrs

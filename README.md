@@ -1,6 +1,11 @@
-# Stripe Installer
+# Deployment & Stripe Automation Center
 
-AI-assisted Stripe setup that **never exposes secrets to AI or logs**. One Django + React product — encrypted vault, live pipeline, codegen, diagnose/fix, and deploy readiness.
+Combined platform for **deployment / API transfer** and **Stripe setup** — one login, one database, one encrypted vault per project.
+
+- **Layout:** [docs/STRUCTURE.md](docs/STRUCTURE.md)
+- **API Transfer merge:** [docs/AUTOMATION-CENTER.md](docs/AUTOMATION-CENTER.md)
+
+Never exposes secrets to the frontend, AI, or logs.
 
 ## Status
 

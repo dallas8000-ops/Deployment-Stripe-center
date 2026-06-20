@@ -7,6 +7,11 @@ dist/
 _zip_review/
 saas/
 
+# Local-only platform secrets (Automation Center dev — never commit real *.env)
+private_env/*.env
+!private_env/*.env.example
+!private_env/README.md
+
 # Django backend
 backend/.venv/
 backend/__pycache__/

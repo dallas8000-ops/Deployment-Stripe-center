@@ -58,7 +58,7 @@ def _tool_readiness(args: dict) -> dict:
 
 def _tool_drift(args: dict) -> dict:
     from apps.core.access import get_project_for_user
-    from apps.stripe_engine.drift import detect_drift
+    from apps.diagnostics.drift import detect_drift
 
     slug = args.get("project_slug") or args.get("slug")
     if not slug:
@@ -157,7 +157,7 @@ def _tool_diagnose(args: dict) -> dict:
     from pathlib import Path
 
     from apps.core.access import get_project_for_user
-    from apps.stripe_engine.diagnostics import run_diagnostics
+    from apps.diagnostics.diagnostics import run_diagnostics
 
     slug = args.get("project_slug") or args.get("slug")
     if not slug:

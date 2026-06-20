@@ -8,7 +8,7 @@ import urllib.request
 from typing import Any
 
 from apps.projects.models import Project
-from apps.vault.models import get_secret
+from apps.vault.models import get_secret, vault_health
 
 STRIPE_ENV_KEYS = [
     "STRIPE_SECRET_KEY",
@@ -182,6 +182,12 @@ def push_vault_env_to_platform(
 
     env_vars = build_env_var_payload(project, keys=keys, variables=inline, preset=preset)
     if not env_vars:
+        health = vault_health(project)
+        if health["unreadableCount"]:
+            raise RuntimeError(
+                f"Cannot push env vars: {health['unreadableCount']} vault secret(s) cannot be "
+                "decrypted. Restore ~/.stripe-installer/projects/ backup or re-enter keys in the vault."
+            )
         return {"pushed": [], "message": "No variables to push (empty preset, vault, and inline)"}
 
     result = push_to_railway(token, project_id, service_id, env_vars, environment_id)
