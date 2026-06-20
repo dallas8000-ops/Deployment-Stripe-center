@@ -14,12 +14,12 @@ EXAMPLE_REGISTRY: dict[str, Any] = {
     "allowedApps": [
         {
             "id": "stripe-installer",
-            "name": "Stripe Installer",
+            "name": "Deployment & Stripe Automation Center",
             "productionUrl": "https://stripe-installer-production.up.railway.app",
             "webhookPath": "/api/v1/billing/webhook/",
             "healthPath": "/health/",
             "projectSlug": "stripe-installer",
-            "localPath": r"C:\Software Projects\Stripe Installer",
+            "localPath": r"C:\Software Projects\deployment-stripe-center",
             "transferAllowedTo": ["api-transfer"],
         },
         {
