@@ -2,7 +2,8 @@
 # Docs: docs/CUTOVER.md, docs/MERGE-STATUS.md
 
 $ErrorActionPreference = "Stop"
-$UnifiedUrl = "https://stripe-installer-production.up.railway.app"
+$UnifiedUrl = "https://stripe-installer.gilliomfrontlinedigital.com"
+$UnifiedRailwayUrl = "https://stripe-installer-production.up.railway.app"
 $LegacyUrl = "https://api-transfer-production.up.railway.app"
 
 Write-Host "=== Deployment & Stripe Automation Center - cutover helper ===" -ForegroundColor Cyan
@@ -30,11 +31,14 @@ if (Test-Path $reg) {
     Write-Host "   Missing - copy from backend portfolio_registry EXAMPLE_REGISTRY" -ForegroundColor Yellow
 }
 
-Write-Host "`n3. Railway env merge (requires: railway login + railway link)"
-Write-Host "   Copy these from api-transfer-production -> stripe-installer-production Variables:"
+Write-Host "`n3. Deploy provider tokens (optional - NOT copied from api-transfer service vars)"
+Write-Host "   These were never Railway service variables on api-transfer. They live in each"
+Write-Host "   project's vault (~/.stripe-installer/projects/<slug>/ or in-app Settings)."
+Write-Host "   Add server-level vars on Stripe-Installer ONLY if you want live deploy without"
+Write-Host "   per-project vault setup:"
 @(
-    "RAILWAY_API_TOKEN",
-    "RAILWAY_PROJECT_ID",
+    "RAILWAY_API_TOKEN   (https://railway.com/account/tokens)",
+    "RAILWAY_PROJECT_ID  (auto-set by Railway on this service - do not copy manually)",
     "RENDER_API_TOKEN",
     "RENDER_OWNER_ID",
     "FLY_API_TOKEN",
@@ -63,7 +67,7 @@ if (Get-Command railway -ErrorAction SilentlyContinue) {
 }
 
 Write-Host "`n4. Stripe webhooks (live mode)"
-Write-Host "   KEEP:    $UnifiedUrl/api/v1/billing/webhook/"
+Write-Host "   KEEP:    $UnifiedUrl/api/v1/billing/webhook/ (or $UnifiedRailwayUrl/api/v1/billing/webhook/)"
 Write-Host "   DISABLE: $LegacyUrl/api/billing/webhook"
 Write-Host "   Dashboard: Developers -> Webhooks -> api-transfer-production -> Disable"
 Write-Host "   CLI (needs secret key with webhook write):"

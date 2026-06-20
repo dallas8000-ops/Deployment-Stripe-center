@@ -15,13 +15,13 @@ EXAMPLE_REGISTRY: dict[str, Any] = {
         {
             "id": "automation-center",
             "name": "Deployment & Stripe Automation Center",
-            "productionUrl": "https://stripe-installer-production.up.railway.app",
+            "productionUrl": "https://stripe-installer.gilliomfrontlinedigital.com",
             "webhookPath": "/api/v1/billing/webhook/",
             "healthPath": "/health/",
             "projectSlug": "stripe-installer",
             "localPath": r"C:\Software Projects\Deployment-Stripe-center",
             "transferAllowedTo": [],
-            "notes": "Unified Automation Center. Portfolio live demo: stripe-installer-production.up.railway.app/login",
+            "notes": "Unified Automation Center. Portfolio live demo: stripe-installer.gilliomfrontlinedigital.com/login",
         },
     ],
 }

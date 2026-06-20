@@ -55,20 +55,36 @@ Work through these in order.
 | Celery / Redis on API Transfer? | Add Redis plugin to unified service; set `REDIS_URL`, `CELERY_EAGER=false` |
 | Transfer worker | Add a **second Railway service** (worker) running `npm run transfer:worker` or run worker in same container only for low volume |
 
-### 2. Environment variables to merge onto the unified service
+### 2. Environment variables on the unified service
 
-Copy from API Transfer Railway → Automation Center service:
+**Do not look for deploy tokens on api-transfer-production** — that service never had `RAILWAY_API_TOKEN`, `GITHUB_TOKEN`, etc. as Railway variables. Those credentials live in **per-project vaults** (encrypted in Postgres + local mirror under `~/.stripe-installer/projects/<slug>/`).
+
+**Stripe-Installer already has what it needs** if `/health/` shows `vault: ok` and billing works:
+
+| On Stripe-Installer (keep) | Notes |
+|----------------------------|-------|
+| `DATABASE_URL`, `DJANGO_*` | Core app |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Works (aliases `SAAS_STRIPE_*`) |
+| `VAULT_MASTER_KEY` | **Required** — 64-char hex; pin once |
+| `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` | Custom domain |
+| `RAILWAY_PUBLIC_DOMAIN` | Auto-set (`stripe-installer.gilliomfrontlinedigital.com`) |
+
+**Legacy names from api-transfer (safe to remove after confirming vault ok):**
+
+| Legacy var | Unified app |
+|------------|-------------|
+| `VAULT_MASTER_KEY_BASE64` | Not read — use `VAULT_MASTER_KEY` |
+| `VAULT_DJANGO_SECRET_KEY` | Not read — use `DJANGO_SECRET_KEY` |
+
+**Optional — only if you want server-wide live deploy** (otherwise set per project in app vault):
 
 ```
-RAILWAY_API_TOKEN
-RAILWAY_PROJECT_ID
-RENDER_API_TOKEN
-RENDER_OWNER_ID
+RAILWAY_API_TOKEN          # https://railway.com/account/tokens
+RAILWAY_PROJECT_ID         # auto-injected on Stripe-Installer — do not copy manually
+RENDER_API_TOKEN / RENDER_OWNER_ID
 FLY_API_TOKEN
 GITHUB_TOKEN
-ORENA_API_TOKEN          (if used)
-SUPABASE_* / CLOUDFLARE_* (if used)
-VAULT_MASTER_KEY         (one permanent 64-char hex — see docs/RAILWAY.md)
+ORENA_API_TOKEN
 ```
 
 Keep existing Automation Center vars (do not duplicate — merge onto one service):
@@ -77,10 +93,10 @@ Keep existing Automation Center vars (do not duplicate — merge onto one servic
 VAULT_MASTER_KEY         (must match key that decrypts live vault, or re-enter secrets)
 DJANGO_SECRET_KEY
 DATABASE_URL
-SAAS_STRIPE_SECRET_KEY
-SAAS_STRIPE_WEBHOOK_SECRET
+SAAS_STRIPE_SECRET_KEY   (or STRIPE_SECRET_KEY)
+SAAS_STRIPE_WEBHOOK_SECRET (or STRIPE_WEBHOOK_SECRET)
 SAAS_STRIPE_PRICE_*
-APP_PUBLIC_URL           (set after domain step)
+APP_PUBLIC_URL           (auto from RAILWAY_PUBLIC_DOMAIN when custom domain set)
 ```
 
 Remove dev-only vars from Railway (see [RAILWAY.md](RAILWAY.md)).

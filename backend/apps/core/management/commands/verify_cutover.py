@@ -11,9 +11,11 @@ import urllib.request
 from django.core.management.base import BaseCommand
 
 
-UNIFIED_HEALTH = "https://stripe-installer-production.up.railway.app/health/"
+UNIFIED_RAILWAY_HEALTH = "https://stripe-installer-production.up.railway.app/health/"
+UNIFIED_CUSTOM_HEALTH = "https://stripe-installer.gilliomfrontlinedigital.com/health/"
 LEGACY_HEALTH = "https://api-transfer-production.up.railway.app/health/"
-UNIFIED_WEBHOOK = "https://stripe-installer-production.up.railway.app/api/v1/billing/webhook/"
+UNIFIED_WEBHOOK_RAILWAY = "https://stripe-installer-production.up.railway.app/api/v1/billing/webhook/"
+UNIFIED_WEBHOOK_CUSTOM = "https://stripe-installer.gilliomfrontlinedigital.com/api/v1/billing/webhook/"
 LEGACY_WEBHOOK = "https://api-transfer-production.up.railway.app/api/billing/webhook"
 
 
@@ -40,9 +42,9 @@ class Command(BaseCommand):
         warn: list[str] = []
         fail: list[str] = []
 
-        status, unified = _fetch_json(UNIFIED_HEALTH)
+        status, unified = _fetch_json(UNIFIED_RAILWAY_HEALTH)
         if status == 200 and isinstance(unified, dict) and unified.get("status") == "ok":
-            ok.append(f"Unified health OK ({UNIFIED_HEALTH})")
+            ok.append(f"Unified health OK ({UNIFIED_RAILWAY_HEALTH})")
             checks = unified.get("checks") or {}
             if checks.get("vault") == "ok":
                 ok.append("Production vault check OK")
@@ -50,6 +52,16 @@ class Command(BaseCommand):
                 warn.append(f"Unified vault check: {checks.get('vault', 'unknown')}")
         else:
             fail.append(f"Unified health failed ({status}): {unified}")
+
+        custom_status, custom = _fetch_json(UNIFIED_CUSTOM_HEALTH)
+        if custom_status == 200 and isinstance(custom, dict) and custom.get("status") == "ok":
+            ok.append(f"Custom domain health OK ({UNIFIED_CUSTOM_HEALTH})")
+        elif custom_status is None and "SSL" in str(custom).upper():
+            warn.append(
+                f"Custom domain TLS not ready yet ({UNIFIED_CUSTOM_HEALTH}) - finish cert in Railway Networking"
+            )
+        elif custom_status != 200:
+            warn.append(f"Custom domain health check failed ({custom_status}): {custom}")
 
         status, legacy = _fetch_json(LEGACY_HEALTH)
         if status == 200:
@@ -98,32 +110,35 @@ class Command(BaseCommand):
                                 ok.append(f"Legacy Stripe webhook disabled ({LEGACY_WEBHOOK})")
                             else:
                                 warn.append(f"Legacy Stripe webhook still {status} ({LEGACY_WEBHOOK})")
-                        if url.rstrip("/") == UNIFIED_WEBHOOK.rstrip("/"):
+                        if url.rstrip("/") in {
+                            UNIFIED_WEBHOOK_RAILWAY.rstrip("/"),
+                            UNIFIED_WEBHOOK_CUSTOM.rstrip("/"),
+                        }:
                             if status == "enabled":
                                 unified_webhook_enabled = True
-                                ok.append(f"Unified Stripe webhook enabled ({UNIFIED_WEBHOOK})")
+                                ok.append(f"Unified Stripe webhook enabled ({url})")
                             else:
-                                warn.append(f"Unified Stripe webhook status: {status}")
+                                warn.append(f"Unified Stripe webhook status: {status} ({url})")
             except (json.JSONDecodeError, subprocess.TimeoutExpired, OSError) as exc:
                 warn.append(f"Could not check Stripe webhooks via CLI: {exc}")
         else:
             warn.append("Stripe CLI not found - install to auto-check webhook status")
 
         manual = [
-            "Railway: merge API Transfer env vars onto stripe-installer-production (railway login required)",
             "Railway: delete api-transfer-production service after 48h no traffic",
             "Optional: archive local API Transfer folder",
+            "Optional: add deploy provider tokens in project vault (RAILWAY_API_TOKEN, GITHUB_TOKEN, etc.)",
         ]
         if not legacy_webhook_disabled:
             manual.insert(
                 1,
                 "Stripe: disable webhook at " + LEGACY_WEBHOOK
-                + " (stripe webhook_endpoints update we_1ThOh0RxznXvj6jhjt7jZ3nm --disabled=true --live -c)",
+                + " (Dashboard: Developers -> Webhooks -> api-transfer-production -> Disable)",
             )
         if not unified_webhook_enabled:
             manual.insert(
                 1 if legacy_webhook_disabled else 2,
-                "Stripe: keep webhook enabled at " + UNIFIED_WEBHOOK,
+                "Stripe: keep webhook enabled at " + UNIFIED_WEBHOOK_RAILWAY + " or " + UNIFIED_WEBHOOK_CUSTOM,
             )
 
         for line in ok:
