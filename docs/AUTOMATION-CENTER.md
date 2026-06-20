@@ -107,4 +107,5 @@ Key packages to port:
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — Stripe Installer API surface
 - [GO-LIVE.md](GO-LIVE.md) — production checklist
+- [CUTOVER.md](CUTOVER.md) — retire old Stripe Installer + API Transfer Railway/Stripe/domain setup
 - `backend/apps/api_transfer/README.md` — module notes for developers

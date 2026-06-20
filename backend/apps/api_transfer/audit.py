@@ -54,3 +54,26 @@ def record_audit(action: str, actor: str, payload: dict[str, Any], reference: st
             entry_hash=entry_hash,
         )
     return entry.to_dict()
+
+
+def list_audit() -> list[dict[str, Any]]:
+    return [entry.to_dict() for entry in AuditEntry.objects.all()]
+
+
+def verify_chain() -> dict[str, Any]:
+    previous_hash = ""
+    for entry in AuditEntry.objects.all():
+        expected = integrity_hash(
+            {
+                "sequence": entry.sequence,
+                "action": entry.action,
+                "actor": entry.actor,
+                "reference": entry.reference,
+                "payload": entry.payload,
+                "previousHash": previous_hash,
+            }
+        )
+        if expected != entry.entry_hash or entry.previous_hash != previous_hash:
+            return {"valid": False, "brokenAt": entry.sequence}
+        previous_hash = entry.entry_hash
+    return {"valid": True, "brokenAt": None}

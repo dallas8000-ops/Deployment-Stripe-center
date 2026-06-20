@@ -50,6 +50,7 @@ export default function TransferPanel({ projectSlug, gitUrl, projectName, onErro
   const [transferOnly, setTransferOnly] = useState("");
   const [activeTransfer, setActiveTransfer] = useState<Record<string, unknown> | null>(null);
   const [transferRuns, setTransferRuns] = useState<Array<Record<string, unknown>>>([]);
+  const [transferMetrics, setTransferMetrics] = useState<Record<string, number> | null>(null);
 
   const [setupTasks, setSetupTasks] = useState<Array<Record<string, unknown>>>([]);
   const [setupSummary, setSetupSummary] = useState<Record<string, unknown> | null>(null);
@@ -87,10 +88,14 @@ export default function TransferPanel({ projectSlug, gitUrl, projectName, onErro
 
   const loadTransferRuns = useCallback(async () => {
     try {
-      const status = await transferApi.transferRunStatus();
+      const [status, hist, metrics] = await Promise.all([
+        transferApi.transferRunStatus(),
+        transferApi.transferRunHistory(projectSlug, 15),
+        transferApi.transferMetrics(),
+      ]);
       setActiveTransfer(status.run);
-      const hist = await transferApi.transferRunHistory(projectSlug, 15);
       setTransferRuns(hist.runs || []);
+      setTransferMetrics(metrics.summary as Record<string, number>);
     } catch {
       /* optional */
     }
@@ -341,6 +346,12 @@ export default function TransferPanel({ projectSlug, gitUrl, projectName, onErro
               <pre className="verify-pre">{String(activeTransfer.logTail)}</pre>
             ) : null}
           </div>
+        )}
+        {transferMetrics && (
+          <p className="muted">
+            Queue: running {transferMetrics.running ?? 0}, queued {transferMetrics.queued ?? 0}, dead letter{" "}
+            {transferMetrics.deadLetter ?? 0}
+          </p>
         )}
         {transferRuns.length > 0 && (
           <table className="members-table">

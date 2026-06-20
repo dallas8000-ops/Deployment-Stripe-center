@@ -1092,6 +1092,24 @@ export const transferApi = {
       body: JSON.stringify({}),
     }),
 
+  transferMetrics: () =>
+    apiFetch<{
+      summary: Record<string, number>;
+      organization: Record<string, unknown>;
+      alerts: Array<Record<string, unknown>>;
+      schedulingPolicy: Record<string, unknown>;
+      generatedAt: string;
+    }>("/transfer/runs/metrics/"),
+
+  transferAudit: () =>
+    apiFetch<{
+      entries: Array<Record<string, unknown>>;
+      valid: { valid: boolean; brokenAt: number | null };
+    }>("/transfer/audit/"),
+
+  transferAuditExport: () =>
+    apiFetch<Record<string, unknown>>("/transfer/audit/export/"),
+
   platformSetupAudit: () =>
     apiFetch<{ summary: Record<string, unknown>; tasks: Array<Record<string, unknown>> }>(
       "/transfer/platform/setup-audit/"

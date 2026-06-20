@@ -4,6 +4,8 @@ Combined platform for **deployment / API transfer** and **Stripe setup** — one
 
 - **Layout:** [docs/STRUCTURE.md](docs/STRUCTURE.md)
 - **API Transfer merge:** [docs/AUTOMATION-CENTER.md](docs/AUTOMATION-CENTER.md)
+- **Retire old production apps:** [docs/CUTOVER.md](docs/CUTOVER.md)
+- **Merge completion checklist:** [docs/MERGE-STATUS.md](docs/MERGE-STATUS.md)
 
 Never exposes secrets to the frontend, AI, or logs.
 

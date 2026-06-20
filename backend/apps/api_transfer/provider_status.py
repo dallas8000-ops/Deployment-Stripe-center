@@ -97,6 +97,11 @@ def provider_live_status(provider: str) -> dict:
             "capabilities": ["canonical-discovery"],
             "message": "Kong is planning-only.",
         },
+        "orena": {
+            "liveEnabled": bool(getattr(settings, "ORENA_API_TOKEN", "")),
+            "capabilities": ["discover", "deploy", "regional"],
+            "message": "Live Orena when ORENA_API_TOKEN is configured.",
+        },
     }
     item = matrix.get(provider, {"liveEnabled": False, "capabilities": [], "message": "Unknown provider."})
     return {**item, "status": "live" if item["liveEnabled"] else "demo"}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from django.conf import settings
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -9,7 +11,7 @@ from rest_framework.views import APIView
 
 from apps.core.access import ProjectOwnedMixin
 
-from .audit import record_audit
+from .audit import list_audit, record_audit, verify_chain
 from .deployments.framework_detector import detect_framework
 from .deployments.pipeline import run_pipeline
 from .github_import import GitHubImportError, import_repository
@@ -54,10 +56,42 @@ class ProviderStatusView(APIView):
 
   def get(self, request):
     providers = []
-    for provider in ["github", "render", "railway", "fly", "kong", "terraform", "supabase", "cloudflare", "stripe"]:
+    for provider in [
+      "github",
+      "render",
+      "railway",
+      "fly",
+      "kong",
+      "terraform",
+      "supabase",
+      "cloudflare",
+      "stripe",
+      "orena",
+    ]:
       status_payload = provider_live_status(provider)
       providers.append({"provider": provider, **status_payload})
     return Response({"providers": providers, "serverConfig": server_provider_config()})
+
+
+class AuditView(APIView):
+  permission_classes = (permissions.IsAuthenticated,)
+
+  def get(self, request):
+    return Response({"entries": list_audit(), "valid": verify_chain()})
+
+
+class AuditExportView(APIView):
+  permission_classes = (permissions.IsAuthenticated,)
+
+  def get(self, request):
+    return Response(
+      {
+        "exportedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "entries": list_audit(),
+        "chain": verify_chain(),
+        "redaction": "Sensitive fields are recursively redacted before export.",
+      }
+    )
 
 
 class DeployDetectView(APIView):

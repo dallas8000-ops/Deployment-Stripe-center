@@ -12,6 +12,8 @@ from .transfer_views import (
     TransferStopView,
 )
 from .views import (
+    AuditExportView,
+    AuditView,
     DeployDetectView,
     GitHubImportView,
     ProjectDeployDetectView,
@@ -30,6 +32,8 @@ urlpatterns = [
     path("transfer/deploy/detect/", DeployDetectView.as_view(), name="transfer-deploy-detect"),
     path("transfer/github/import/", GitHubImportView.as_view(), name="transfer-github-import"),
     path("transfer/env/backup/railway/", RailwayEnvBackupView.as_view(), name="transfer-railway-env-backup"),
+    path("transfer/audit/", AuditView.as_view(), name="transfer-audit"),
+    path("transfer/audit/export/", AuditExportView.as_view(), name="transfer-audit-export"),
     path("transfer/start/", TransferStartView.as_view(), name="transfer-start"),
     path("transfer/stop/", TransferStopView.as_view(), name="transfer-stop"),
     path("transfer/runs/status/", TransferStatusView.as_view(), name="transfer-runs-status"),
