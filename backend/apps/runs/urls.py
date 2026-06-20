@@ -2,12 +2,9 @@ from django.urls import path
 
 from .views import (
     CodegenDownloadView,
-    DiagnoseView,
-    FixView,
     PipelineRunDetailView,
     PipelineRunDownloadView,
     PipelineRunListCreateView,
-    ReadinessView,
     StripeAdvisorView,
     StripeConfigView,
     VerifyKeysView,
@@ -40,24 +37,9 @@ urlpatterns = [
         name="codegen-download",
     ),
     path(
-        "projects/<slug:project_slug>/diagnose/",
-        DiagnoseView.as_view(),
-        name="project-diagnose",
-    ),
-    path(
         "projects/<slug:project_slug>/stripe-advisor/",
         StripeAdvisorView.as_view(),
         name="project-stripe-advisor",
-    ),
-    path(
-        "projects/<slug:project_slug>/readiness/",
-        ReadinessView.as_view(),
-        name="project-readiness",
-    ),
-    path(
-        "projects/<slug:project_slug>/fix/",
-        FixView.as_view(),
-        name="project-fix",
     ),
     path(
         "projects/<slug:project_slug>/stripe/config/",

@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import Any
 
 from apps.projects.models import Project
-from apps.stripe_engine.events import EventEmitter, PipelineEvent, emit
-from apps.stripe_engine.pipeline import PipelineOptions, PipelineResult, run_pipeline
-from apps.stripe_engine.readiness import readiness_label
+from apps.stripe_installer.events import EventEmitter, PipelineEvent, emit
+from apps.stripe_installer.pipeline import PipelineOptions, PipelineResult, run_pipeline
+from apps.stripe_installer.readiness import readiness_label
 
 from .config import config_from_project, sync_project_from_config, write_deploy_config
 from .infra import generate_and_write_infra

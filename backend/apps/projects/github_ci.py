@@ -9,7 +9,7 @@ from apps.deploy.postgres import get_production_url
 from apps.projects.github_pr import _default_branch, _github_api
 from apps.projects.git_clone import parse_github_repo
 from apps.projects.models import Project
-from apps.stripe_engine.readiness import readiness_label, run_readiness_checks, score_readiness
+from apps.stripe_installer.readiness import readiness_label, run_readiness_checks, score_readiness
 from apps.vault.models import get_secret
 
 GITHUB_CI_WORKFLOW = """name: Stripe Installer readiness

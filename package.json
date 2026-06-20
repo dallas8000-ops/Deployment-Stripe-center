@@ -1,8 +1,8 @@
 {
-  "name": "stripe-installer",
+  "name": "deployment-stripe-center",
   "private": true,
   "version": "1.0.0",
-  "description": "Django + React Stripe setup with encrypted write-only vault",
+  "description": "Deployment & Stripe Automation Center — Django + React",
   "scripts": {
     "dev": "node scripts/run-dev.mjs",
     "dev:stop": "node scripts/stop-dev.mjs",
@@ -23,7 +23,9 @@
     "setup:backend": "cd backend && python -m venv .venv && .venv\\Scripts\\pip.exe install -r requirements.txt",
     "setup:frontend": "npm install --prefix frontend",
     "setup": "npm install && npm run setup:backend && npm run setup:frontend && npm run migrate",
-    "redis": "docker compose up -d redis"
+    "redis": "docker compose up -d redis",
+    "transfer:worker": "cd backend && .venv\\Scripts\\python.exe manage.py transfer_worker",
+    "transfer:worker:once": "cd backend && .venv\\Scripts\\python.exe manage.py transfer_worker --once"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

@@ -5,7 +5,8 @@ import { projectsApi } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
 const NAV = [
-  { to: "/", label: "Projects", match: (path: string) => path === "/" || (path.startsWith("/projects/") && !path.startsWith("/agency")) },
+  { to: "/", label: "Projects", match: (path: string) => path === "/" || path.startsWith("/projects/") },
+  { to: "/deploy", label: "Deploy", match: (path: string) => path.startsWith("/deploy") },
   { to: "/agency", label: "Agency", match: (path: string) => path.startsWith("/agency") },
   { to: "/billing", label: "Billing", match: (path: string) => path.startsWith("/billing") },
 ] as const;
@@ -48,7 +49,7 @@ export default function Layout() {
             <span className="brand-mark" aria-hidden>
               ◆
             </span>
-            Stripe Installer
+            Stripe Automation Center
           </NavLink>
           <nav className="topbar-nav" aria-label="Main">
             {NAV.map(({ to, label, match }) => (

@@ -93,13 +93,17 @@ export default function RegisterPage() {
           <span>Password</span>
           <input
             type="password"
+            name="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="At least 8 characters"
+            placeholder="Choose a password (8+ characters)"
             minLength={8}
-            autoComplete="new-password"
+            autoComplete="off"
+            data-1p-ignore="true"
+            data-lpignore="true"
             required
           />
+          <span className="field-hint">Use your own password — ignore browser “suggest strong password” if you prefer.</span>
         </label>
         <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
           {busy ? "Creating account…" : inviteOrg ? "Join organization" : "Create account"}

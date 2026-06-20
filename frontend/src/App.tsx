@@ -9,6 +9,7 @@ import LoginPage from "./pages/LoginPage";
 import ProjectPage from "./pages/ProjectPage";
 import ProjectSettingsPage from "./pages/ProjectSettingsPage";
 import RegisterPage from "./pages/RegisterPage";
+import TransferPage from "./pages/TransferPage";
 
 function ProtectedRoute() {
   const { user, loading } = useAuth();
@@ -34,6 +35,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="deploy" element={<TransferPage />} />
           <Route path="agency" element={<AgencyPage />} />
           <Route path="agency/github/callback" element={<GithubCallbackPage />} />
           <Route path="projects/:slug" element={<ProjectPage />} />

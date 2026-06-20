@@ -8,12 +8,20 @@ class VaultEntrySerializer(serializers.Serializer):
     verifiedAt = serializers.CharField(allow_null=True, required=False)
     verificationMessage = serializers.CharField(allow_null=True, required=False)
     mode = serializers.CharField()
+    readable = serializers.BooleanField(required=False)
+
+
+class VaultHealthSerializer(serializers.Serializer):
+    masterKeyValid = serializers.BooleanField()
+    unreadableCount = serializers.IntegerField()
+    totalCount = serializers.IntegerField()
 
 
 class VaultKeyListSerializer(serializers.Serializer):
     keys = serializers.ListField(child=serializers.CharField())
     entries = VaultEntrySerializer(many=True)
     initialized = serializers.BooleanField()
+    vaultHealth = VaultHealthSerializer(required=False)
 
 
 class VaultSetSerializer(serializers.Serializer):
@@ -38,4 +46,10 @@ class VaultDeleteSerializer(serializers.Serializer):
 
 
 class VaultImportSerializer(serializers.Serializer):
-    env_file = serializers.CharField(max_length=256, default=".env.local", required=False)
+    env_file = serializers.CharField(max_length=256, default="auto", required=False)
+
+
+class VaultImportAllSerializer(serializers.Serializer):
+    legacy_passphrase = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    include_legacy = serializers.BooleanField(default=True, required=False)
+    include_env = serializers.BooleanField(default=True, required=False)

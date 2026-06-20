@@ -29,6 +29,7 @@ import PipelineCompleteCard, { type CompletionData } from "../components/Pipelin
 import PipelineTerminal from "../components/PipelineTerminal";
 import ReadinessPanel from "../components/ReadinessPanel";
 import RunsPanel from "../components/RunsPanel";
+import TransferPanel from "../components/TransferPanel";
 import ScoreRing from "../components/ScoreRing";
 import StripeConfigPanel from "../components/StripeConfigPanel";
 import VaultPanel from "../components/VaultPanel";
@@ -485,7 +486,6 @@ export default function ProjectPage() {
           onUpdate={handleVaultUpdate}
           busy={busy}
           setBusy={setBusy}
-          onError={setError}
         />
 
         <section className="card">
@@ -629,6 +629,19 @@ ${verifyResult.accountName ? `Account         ${verifyResult.accountName}` : ""}
       </div>
 
       <CiGatePanel projectSlug={slug} hasGitUrl={!!project.git_url} onError={setError} />
+
+      {/* ──────────────────────────────────────────── SECTION: API TRANSFER ──────────────────────────────────────────── */}
+      <div className="section-header">
+        <h2>API Transfer</h2>
+        <p className="muted">GitHub import, Railway/Render deploy pipeline, env backup</p>
+      </div>
+
+      <TransferPanel
+        projectSlug={slug}
+        gitUrl={project.git_url}
+        projectName={project.name}
+        onError={setError}
+      />
 
       {/* ──────────────────────────────────────────── SECTION: GENERATION & DEPLOYMENT ──────────────────────────────────────────── */}
       <div className="section-header">

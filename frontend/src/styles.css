@@ -481,6 +481,16 @@ input::placeholder {
 .auth-form {
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+.auth-decoy {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .auth-footer {
@@ -1222,6 +1232,48 @@ input::placeholder {
   color: var(--muted);
 }
 
+.vault-sources-panel {
+  margin: 0.75rem 0 1rem;
+  font-size: 0.9rem;
+}
+
+.vault-sources-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.vault-sources-list li {
+  margin-bottom: 0.5rem;
+}
+
+.vault-source-path {
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.vault-legacy-pass {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.vault-legacy-pass label {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.vault-legacy-pass input {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
 .vault-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1569,6 +1621,25 @@ input::placeholder {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
+}
+
+.provider-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+}
+
+.provider-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.provider-list li:last-child {
+  border-bottom: none;
 }
 
 .members-table th,

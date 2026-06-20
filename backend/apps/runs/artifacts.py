@@ -6,8 +6,8 @@ from pathlib import Path
 
 from apps.projects.models import Project
 from apps.runs.models import PipelineRun
-from apps.stripe_engine.codegen import generate_all
-from apps.stripe_engine.provision import load_manifest
+from apps.stripe_installer.codegen import generate_all
+from apps.stripe_installer.provision import load_manifest
 
 
 def resolve_run_files(run: PipelineRun) -> dict[str, str]:

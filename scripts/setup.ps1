@@ -37,14 +37,30 @@ if ($VenvBroken -or -not (Test-Path $VenvPython)) {
 if (-not (Test-Path $EnvFile)) {
     Write-Host "Creating backend/.env from example..."
     Copy-Item $EnvExample $EnvFile
-    $key = -join ((1..32 | ForEach-Object { '{0:x2}' -f (Get-Random -Max 256) }))
     Add-Content $EnvFile @"
 
-VAULT_MASTER_KEY=$key
 CELERY_EAGER=true
 CHANNEL_LAYER_INMEMORY=true
 "@
-    Write-Host "Generated VAULT_MASTER_KEY in backend/.env" -ForegroundColor Green
+}
+
+Write-Host "Ensuring local vault master key (~/.stripe-installer/vault-master-key)..."
+Push-Location $Backend
+.\.venv\Scripts\python.exe -c "from apps.vault.master_key import resolve_vault_master_key; resolve_vault_master_key()"
+Pop-Location
+Write-Host "Vault master key is stored locally (never committed to git)." -ForegroundColor Green
+
+$PrivateEnv = Join-Path $Root "private_env"
+if (-not (Test-Path $PrivateEnv)) {
+    New-Item -ItemType Directory -Path $PrivateEnv | Out-Null
+}
+foreach ($name in @("stripe", "railway", "render", "github")) {
+    $example = Join-Path $PrivateEnv "$name.env.example"
+    $target = Join-Path $PrivateEnv "$name.env"
+    if ((Test-Path $example) -and -not (Test-Path $target)) {
+        Copy-Item $example $target
+        Write-Host "Created private_env/$name.env from example (local only, not in git)" -ForegroundColor Yellow
+    }
 }
 
 if (-not $SkipMigrate) {

@@ -2,7 +2,8 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? "/api/v1";
 
 export interface ApiError {
   error?: string;
-  detail?: string;
+  detail?: string | Array<{ message?: string } | string> | Record<string, unknown>;
+  email?: string;
   [key: string]: unknown;
 }
 
@@ -23,7 +24,7 @@ export function clearTokens() {
   localStorage.removeItem("refresh_token");
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   const refresh = localStorage.getItem("refresh_token");
   if (!refresh) return null;
   const res = await fetch(`${API_BASE}/auth/refresh/`, {
@@ -32,8 +33,11 @@ async function refreshAccessToken(): Promise<string | null> {
     body: JSON.stringify({ refresh }),
   });
   if (!res.ok) return null;
-  const data = (await res.json()) as { access: string };
+  const data = (await res.json()) as { access: string; refresh?: string };
   localStorage.setItem("access_token", data.access);
+  if (data.refresh) {
+    localStorage.setItem("refresh_token", data.refresh);
+  }
   return data.access;
 }
 
@@ -42,12 +46,16 @@ export async function apiFetch<T>(
   options: RequestInit = {},
   retry = true
 ): Promise<T> {
+  const isAuthAttempt =
+    path.startsWith("/auth/login") || path.startsWith("/auth/register");
   const { access } = getTokens();
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type") && options.body) {
     headers.set("Content-Type", "application/json");
   }
-  if (access) headers.set("Authorization", `Bearer ${access}`);
+  if (access && !isAuthAttempt) {
+    headers.set("Authorization", `Bearer ${access}`);
+  }
 
   let res: Response;
   try {
@@ -58,7 +66,7 @@ export async function apiFetch<T>(
     );
   }
 
-  if (res.status === 401 && retry) {
+  if (res.status === 401 && retry && !isAuthAttempt) {
     const newAccess = await refreshAccessToken();
     if (newAccess) {
       return apiFetch(path, options, false);
@@ -71,7 +79,19 @@ export async function apiFetch<T>(
     let message = res.statusText;
     try {
       const err = (await res.json()) as ApiError;
-      message = String(err.error ?? err.detail ?? err.email ?? JSON.stringify(err));
+      const detail = err.detail;
+      if (typeof detail === "string") {
+        message = detail;
+      } else if (Array.isArray(detail)) {
+        message = detail
+          .map((d) => (typeof d === "string" ? d : (d as { message?: string }).message))
+          .filter(Boolean)
+          .join(" ");
+      } else if (detail && typeof detail === "object") {
+        message = JSON.stringify(detail);
+      } else {
+        message = String(err.error ?? err.email ?? JSON.stringify(err));
+      }
     } catch {
       if (res.status === 404) {
         message = `API not found (${path}) — restart the backend: npm run dev:stop then npm run dev`;
@@ -165,6 +185,7 @@ export const authApi = {
   invitePreview: (token: string) => apiFetch<InvitePreview>(`/invites/${token}/`),
 
   login: async (email: string, password: string) => {
+    clearTokens();
     const data = await apiFetch<{ access: string; refresh: string }>("/auth/login/", {
       method: "POST",
       body: JSON.stringify({ email, password }),
@@ -371,6 +392,31 @@ export interface VaultEntry {
   verifiedAt?: string | null;
   verificationMessage?: string | null;
   mode: string;
+  readable?: boolean;
+}
+
+export interface VaultHealth {
+  masterKeyValid: boolean;
+  unreadableCount: number;
+  totalCount: number;
+}
+
+export interface SecretSourceInfo {
+  kind: "local_store" | "legacy_vault" | "env_file" | "portfolio_path";
+  label: string;
+  path: string;
+  status: "ready" | "missing" | "needs_passphrase" | "empty";
+  keyCount: number;
+  keys: string[];
+  note?: string;
+}
+
+export interface VaultSourcesResponse {
+  projectSlug: string;
+  projectRoot: string | null;
+  dataDir: string;
+  localVaultPath: string;
+  sources: SecretSourceInfo[];
 }
 
 export const vaultApi = {
@@ -380,7 +426,7 @@ export const vaultApi = {
       { method: "POST" }
     ),
   keys: (projectSlug: string) =>
-    apiFetch<{ keys: string[]; entries: VaultEntry[]; initialized: boolean }>(
+    apiFetch<{ keys: string[]; entries: VaultEntry[]; initialized: boolean; vaultHealth?: VaultHealth }>(
       `/projects/${projectSlug}/vault/keys/`
     ),
   set: (projectSlug: string, key: string, value: string) =>
@@ -399,14 +445,43 @@ export const vaultApi = {
         body: JSON.stringify({ key, confirm: true }),
       }
     ),
-  importFromEnv: (projectSlug: string, envFile = ".env.local") =>
-    apiFetch<{ imported: string[]; env_file: string; keys: string[]; entries: VaultEntry[] }>(
+  importFromEnv: (projectSlug: string, envFile: string | "auto" = "auto") =>
+    apiFetch<{
+      imported: string[];
+      env_file: string;
+      keys: string[];
+      entries: VaultEntry[];
+      vaultHealth?: VaultHealth;
+    }>(
       `/projects/${projectSlug}/vault/import/`,
       {
         method: "POST",
         body: JSON.stringify({ env_file: envFile }),
       }
     ),
+  sources: (projectSlug: string) =>
+    apiFetch<VaultSourcesResponse>(`/projects/${projectSlug}/vault/sources/`),
+  importAll: (
+    projectSlug: string,
+    opts?: { legacyPassphrase?: string; includeLegacy?: boolean; includeEnv?: boolean }
+  ) =>
+    apiFetch<{
+      imported: string[];
+      importedBySource: Record<string, string[]>;
+      localVaultPath: string;
+      projectRoot: string | null;
+      errors: string[];
+      keys: string[];
+      entries: VaultEntry[];
+      vaultHealth?: VaultHealth;
+    }>(`/projects/${projectSlug}/vault/import-all/`, {
+      method: "POST",
+      body: JSON.stringify({
+        legacy_passphrase: opts?.legacyPassphrase ?? "",
+        include_legacy: opts?.includeLegacy ?? true,
+        include_env: opts?.includeEnv ?? true,
+      }),
+    }),
 };
 
 export interface KeyCheck {
@@ -518,7 +593,11 @@ export const pipelineApi = {
     });
     if (!res.ok) {
       const err = (await res.json().catch(() => ({}))) as ApiError;
-      throw new Error(err.error || err.detail || "Download failed");
+      throw new Error(
+        err.error ||
+          (typeof err.detail === "string" ? err.detail : undefined) ||
+          "Download failed"
+      );
     }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -541,7 +620,11 @@ export const pipelineApi = {
     });
     if (!res.ok) {
       const err = (await res.json().catch(() => ({}))) as ApiError;
-      throw new Error(err.error || err.detail || "Download failed");
+      throw new Error(
+        err.error ||
+          (typeof err.detail === "string" ? err.detail : undefined) ||
+          "Download failed"
+      );
     }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -922,6 +1005,127 @@ export const aiApi = {
       }
     ),
 };
+
+export interface TransferProviderStatus {
+  provider: string;
+  liveEnabled: boolean;
+  status: string;
+  capabilities: string[];
+  message: string;
+}
+
+export const transferApi = {
+  moduleStatus: () =>
+    apiFetch<{
+      module: string;
+      status: string;
+      message: string;
+      capabilities: Record<string, string>;
+    }>("/transfer/status/"),
+
+  providerStatus: () =>
+    apiFetch<{
+      providers: TransferProviderStatus[];
+      serverConfig: Record<string, unknown>;
+    }>("/transfer/providers/status/"),
+
+  githubImport: (repoUrl: string, branch?: string, projectSlug?: string) =>
+    apiFetch<Record<string, unknown>>("/transfer/github/import/", {
+      method: "POST",
+      body: JSON.stringify({ repoUrl, branch, projectSlug }),
+    }),
+
+  projectGithubImport: (projectSlug: string, repoUrl?: string, branch?: string) =>
+    apiFetch<Record<string, unknown>>(`/projects/${projectSlug}/transfer/github/import/`, {
+      method: "POST",
+      body: JSON.stringify({ repoUrl: repoUrl || "", branch }),
+    }),
+
+  projectDeploy: (projectSlug: string, body: Record<string, unknown>) =>
+    apiFetch<{ result: Record<string, unknown> }>(`/projects/${projectSlug}/transfer/deploy/`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  projectDeployHistory: (projectSlug: string) =>
+    apiFetch<{ runs: Array<Record<string, unknown>> }>(
+      `/projects/${projectSlug}/transfer/deploy/history/`
+    ),
+
+  refreshDeployStatus: (projectSlug: string, deploymentId: string) =>
+    apiFetch<{ run: Record<string, unknown> }>(
+      `/projects/${projectSlug}/transfer/deploy/status/${deploymentId}/`,
+      { method: "POST", body: JSON.stringify({}) }
+    ),
+
+  railwayEnvBackup: (serviceId: string, serviceName?: string, saveToDisk = true) =>
+    apiFetch<Record<string, unknown>>("/transfer/env/backup/railway/", {
+      method: "POST",
+      body: JSON.stringify({ serviceId, serviceName, saveToDisk }),
+    }),
+
+  transferStart: (body: Record<string, unknown>, projectSlug?: string) =>
+    apiFetch<{ run: Record<string, unknown> }>(
+      projectSlug ? `/projects/${projectSlug}/transfer/start/` : "/transfer/start/",
+      { method: "POST", body: JSON.stringify(body) }
+    ),
+
+  transferStop: () =>
+    apiFetch<{ stopped: boolean; run: Record<string, unknown> }>("/transfer/stop/", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
+  transferRunStatus: () =>
+    apiFetch<{ run: Record<string, unknown> }>("/transfer/runs/status/"),
+
+  transferRunHistory: (projectSlug?: string, limit = 10) =>
+    apiFetch<{ runs: Array<Record<string, unknown>>; nextCursor?: string | null }>(
+      projectSlug
+        ? `/projects/${projectSlug}/transfer/runs/history/?limit=${limit}`
+        : `/transfer/runs/history/?limit=${limit}`
+    ),
+
+  transferReplay: (runId: string) =>
+    apiFetch<{ run: Record<string, unknown> }>(`/transfer/runs/replay/${runId}/`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
+  platformSetupAudit: () =>
+    apiFetch<{ summary: Record<string, unknown>; tasks: Array<Record<string, unknown>> }>(
+      "/transfer/platform/setup-audit/"
+    ),
+
+  platformSetupRun: (actionId: string) =>
+    apiFetch<Record<string, unknown>>("/transfer/platform/setup-run/", {
+      method: "POST",
+      body: JSON.stringify({ actionId }),
+    }),
+};
+
+export interface TransferDeployResult {
+  deploymentId?: string;
+  appName?: string;
+  succeeded?: boolean;
+  liveUrl?: string;
+  framework?: { framework: string; confidence: number };
+  stages?: Array<{ stage: string; status: string; detail: string }>;
+  liveExecution?: {
+    fullyLive: boolean;
+    message: string;
+    liveStages: string[];
+    simulatedStages: string[];
+  };
+}
+
+export interface TransferImportResult {
+  repository?: { fullName: string; branch: string; url: string };
+  files?: string[];
+  packageJson?: Record<string, unknown> | null;
+  framework?: { framework: string; confidence: number; buildCommand?: string; startCommand?: string };
+  project?: { appName: string; repoUrl: string; branch: string };
+}
 
 export interface FixCopilotItem {
   issueId: string;
