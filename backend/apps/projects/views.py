@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from apps.projects.git_clone import clone_project_repo
 from apps.projects.github_pr import create_setup_pull_request
 from apps.core.access import ROLE_RANK, org_membership, projects_for_user
+from apps.stripe_installer.portfolio_catalog import DASHBOARD_HIDDEN_PROJECT_SLUGS
 from apps.organizations.models import Organization
 from apps.projects.api_keys import ProjectApiKey
 from apps.projects.tasks import clone_repo_task
@@ -19,7 +20,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
     lookup_field = "slug"
 
     def get_queryset(self):
-        return projects_for_user(self.request.user).distinct()
+        base = projects_for_user(self.request.user).distinct()
+        if self.action == "list":
+            return base.exclude(slug__in=DASHBOARD_HIDDEN_PROJECT_SLUGS)
+        return base
 
     def retrieve(self, request, *args, **kwargs):
         from apps.core.access import get_project_for_user
