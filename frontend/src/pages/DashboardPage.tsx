@@ -7,6 +7,7 @@ import WelcomeWizard from "../components/WelcomeWizard";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [portfolioProjects, setPortfolioProjects] = useState<Record<string, Project>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [name, setName] = useState("");
@@ -29,10 +30,29 @@ export default function DashboardPage() {
     return { avg, running, total: visibleProjects.length };
   }, [visibleProjects]);
 
+  async function loadPortfolioProjects() {
+    const entries = await Promise.all(
+      PORTFOLIO_DEMOS.map(async (demo) => {
+        try {
+          const project = await projectsApi.get(demo.slug);
+          return [demo.slug, project] as const;
+        } catch {
+          return [demo.slug, null] as const;
+        }
+      })
+    );
+    const mapped: Record<string, Project> = {};
+    for (const [slug, project] of entries) {
+      if (project) mapped[slug] = project;
+    }
+    setPortfolioProjects(mapped);
+  }
+
   async function load() {
     setLoading(true);
     try {
-      setProjects(await projectsApi.list());
+      const [listed] = await Promise.all([projectsApi.list(), loadPortfolioProjects()]);
+      setProjects(listed);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load projects");
     } finally {
@@ -115,7 +135,7 @@ export default function DashboardPage() {
         </p>
         <ul className="project-grid">
           {PORTFOLIO_DEMOS.map((demo) => {
-            const existing = projects.find((p) => p.slug === demo.slug);
+            const existing = portfolioProjects[demo.slug];
             return (
               <li key={demo.slug}>
                 <div className="project-card">
