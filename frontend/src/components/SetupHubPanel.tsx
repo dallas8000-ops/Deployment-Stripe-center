@@ -161,7 +161,7 @@ export default function SetupHubPanel({
         <div className="setup-meta muted">
           <p>
             Portfolio: <strong>{status.portfolioSummary.stripeBillingCount}</strong> Stripe billing apps in registry.
-            Kistie Store, Blog API, and React Store Catalog are portfolio-only (hidden from this list).
+            Kistie Store, SilverFox, Blog API, and React Store Catalog are portfolio-only (hidden from billing list).
             API Transfer is merged into Automation Center.
           </p>
         </div>

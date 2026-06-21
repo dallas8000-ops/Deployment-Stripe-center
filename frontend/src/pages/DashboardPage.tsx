@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { projectsApi, type Project } from "../api/client";
-import { filterVisibleProjects } from "../config/portfolio";
+import { filterVisibleProjects, PORTFOLIO_DEMOS } from "../config/portfolio";
 import ScoreRing from "../components/ScoreRing";
 import WelcomeWizard from "../components/WelcomeWizard";
 
@@ -105,6 +105,57 @@ export default function DashboardPage() {
           <span className="muted">Running pipelines</span>
           <strong>{stats.running}</strong>
         </div>
+      </section>
+
+      <section className="card">
+        <h2>Portfolio demos (Railway storefronts)</h2>
+        <p className="muted">
+          Stripe-exempt portfolio apps — not listed under billing projects. Open SilverFox here to push Railway env
+          vars and run full deploy setup (not the Automation Center hub).
+        </p>
+        <ul className="project-grid">
+          {PORTFOLIO_DEMOS.map((demo) => {
+            const existing = projects.find((p) => p.slug === demo.slug);
+            return (
+              <li key={demo.slug}>
+                <div className="project-card">
+                  {existing ? (
+                    <Link to={`/projects/${demo.slug}`} className="project-card-link">
+                      <div className="project-card-top">
+                        <strong>{demo.name}</strong>
+                        <ScoreRing score={existing.latest_readiness_score ?? null} size={48} />
+                      </div>
+                      <div className="project-card-meta">
+                        <span className="pill">portfolio</span>
+                        <span className="muted">{demo.note}</span>
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="project-card-link">
+                      <div className="project-card-top">
+                        <strong>{demo.name}</strong>
+                      </div>
+                      <p className="muted" style={{ margin: "0.5rem 0 0", fontSize: "0.85rem" }}>
+                        Not registered yet — create below with slug <code>{demo.slug}</code>
+                        {demo.localPath ? (
+                          <>
+                            {" "}
+                            and path <code>{demo.localPath}</code>
+                          </>
+                        ) : null}
+                      </p>
+                    </div>
+                  )}
+                  {existing && (
+                    <Link to={`/projects/${demo.slug}/settings`} className="project-card-settings">
+                      Edit settings
+                    </Link>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       <section className="card">
