@@ -56,6 +56,13 @@ export default function ProjectPage() {
   const [fixing, setFixing] = useState("");
   const [nextSteps, setNextSteps] = useState<string[]>([]);
   const [completionData, setCompletionData] = useState<CompletionData | null>(null);
+  const [envPushServiceId, setEnvPushServiceId] = useState("");
+  const [envPushProjectId, setEnvPushProjectId] = useState("");
+  const [envPushPreset, setEnvPushPreset] = useState("");
+  const [envPushVariables, setEnvPushVariables] = useState("");
+  const [envPushResult, setEnvPushResult] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   const { events, connected, clear } = usePipelineWebSocket(activeRunId);
   const pipelineRunning =
@@ -98,7 +105,14 @@ export default function ProjectPage() {
   }
 
   useEffect(() => {
-    load();
+    setProject(null);
+    setError("");
+    void load();
+  }, [slug]);
+
+  useEffect(() => {
+    if (slug === "silverfox") setEnvPushPreset("silverfox");
+    else if (slug === "kistie-store") setEnvPushPreset("kistie-store");
   }, [slug]);
 
   useEffect(() => {
@@ -295,17 +309,6 @@ export default function ProjectPage() {
   const displayReadinessScore =
     pipelineScore ?? readiness?.score ?? project?.latest_readiness_score ?? null;
 
-  const [envPushServiceId, setEnvPushServiceId] = useState("");
-  const [envPushProjectId, setEnvPushProjectId] = useState("");
-  const [envPushPreset, setEnvPushPreset] = useState("");
-  const [envPushVariables, setEnvPushVariables] = useState("");
-  const [envPushResult, setEnvPushResult] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (slug === "silverfox") setEnvPushPreset("silverfox");
-    else if (slug === "kistie-store") setEnvPushPreset("kistie-store");
-  }, [slug]);
-
   async function runEnvPush() {
     setBusy("env-push");
     setError("");
@@ -337,9 +340,6 @@ export default function ProjectPage() {
     }
   }
 
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     if (!moreOpen) return;
     function handleClick(e: MouseEvent) {
@@ -352,9 +352,23 @@ export default function ProjectPage() {
   }, [moreOpen]);
 
   if (!project) {
+    const silverfoxLink = slug.startsWith("silverfox") && slug !== "silverfox";
     return (
       <div className="page">
-        <p className="muted">{error || "Loading…"}</p>
+        {error ? (
+          <>
+            <div className="alert alert-error">{error}</div>
+            {silverfoxLink && (
+              <p className="muted" style={{ marginTop: "1rem" }}>
+                Wrong project slug. Open{" "}
+                <Link to="/projects/silverfox">SilverFox (/projects/silverfox)</Link> — not{" "}
+                <code>/projects/{slug}</code>.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="muted">Loading project…</p>
+        )}
       </div>
     );
   }
