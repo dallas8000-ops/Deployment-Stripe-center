@@ -35,6 +35,7 @@ import ScoreRing from "../components/ScoreRing";
 import StripeConfigPanel from "../components/StripeConfigPanel";
 import VaultPanel from "../components/VaultPanel";
 import { PORTFOLIO_DEMOS } from "../config/portfolio";
+import { usePipelineWebSocket } from "../hooks/usePipelineWebSocket";
 
 export default function ProjectPage() {
   const { slug = "" } = useParams();
