@@ -20,7 +20,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
     lookup_field = "slug"
 
     def get_queryset(self):
-        return projects_for_user(self.request.user).distinct().exclude(slug__in=DASHBOARD_HIDDEN_PROJECT_SLUGS)
+        base = projects_for_user(self.request.user).distinct()
+        if self.action == "list":
+            return base.exclude(slug__in=DASHBOARD_HIDDEN_PROJECT_SLUGS)
+        return base
+
+    def retrieve(self, request, *args, **kwargs):
+        from apps.core.access import get_project_for_user
+        from apps.stripe_installer.portfolio_workspace import (
+            repair_portfolio_local_path,
+            sync_portfolio_scan_metadata,
+        )
+
+        project = get_project_for_user(request.user, kwargs[self.lookup_field])
+        repair_portfolio_local_path(project)
+        sync_portfolio_scan_metadata(project)
+        serializer = self.get_serializer(project)
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -32,11 +48,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def scan(self, request, slug=None):
-        project = self.get_object()
+        from apps.core.access import get_project_for_user
+        from apps.stripe_installer.portfolio_workspace import (
+            repair_portfolio_local_path,
+            should_repair_local_path,
+        )
+
+        project = get_project_for_user(request.user, slug)
         body = ProjectScanSerializer(data=request.data)
         body.is_valid(raise_exception=True)
 
         scan_path = body.validated_data.get("local_path") or project.local_path
+        if scan_path and should_repair_local_path(project, scan_path):
+            scan_path, _ = repair_portfolio_local_path(project)
+        elif not scan_path:
+            scan_path, _ = repair_portfolio_local_path(project)
+
         if not scan_path:
             return Response(
                 {"error": "Set local_path on the project or pass local_path in the request body."},

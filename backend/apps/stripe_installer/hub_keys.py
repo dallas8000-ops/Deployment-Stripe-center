@@ -47,10 +47,15 @@ def resolve_production_app_url(project: Project) -> str:
 
 
 def portfolio_app_for_project(project: Project) -> PortfolioApp | None:
+    catalog = catalog_by_slug(project.slug)
     for app in load_registry():
         if app.project_slug == project.slug:
+            if catalog:
+                if not app.production_url and catalog.get("productionUrl"):
+                    app.production_url = str(catalog["productionUrl"]).rstrip("/")
+                if not app.local_path and catalog.get("defaultLocalPath"):
+                    app.local_path = str(catalog["defaultLocalPath"])
             return app
-    catalog = catalog_by_slug(project.slug)
     if not catalog or catalog.get("merged"):
         return None
     return PortfolioApp(
@@ -60,7 +65,7 @@ def portfolio_app_for_project(project: Project) -> PortfolioApp | None:
         webhook_path=str(catalog.get("webhookPath") or "/stripe/webhook"),
         health_path=str(catalog.get("healthPath") or "/health/"),
         project_slug=project.slug,
-        local_path=project.local_path or "",
+        local_path=str(catalog.get("defaultLocalPath") or project.local_path or ""),
         stripe_exempt=bool(catalog.get("stripeExempt")),
         notes=str(catalog.get("notes") or ""),
     )

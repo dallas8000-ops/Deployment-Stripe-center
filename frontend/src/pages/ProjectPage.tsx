@@ -34,7 +34,7 @@ import TransferPanel from "../components/TransferPanel";
 import ScoreRing from "../components/ScoreRing";
 import StripeConfigPanel from "../components/StripeConfigPanel";
 import VaultPanel from "../components/VaultPanel";
-import { usePipelineWebSocket } from "../hooks/usePipelineWebSocket";
+import { PORTFOLIO_DEMOS } from "../config/portfolio";
 
 export default function ProjectPage() {
   const { slug = "" } = useParams();
@@ -67,6 +67,12 @@ export default function ProjectPage() {
     const completed = events.find((e) => e.step === "run.completed");
     return completed?.score ?? null;
   }, [events]);
+
+  const portfolioDemo = PORTFOLIO_DEMOS.find((d) => d.slug === slug);
+  const scanPathLooksWrong =
+    !!portfolioDemo &&
+    !!scanPath &&
+    scanPath.replace(/\\/g, "/").toLowerCase().includes("deployment-stripe-center/clones");
 
   async function load() {
     try {
@@ -506,9 +512,20 @@ export default function ProjectPage() {
 
         <section className="card">
           <h2>Scanner</h2>
+          {scanPathLooksWrong && portfolioDemo && (
+            <div className="alert alert-error">
+              Wrong scan path — this points at an Automation Center git clone, not{" "}
+              <strong>{portfolioDemo.name}</strong>. Reload the page to auto-fix, or set:{" "}
+              <code>{portfolioDemo.localPath}</code>
+            </div>
+          )}
           <label>
             Local path
-            <input value={scanPath} onChange={(e) => setScanPath(e.target.value)} />
+            <input
+              value={scanPath}
+              onChange={(e) => setScanPath(e.target.value)}
+              placeholder={portfolioDemo?.localPath || "C:\\path\\to\\repo"}
+            />
           </label>
           <button type="button" className="btn btn-primary" onClick={runScan} disabled={busy === "scan"}>
             {busy === "scan" ? "Scanning…" : "Run scan"}

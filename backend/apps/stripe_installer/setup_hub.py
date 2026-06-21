@@ -45,6 +45,36 @@ def default_production_url() -> str:
 
 def reset_workspace(project: Project, *, clear_vault: bool = False) -> dict[str, Any]:
     """Refresh project metadata, portfolio registry, and stripe.config.json."""
+    from apps.stripe_installer.portfolio_workspace import (
+        repair_portfolio_local_path,
+        sync_portfolio_scan_metadata,
+    )
+
+    if project.slug != HUB_SLUG:
+        local_path, _ = repair_portfolio_local_path(project)
+        sync_portfolio_scan_metadata(project)
+        owner_projects = list(Project.objects.filter(owner=project.owner))
+        sync_result = sync_portfolio_registry(owner_projects)
+        reg_path = portfolio_registry_path()
+        cleared = 0
+        if clear_vault:
+            cleared, _ = VaultSecret.objects.filter(project=project).delete()
+        catalog = catalog_by_slug(project.slug) or {}
+        production_url = str(catalog.get("productionUrl") or resolve_production_app_url(project) or "")
+        return {
+            "projectSlug": project.slug,
+            "projectName": project.name,
+            "localPath": local_path,
+            "registryPath": str(reg_path),
+            "stripeConfigPath": None,
+            "vaultSecretsCleared": cleared,
+            "expectedWebhookUrl": "Portfolio exempt — no Stripe subscription billing"
+            if is_stripe_exempt_slug(project.slug)
+            else production_url,
+            "portfolioSummary": sync_result.get("portfolioSummary"),
+            "registryAppCount": sync_result.get("appCount"),
+        }
+
     repo_root = Path(settings.REPO_ROOT)
     local_path = str(repo_root)
 
@@ -129,8 +159,17 @@ def sync_registry_for_user(user) -> dict[str, Any]:
 
 
 def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
+    from apps.stripe_installer.portfolio_workspace import (
+        repair_portfolio_local_path,
+        should_repair_local_path,
+        sync_portfolio_scan_metadata,
+    )
+
     if user and project.slug != HUB_SLUG and not get_secret(project, "STRIPE_SECRET_KEY"):
         pull_stripe_keys_for_user(project, user)
+
+    repair_portfolio_local_path(project)
+    sync_portfolio_scan_metadata(project)
 
     health = vault_health(project)
     secret = get_secret(project, "STRIPE_SECRET_KEY")
@@ -218,4 +257,6 @@ def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
         "stripeExempt": is_stripe_exempt_slug(project.slug),
         "isHubProject": project.slug == HUB_SLUG,
         "hubSlug": HUB_SLUG,
+        "localPathRepairSuggested": should_repair_local_path(project),
+        "localPath": project.local_path,
     }

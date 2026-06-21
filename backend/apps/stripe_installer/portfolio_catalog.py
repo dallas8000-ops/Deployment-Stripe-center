@@ -9,6 +9,7 @@ class CatalogEntry(TypedDict, total=False):
     id: str
     name: str
     productionUrl: str
+    defaultLocalPath: str
     webhookPath: str
     healthPath: str
     projectSlug: str
@@ -64,6 +65,7 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
         "productionUrl": "https://kistie-store-production.up.railway.app",
         "healthPath": "/health/",
         "projectSlug": "kistie-store",
+        "defaultLocalPath": r"C:\Software Projects\Kristie-Store",
         "stripeExempt": True,
         "notes": "Portfolio exempt — no Stripe subscription billing",
     },
@@ -73,6 +75,7 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
         "productionUrl": "https://silverfox-production.up.railway.app",
         "healthPath": "/health/",
         "projectSlug": "silverfox",
+        "defaultLocalPath": r"C:\Software Projects\SilverFox",
         "stripeExempt": True,
         "notes": "Men's fashion e-commerce — Django SSR, live FX, Stripe checkout planned",
     },

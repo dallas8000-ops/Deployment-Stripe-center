@@ -65,6 +65,13 @@ class DeployResult:
 
 
 def _project_root(project: Project) -> Path:
+    from apps.stripe_installer.portfolio_workspace import (
+        repair_portfolio_local_path,
+        sync_portfolio_scan_metadata,
+    )
+
+    repair_portfolio_local_path(project)
+    sync_portfolio_scan_metadata(project)
     if not project.local_path:
         raise ValueError("Project local_path is required")
     root = Path(project.local_path).resolve()
