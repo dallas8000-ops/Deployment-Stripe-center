@@ -30,6 +30,7 @@ HUB_SLUG = "stripe-installer"
 STRIPE_EXEMPT_SLUGS: frozenset[str] = frozenset(
     {
         "kistie-store",
+        "silverfox",
         "blog-2",
         "react-store-catalog",
     }
@@ -65,6 +66,15 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
         "projectSlug": "kistie-store",
         "stripeExempt": True,
         "notes": "Portfolio exempt — no Stripe subscription billing",
+    },
+    {
+        "id": "silverfox",
+        "name": "SilverFox",
+        "productionUrl": "https://silverfox-production.up.railway.app",
+        "healthPath": "/health/",
+        "projectSlug": "silverfox",
+        "stripeExempt": True,
+        "notes": "Men's fashion e-commerce — Django SSR, live FX, Stripe checkout planned",
     },
     {
         "id": "blog-api",

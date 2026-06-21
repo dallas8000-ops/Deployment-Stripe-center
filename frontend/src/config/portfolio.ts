@@ -5,6 +5,7 @@ export const MERGED_LEGACY_PROJECT_SLUGS = new Set(["api-transfer", "api_transfe
 /** Portfolio demos — not Stripe billing workspaces (hidden from Projects list). */
 export const STRIPE_EXEMPT_PROJECT_SLUGS = new Set([
   "kistie-store",
+  "silverfox",
   "blog-2",
   "react-store-catalog",
 ]);
