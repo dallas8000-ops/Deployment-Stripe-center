@@ -129,7 +129,8 @@ class DeployRunView(ProjectOwnedMixin, APIView):
             "provision_postgres": request.data.get("provision_postgres", True),
             "include_readiness": True,
             "push": request.data.get("push", False),
-            "postgres_provider": request.data.get("postgres_provider", "neon"),
+            "push_railway_env": request.data.get("push_railway_env", True),
+            "postgres_provider": request.data.get("postgres_provider"),
             "app_url": request.data.get("app_url")
             or get_production_url(project, request.build_absolute_uri("/").rstrip("/")),
         }
@@ -226,7 +227,7 @@ class EnvPushView(ProjectOwnedMixin, APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, project_slug: str):
-        from .env_push import push_vault_env_to_platform
+        from .env_push import auto_push_railway_env, push_vault_env_to_platform
 
         project = self.get_project(project_slug)
         platform = request.data.get("platform")
@@ -236,29 +237,39 @@ class EnvPushView(ProjectOwnedMixin, APIView):
         keys = request.data.get("keys")
         variables = request.data.get("variables")
         preset = request.data.get("preset")
+        auto_resolve = request.data.get("auto_resolve", True)
 
         if not platform:
             return Response(
                 {"error": "platform is required (railway)"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if not service_id:
-            return Response(
-                {"error": "service_id is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         try:
-            result = push_vault_env_to_platform(
-                project,
-                platform,
-                service_id,
-                project_id=project_id,
-                environment_id=environment_id,
-                keys=keys if isinstance(keys, list) else None,
-                variables=variables if isinstance(variables, dict) else None,
-                preset=preset if isinstance(preset, str) and preset.strip() else None,
-            )
+            if platform == "railway" and auto_resolve and (not service_id or not project_id):
+                result = auto_push_railway_env(
+                    project,
+                    preset=preset if isinstance(preset, str) and preset.strip() else None,
+                    project_id=project_id if isinstance(project_id, str) and project_id.strip() else None,
+                    service_id=service_id if isinstance(service_id, str) and service_id.strip() else None,
+                    variables=variables if isinstance(variables, dict) else None,
+                )
+            else:
+                if not service_id:
+                    return Response(
+                        {"error": "service_id is required (or set auto_resolve: true)"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                result = push_vault_env_to_platform(
+                    project,
+                    platform,
+                    service_id,
+                    project_id=project_id,
+                    environment_id=environment_id,
+                    keys=keys if isinstance(keys, list) else None,
+                    variables=variables if isinstance(variables, dict) else None,
+                    preset=preset if isinstance(preset, str) and preset.strip() else None,
+                )
         except (RuntimeError, ValueError) as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 

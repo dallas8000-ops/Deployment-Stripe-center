@@ -46,8 +46,9 @@ class DeployOptions:
     provision_postgres: bool = True
     include_readiness: bool = True
     push_platform: bool = False
+    push_railway_env: bool = True
     app_url: str = "http://localhost:8000"
-    postgres_provider: str = "neon"
+    postgres_provider: str | None = None
 
 
 @dataclass
@@ -59,6 +60,7 @@ class DeployResult:
     production_url: str = ""
     postgres_connected: bool | None = None
     push_result: dict[str, Any] | None = None
+    env_push_result: dict[str, Any] | None = None
     manifest: dict[str, Any] = field(default_factory=dict)
 
 
@@ -97,6 +99,8 @@ def run_deploy_pipeline(
         or (deploy_cfg.get("postgres") or {}).get("provider")
         or "neon"
     )
+    if postgres_provider == "unknown":
+        postgres_provider = "neon"
     auto_provision = (deploy_cfg.get("postgres") or {}).get("autoProvision", True)
 
     emit(on_event, PipelineEvent("deploy.started", "running", "Starting full deploy pipeline…"))
@@ -192,6 +196,27 @@ def run_deploy_pipeline(
         next_steps.append(f"Verify: curl {prod_url}{health_check_path(project.framework)}")
     next_steps.append("Schedule backups: scripts/backup-db.sh or backup-db.ps1")
 
+    env_push_result = None
+    should_push_railway_env = options.push_railway_env and platform == "railway"
+    if should_push_railway_env:
+        emit(on_event, PipelineEvent("deploy.railway-env", "running", "Pushing env vars to Railway…"))
+        try:
+            from .env_push import auto_push_railway_env
+
+            env_push_result = auto_push_railway_env(project)
+            emit(
+                on_event,
+                PipelineEvent(
+                    "deploy.railway-env",
+                    "ok",
+                    env_push_result.get("message", "Railway env vars updated"),
+                ),
+            )
+            next_steps.insert(0, env_push_result.get("message", "Railway env vars updated"))
+        except (RuntimeError, ValueError) as exc:
+            emit(on_event, PipelineEvent("deploy.railway-env", "failed", str(exc)))
+            next_steps.insert(0, f"Railway env push: {exc}")
+
     push_result = None
     if options.push_platform:
         emit(on_event, PipelineEvent("deploy.push", "running", f"Pushing to {platform}…"))
@@ -222,5 +247,6 @@ def run_deploy_pipeline(
         production_url=prod_url,
         postgres_connected=postgres_connected,
         push_result=push_result,
+        env_push_result=env_push_result,
         manifest=manifest,
     )

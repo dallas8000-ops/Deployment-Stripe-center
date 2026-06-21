@@ -51,8 +51,9 @@ def execute_pipeline(self, run_id: str) -> None:
                     provision_postgres=opts_data.get("provision_postgres", True),
                     include_readiness=opts_data.get("include_readiness", True),
                     push_platform=opts_data.get("push", False),
+                    push_railway_env=opts_data.get("push_railway_env", True),
                     app_url=opts_data.get("app_url", "http://localhost:8000"),
-                    postgres_provider=opts_data.get("postgres_provider", "neon"),
+                    postgres_provider=opts_data.get("postgres_provider"),
                 ),
             )
             result = deploy_result.pipeline
@@ -66,6 +67,7 @@ def execute_pipeline(self, run_id: str) -> None:
                     "nextSteps": deploy_result.next_steps,
                     "manifest": deploy_result.manifest,
                     "push": deploy_result.push_result,
+                    "envPush": deploy_result.env_push_result,
                 },
             }
         else:

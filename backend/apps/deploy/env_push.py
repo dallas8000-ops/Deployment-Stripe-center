@@ -218,3 +218,67 @@ def push_vault_env_to_platform(
         f"Pushed {len(env_vars)} var(s) to {platform}: {', '.join(sorted(env_vars.keys()))}"
     )
     return result
+
+
+def auto_push_railway_env(
+    project: Project,
+    *,
+    preset: str | None = None,
+    project_id: str | None = None,
+    service_id: str | None = None,
+    variables: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Discover Railway targets and push preset + vault env vars (used by deploy pipeline)."""
+    from datetime import datetime, timezone
+
+    from .railway_resolve import (
+        preset_for_project,
+        remember_railway_targets,
+        resolve_railway_project_id,
+        resolve_railway_web_service_id,
+    )
+
+    token = get_secret(project, "RAILWAY_API_TOKEN")
+    if not token:
+        raise RuntimeError(
+            "RAILWAY_API_TOKEN not in vault — create at https://railway.com/account/tokens"
+        )
+
+    resolved_preset = preset or preset_for_project(project)
+    resolved_project_id = (project_id or resolve_railway_project_id(project, token) or "").strip()
+    if not resolved_project_id:
+        raise RuntimeError(
+            "Could not resolve Railway project ID — add RAILWAY_PROJECT_ID to vault or name the "
+            "Railway project to match this workspace (e.g. silverfox → SilverFox)."
+        )
+
+    resolved_service_id = (
+        service_id or resolve_railway_web_service_id(project, token, resolved_project_id) or ""
+    ).strip()
+    if not resolved_service_id:
+        raise RuntimeError(
+            "Could not resolve Railway web service ID — add RAILWAY_SERVICE_ID to vault or ensure "
+            "the web service name matches the project (not Postgres)."
+        )
+
+    result = push_vault_env_to_platform(
+        project,
+        "railway",
+        resolved_service_id,
+        project_id=resolved_project_id,
+        preset=resolved_preset,
+        variables=variables,
+    )
+    remember_railway_targets(project, resolved_project_id, resolved_service_id)
+
+    scan = dict(project.scan_data or {})
+    railway = dict(scan.get("railway") or {})
+    railway["lastEnvPushAt"] = datetime.now(timezone.utc).isoformat()
+    railway["lastPushedKeys"] = result.get("pushed") or []
+    scan["railway"] = railway
+    project.scan_data = scan
+    project.save(update_fields=["scan_data", "updated_at"])
+
+    result["projectId"] = resolved_project_id
+    result["serviceId"] = resolved_service_id
+    return result

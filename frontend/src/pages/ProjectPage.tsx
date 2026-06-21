@@ -48,6 +48,7 @@ export default function ProjectPage() {
   const [forceOverwrite, setForceOverwrite] = useState(false);
   const [provisionPostgres, setProvisionPostgres] = useState(true);
   const [pushPlatform, setPushPlatform] = useState(false);
+  const [pushRailwayEnv, setPushRailwayEnv] = useState(true);
   const [readiness, setReadiness] = useState<ReadinessResult | null>(null);
   const [diagnoseReport, setDiagnoseReport] = useState<DiagnosticReport | null>(null);
   const [error, setError] = useState("");
@@ -215,6 +216,7 @@ export default function ProjectPage() {
         include_infra: true,
         provision_postgres: provisionPostgres,
         push: pushPlatform,
+        push_railway_env: pushRailwayEnv,
       });
       setActiveRunId(run.id);
     } catch (err) {
@@ -315,9 +317,10 @@ export default function ProjectPage() {
       }
       const result = await deployApi.pushEnvToPlatform(slug, {
         platform: "railway",
-        service_id: envPushServiceId,
-        project_id: envPushProjectId || undefined,
+        service_id: envPushServiceId.trim() || undefined,
+        project_id: envPushProjectId.trim() || undefined,
         preset: envPushPreset || undefined,
+        auto_resolve: true,
         variables,
       });
       setEnvPushResult(result.message);
@@ -552,6 +555,17 @@ export default function ProjectPage() {
             <input type="checkbox" checked={pushPlatform} onChange={(e) => setPushPlatform(e.target.checked)} />
             Push to platform
           </label>
+          <label
+            className="toggle-inline"
+            title="Push preset + vault vars to Railway web service (auto-detects project/service IDs)"
+          >
+            <input
+              type="checkbox"
+              checked={pushRailwayEnv}
+              onChange={(e) => setPushRailwayEnv(e.target.checked)}
+            />
+            Push Railway env vars
+          </label>
         </div>
         <PipelineTerminal
           events={
@@ -682,8 +696,9 @@ ${verifyResult.accountName ? `Account         ${verifyResult.accountName}` : ""}
       <section className="card">
         <h2>Push env vars to Railway</h2>
         <p className="muted">
-          Push vault secrets, a preset template, and/or inline JSON variables to a Railway service —
-          no manual Raw Editor copy-paste. Requires <code>RAILWAY_API_TOKEN</code> in vault.
+          Push vault secrets, a preset template, and/or inline JSON variables to a Railway service.
+          Service and project IDs are optional — auto-detected from Railway when{" "}
+          <code>RAILWAY_API_TOKEN</code> is in vault.
         </p>
         <div className="option-row">
           <label>
@@ -724,7 +739,7 @@ ${verifyResult.accountName ? `Account         ${verifyResult.accountName}` : ""}
           type="button"
           className="btn btn-primary"
           onClick={runEnvPush}
-          disabled={busy === "env-push" || !envPushServiceId}
+          disabled={busy === "env-push"}
         >
           {busy === "env-push" ? "Pushing…" : "Push env vars"}
         </button>

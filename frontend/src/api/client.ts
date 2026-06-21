@@ -998,7 +998,8 @@ export const deployApi = {
       include_infra?: boolean;
       provision_postgres?: boolean;
       push?: boolean;
-      postgres_provider?: "neon" | "supabase";
+      push_railway_env?: boolean;
+      postgres_provider?: "neon" | "supabase" | "railway" | "self-hosted";
       app_url?: string;
     } = {}
   ) =>
@@ -1052,7 +1053,7 @@ export const deployApi = {
     projectSlug: string,
     opts: {
       platform: "railway";
-      service_id: string;
+      service_id?: string;
       project_id?: string;
       environment_id?: string;
       keys?: string[];
@@ -1060,9 +1061,18 @@ export const deployApi = {
       variables?: Record<string, string>;
       /** Named template, e.g. kistie-store or silverfox */
       preset?: string;
+      /** Resolve Railway project/service IDs from vault + API when omitted */
+      auto_resolve?: boolean;
     }
   ) =>
-    apiFetch<{ pushed: string[]; message: string; environmentId?: string; preset?: string }>(
+    apiFetch<{
+      pushed: string[];
+      message: string;
+      environmentId?: string;
+      preset?: string;
+      projectId?: string;
+      serviceId?: string;
+    }>(
       `/projects/${projectSlug}/deploy/env-push/`,
       { method: "POST", body: JSON.stringify(opts) }
     ),
