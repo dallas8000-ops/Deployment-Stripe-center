@@ -44,12 +44,34 @@ KISTIE_STORE_VAULT_KEYS = [
     "EMAIL_HOST_PASSWORD",
 ]
 
+# SilverFox — men's Django SSR storefront (separate Postgres from Kistie Store).
+SILVERFOX_PRESET: dict[str, str] = {
+    "DEBUG": "False",
+    "DJANGO_ENABLE_ADMIN": "True",
+    "DJANGO_SSL_REDIRECT": "True",
+    "DATABASE_URL": "${{Postgres.DATABASE_URL}}",
+    "ALLOWED_HOSTS": ".railway.app .up.railway.app silverfox-production.up.railway.app",
+    "CSRF_TRUSTED_ORIGINS": "https://silverfox-production.up.railway.app",
+}
+
+SILVERFOX_VAULT_KEYS = [
+    "DJANGO_SECRET_KEY",
+    "DATABASE_URL",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_PUBLISHABLE_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "EMAIL_HOST_USER",
+    "EMAIL_HOST_PASSWORD",
+]
+
 ENV_PRESETS: dict[str, dict[str, str]] = {
     "kistie-store": KISTIE_STORE_PRESET,
+    "silverfox": SILVERFOX_PRESET,
 }
 
 PRESET_VAULT_KEYS: dict[str, list[str]] = {
     "kistie-store": KISTIE_STORE_VAULT_KEYS,
+    "silverfox": SILVERFOX_VAULT_KEYS,
 }
 
 RAILWAY_GQL = "https://backboard.railway.app/graphql/v2"

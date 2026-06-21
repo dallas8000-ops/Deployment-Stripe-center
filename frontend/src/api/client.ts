@@ -1058,7 +1058,7 @@ export const deployApi = {
       keys?: string[];
       /** Inline vars merged last (override preset + vault). */
       variables?: Record<string, string>;
-      /** Named template, e.g. kistie-store */
+      /** Named template, e.g. kistie-store or silverfox */
       preset?: string;
     }
   ) =>

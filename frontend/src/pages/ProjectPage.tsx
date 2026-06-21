@@ -293,6 +293,11 @@ export default function ProjectPage() {
   const [envPushVariables, setEnvPushVariables] = useState("");
   const [envPushResult, setEnvPushResult] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (slug === "silverfox") setEnvPushPreset("silverfox");
+    else if (slug === "kistie-store") setEnvPushPreset("kistie-store");
+  }, [slug]);
+
   async function runEnvPush() {
     setBusy("env-push");
     setError("");
@@ -702,6 +707,7 @@ ${verifyResult.accountName ? `Account         ${verifyResult.accountName}` : ""}
             <select value={envPushPreset} onChange={(e) => setEnvPushPreset(e.target.value)}>
               <option value="">Stripe / vault keys only</option>
               <option value="kistie-store">Kistie Store (Django)</option>
+              <option value="silverfox">SilverFox (Django men's)</option>
             </select>
           </label>
         </div>

@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from apps.deploy.env_push import KISTIE_STORE_PRESET, merge_env_vars
+from apps.deploy.env_push import KISTIE_STORE_PRESET, SILVERFOX_PRESET, merge_env_vars
 
 
 class EnvPushMergeTests(SimpleTestCase):
@@ -22,3 +22,9 @@ class EnvPushMergeTests(SimpleTestCase):
     def test_kistie_preset_excludes_portfolio_domain(self):
         self.assertNotIn("gilliomfrontlinedigital.com", KISTIE_STORE_PRESET.get("SITE_URL", ""))
         self.assertIn("kistie-store-production", KISTIE_STORE_PRESET["SITE_URL"])
+
+    def test_silverfox_preset_uses_debug_not_django_debug(self):
+        self.assertEqual(SILVERFOX_PRESET["DEBUG"], "False")
+        self.assertNotIn("DJANGO_DEBUG", SILVERFOX_PRESET)
+        self.assertIn("silverfox-production", SILVERFOX_PRESET["CSRF_TRUSTED_ORIGINS"])
+        self.assertEqual(SILVERFOX_PRESET["DATABASE_URL"], "${{Postgres.DATABASE_URL}}")
