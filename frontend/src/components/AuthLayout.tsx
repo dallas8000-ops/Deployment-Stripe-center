@@ -5,7 +5,7 @@ import { APP_SHORT_NAME } from "../config/branding";
 type AuthLayoutProps = {
   title: string;
   subtitle: string;
-  footer: ReactNode;
+  footer?: ReactNode;
   children: ReactNode;
 };
 
@@ -49,7 +49,7 @@ export default function AuthLayout({ title, subtitle, footer, children }: AuthLa
             <p className="muted">{subtitle}</p>
           </header>
           {children}
-          <footer className="auth-footer">{footer}</footer>
+          {footer ? <footer className="auth-footer">{footer}</footer> : null}
         </div>
       </main>
     </div>
