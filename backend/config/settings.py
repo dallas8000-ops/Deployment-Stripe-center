@@ -280,6 +280,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "stripe_engine.auto_backup_all_projects",
         "schedule": crontab(minute=0, hour=3),  # Daily at 3 AM UTC
     },
+    "prune-audit-logs": {
+        "task": "compliance.prune_audit_logs",
+        "schedule": crontab(minute=15, hour=4),  # Daily at 4:15 AM UTC
+    },
 }
 
 # GitHub App (optional — PR check runs + webhooks)
@@ -347,6 +351,10 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@stripe-instal
 
 # MFA (TOTP)
 MFA_ISSUER_NAME = os.environ.get("MFA_ISSUER_NAME", "Automation Center")
+
+# Audit retention (compliance)
+AUDIT_LOG_RETENTION_DAYS = int(os.environ.get("AUDIT_LOG_RETENTION_DAYS", "365"))
+TRANSFER_AUDIT_RETENTION_DAYS = int(os.environ.get("TRANSFER_AUDIT_RETENTION_DAYS", "2555"))
 
 # Enterprise OIDC SSO (Okta, Azure AD, etc.)
 OIDC_SSO_ENABLED = os.environ.get("OIDC_SSO_ENABLED", "false").lower() == "true"

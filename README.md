@@ -1,11 +1,16 @@
 # Deployment & Stripe Automation Center
 
+**Encrypted vault + Stripe automation for agencies shipping client apps to production** — one login to scan repos, wire billing, and push deploys without secrets leaving the server.
+
 Combined platform for **deployment / API transfer** and **Stripe setup** — one login, one database, one encrypted vault per project.
 
 This repo merges the former **Stripe Installer** and **API Transfer** products into a single Django + React app. Never exposes secrets to the frontend, AI, or logs.
 
 | Doc | Purpose |
 |-----|---------|
+| [docs/PRODUCT.md](docs/PRODUCT.md) | Product wedge + ICP |
+| [docs/LEGACY-ARCHIVE.md](docs/LEGACY-ARCHIVE.md) | Legacy CLI retirement policy |
+| [deploy/COMPLIANCE.md](deploy/COMPLIANCE.md) | SOC 2 readiness + audit retention |
 | [docs/STRUCTURE.md](docs/STRUCTURE.md) | Repo layout |
 | [docs/AUTOMATION-CENTER.md](docs/AUTOMATION-CENTER.md) | Merge vision + secret rules |
 | [docs/CUTOVER.md](docs/CUTOVER.md) | Retire old production apps |

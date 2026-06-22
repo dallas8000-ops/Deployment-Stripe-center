@@ -1,6 +1,18 @@
 # Merge status — Deployment & Stripe Automation Center
 
-Last updated: cutover verification pass.
+Last updated: Tier-1 Phases 5–6 (compliance + product focus).
+
+## Tier-1 roadmap (code complete)
+
+| Phase | Status |
+|-------|--------|
+| 0 Security baseline | Done — DEBUG default, CSP, dependabot, pip-audit |
+| 1 Scale (web/worker/beat) | Done — `PROCESS_TYPE`, Redis, distributed beat locks |
+| 2 MFA + OIDC SSO | Done — `deploy/OIDC-SSO.md` |
+| 3 Observability | Done — Sentry, request IDs, `/health/metrics/` |
+| 4 Test coverage | Done — 30% CI gate, api_transfer/runs tests |
+| 5 Compliance | Done — `deploy/COMPLIANCE.md`, audit retention, DPA/subprocessor docs |
+| 6 Focus / cutover | Docs done — [PRODUCT.md](PRODUCT.md), [LEGACY-ARCHIVE.md](LEGACY-ARCHIVE.md); manual cutover steps remain |
 
 ## Completed
 
@@ -15,7 +27,13 @@ Last updated: cutover verification pass.
 - [x] Portfolio registry template (`automation-center` only — legacy entry removed)
 - [x] `VAULT_MASTER_KEY` env priority on Railway ([master_key.py](../backend/apps/vault/master_key.py))
 - [x] `python manage.py verify_cutover` — live health + registry checks
-- [x] `scripts/complete-cutover.ps1` — Railway/Stripe checklist helper
+- [x] `python manage.py compliance_check` — audit chain + retention config
+- [x] `python manage.py verify_audit_chain` — transfer hash chain CLI
+- [x] `python manage.py prune_audit_logs` — project audit retention (beat nightly)
+- [x] Compliance docs: `deploy/COMPLIANCE.md`, `docs/compliance/*`
+- [x] Product wedge: [PRODUCT.md](PRODUCT.md)
+- [x] Legacy retirement policy: [LEGACY-ARCHIVE.md](LEGACY-ARCHIVE.md)
+- [x] Monorepo merge redirects (`elite-fintech-systems`, canonical slugs)
 
 ### Portfolio site (`FrontlineDigital/DevCollective`)
 
