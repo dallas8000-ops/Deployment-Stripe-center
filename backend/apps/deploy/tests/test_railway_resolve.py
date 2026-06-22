@@ -11,7 +11,7 @@ class RailwayResolveTests(SimpleTestCase):
 
         self.assertEqual(preset_for_project(P("silverfox")), "silverfox")
         self.assertEqual(preset_for_project(P("kistie-store")), "kistie-store")
-        self.assertIsNone(preset_for_project(P("elite-fintech-web")))
+        self.assertIsNone(preset_for_project(P("elite-fintech-systems")))
 
     def test_name_matches_ignores_spaces_and_case(self):
         self.assertTrue(_name_matches("SilverFox", "silverfox"))

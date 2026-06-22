@@ -40,7 +40,7 @@ class Command(BaseCommand):
 
         slugs = options.get("projects") or []
         if not slugs:
-            raise CommandError("Pass --project <slug> (e.g. --project elite-fintech-web --project righand)")
+            raise CommandError("Pass --project <slug> (e.g. --project elite-fintech-systems --project righand)")
 
         hub = Project.objects.filter(owner=owner, slug=HUB_SLUG).first()
         if not hub and not options.get("skip_vault"):

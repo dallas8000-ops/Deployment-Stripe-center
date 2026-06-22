@@ -23,6 +23,7 @@ MERGED_LEGACY_PROJECT_SLUGS: frozenset[str] = frozenset(
     {
         "api-transfer",
         "api_transfer",
+        "elite-fintech-web",
     }
 )
 
@@ -53,12 +54,13 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
     },
     {
         "id": "elite-fintech",
-        "name": "Elite Fintech Web",
-        "productionUrl": "https://elite-fintech-web-production.up.railway.app",
-        "webhookPath": "/api/stripe/webhook",
+        "name": "Elite Fintech Systems",
+        "productionUrl": "https://elite-fintech-api-production.up.railway.app",
+        "webhookPath": "/webhooks/stripe/",
         "healthPath": "/health/",
-        "projectSlug": "elite-fintech-web",
-        "defaultLocalPath": r"C:\Software Projects\Elite-Fintech-Web",
+        "projectSlug": "elite-fintech-systems",
+        "defaultLocalPath": r"C:\Software Projects\Elite Fintech Systems",
+        "notes": "Canonical repo: Elite-Fintech-Systems. Web UI: elite-fintech-web-production.up.railway.app",
     },
     {
         "id": "kistie-store",
@@ -144,6 +146,15 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
         "webhookPath": "/api/v1/billing/webhook/",
         "healthPath": "/health/",
         "projectSlug": "enpowercommand",
+    },
+    {
+        "id": "elite-fintech-web-legacy",
+        "name": "Elite Fintech Web (retired duplicate)",
+        "productionUrl": "https://elite-fintech-web-production.up.railway.app",
+        "webhookPath": "/api/stripe/webhook",
+        "merged": True,
+        "projectSlug": "elite-fintech-web",
+        "notes": "Unwanted automation clone — use elite-fintech-systems / Elite-Fintech-Systems repo",
     },
     {
         "id": "api-transfer-legacy",

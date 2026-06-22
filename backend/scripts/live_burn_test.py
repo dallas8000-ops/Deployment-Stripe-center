@@ -97,7 +97,7 @@ def main() -> int:
     record("GET /api/v1/transfer/audit/", r.status_code == 200, f"status={r.status_code}")
 
     hub_slug = "stripe-installer"
-    for slug in [hub_slug, "elite-fintech-web", "righand"]:
+    for slug in [hub_slug, "elite-fintech-systems", "righand"]:
         if slug not in slugs and slugs:
             record(f"skip {slug}", True, "not in project list")
             continue
