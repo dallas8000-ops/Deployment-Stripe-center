@@ -5,9 +5,11 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    mfa_enabled = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = User
-        fields = ("id", "email", "display_name", "date_joined")
+        fields = ("id", "email", "display_name", "date_joined", "mfa_enabled")
         read_only_fields = fields
 
 

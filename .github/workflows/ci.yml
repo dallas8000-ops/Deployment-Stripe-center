@@ -33,13 +33,16 @@ jobs:
       - name: Install backend
         run: pip install -r backend/requirements.txt
 
+      - name: Dependency audit
+        run: pip install pip-audit && pip-audit -r backend/requirements.txt
+
       - name: Django checks
         working-directory: backend
         run: python manage.py check
 
       - name: Backend tests
         working-directory: backend
-        run: python manage.py test apps.deploy apps.vault apps.projects apps.stripe_installer apps.diagnostics apps.api_transfer
+        run: python manage.py test apps.accounts apps.deploy apps.vault apps.projects apps.stripe_installer apps.diagnostics apps.api_transfer
 
       - name: Migrate (smoke test DB)
         working-directory: backend

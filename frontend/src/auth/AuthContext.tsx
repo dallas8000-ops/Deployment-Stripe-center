@@ -7,12 +7,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { authApi, clearTokens, refreshAccessToken, type User } from "../api/client";
+import { authApi, clearTokens, refreshAccessToken, type LoginResponse, type User } from "../api/client";
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginResponse>;
   register: (
     email: string,
     password: string,
@@ -51,8 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   const login = useCallback(async (email: string, password: string) => {
-    await authApi.login(email, password);
-    await refreshUser();
+    const result = await authApi.login(email, password);
+    if (!result.mfa_required) {
+      await refreshUser();
+    }
+    return result;
   }, [refreshUser]);
 
   const register = useCallback(

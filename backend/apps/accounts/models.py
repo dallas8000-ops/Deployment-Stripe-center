@@ -24,6 +24,10 @@ class User(AbstractUser):
     username = None
     email = models.EmailField("email address", unique=True)
     display_name = models.CharField(max_length=150, blank=True)
+    mfa_enabled = models.BooleanField(default=False)
+    mfa_secret_encrypted = models.TextField(blank=True, default="")
+    mfa_pending_secret_encrypted = models.TextField(blank=True, default="")
+    mfa_recovery_codes_hash = models.JSONField(default=list, blank=True)
 
     objects = UserManager()
 

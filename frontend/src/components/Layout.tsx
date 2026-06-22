@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { apiConnectionLabel, projectsApi } from "../api/client";
 import { APP_SHORT_NAME } from "../config/branding";
@@ -94,7 +94,11 @@ export default function Layout() {
           <span className="muted topbar-env" title="One app: Stripe setup + deploy/transfer (API Transfer is not a separate product)">
             {apiConnectionLabel()}
           </span>
-          <span className="user-email">{user?.email}</span>
+          <span className="user-email">
+            <Link to="/account/security" className="topbar-nav-link">
+              {user?.email}
+            </Link>
+          </span>
           <button
             type="button"
             className="btn btn-ghost"

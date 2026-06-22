@@ -132,6 +132,19 @@ export interface User {
   email: string;
   display_name: string;
   date_joined: string;
+  mfa_enabled?: boolean;
+}
+
+export interface LoginResponse {
+  access?: string;
+  refresh?: string;
+  mfa_required?: boolean;
+  mfa_token?: string;
+}
+
+export interface SsoConfig {
+  enabled: boolean;
+  login_url?: string;
 }
 
 export interface Project {
@@ -203,15 +216,48 @@ export const authApi = {
 
   invitePreview: (token: string) => apiFetch<InvitePreview>(`/invites/${token}/`),
 
-  login: async (email: string, password: string) => {
+  login: async (email: string, password: string): Promise<LoginResponse> => {
     clearTokens();
-    const data = await apiFetch<{ access: string; refresh: string }>("/auth/login/", {
+    const data = await apiFetch<LoginResponse>("/auth/login/", {
       method: "POST",
       body: JSON.stringify({ email, password }),
+    });
+    if (data.access && data.refresh) {
+      setTokens(data.access, data.refresh);
+    }
+    return data;
+  },
+
+  verifyMfa: async (mfa_token: string, code: string, recovery_code?: string) => {
+    const data = await apiFetch<{ access: string; refresh: string }>("/auth/mfa/verify/", {
+      method: "POST",
+      body: JSON.stringify({ mfa_token, code, recovery_code }),
     });
     setTokens(data.access, data.refresh);
     return data;
   },
+
+  mfaStatus: () => apiFetch<{ mfa_enabled: boolean }>("/auth/mfa/status/"),
+
+  mfaEnrollStart: () =>
+    apiFetch<{ secret: string; provisioning_uri: string; issuer: string }>(
+      "/auth/mfa/enroll/start/",
+      { method: "POST", body: "{}" }
+    ),
+
+  mfaEnrollConfirm: (code: string) =>
+    apiFetch<{ mfa_enabled: boolean; recovery_codes: string[] }>("/auth/mfa/enroll/confirm/", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+
+  mfaDisable: (password: string, code: string) =>
+    apiFetch<{ mfa_enabled: boolean }>("/auth/mfa/disable/", {
+      method: "POST",
+      body: JSON.stringify({ password, code }),
+    }),
+
+  ssoConfig: () => apiFetch<SsoConfig>("/auth/sso/config/"),
 
   me: () => apiFetch<User>("/auth/me/"),
 
