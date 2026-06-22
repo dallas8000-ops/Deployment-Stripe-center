@@ -88,6 +88,7 @@ class Command(BaseCommand):
             warn.append(f"No portfolio registry at {reg_path} - run ensure_registry_template or copy example")
 
         legacy_webhook_disabled = False
+        legacy_webhook_found = False
         unified_webhook_enabled = False
         stripe_bin = shutil.which("stripe")
         if stripe_bin:
@@ -105,6 +106,7 @@ class Command(BaseCommand):
                         url = str(endpoint.get("url") or "")
                         status = str(endpoint.get("status") or "")
                         if url.rstrip("/") == LEGACY_WEBHOOK.rstrip("/"):
+                            legacy_webhook_found = True
                             if status == "disabled":
                                 legacy_webhook_disabled = True
                                 ok.append(f"Legacy Stripe webhook disabled ({LEGACY_WEBHOOK})")
@@ -119,6 +121,11 @@ class Command(BaseCommand):
                                 ok.append(f"Unified Stripe webhook enabled ({url})")
                             else:
                                 warn.append(f"Unified Stripe webhook status: {status} ({url})")
+                    if not legacy_webhook_found:
+                        legacy_webhook_disabled = True
+                        ok.append(
+                            f"Legacy Stripe webhook not registered in live mode ({LEGACY_WEBHOOK})"
+                        )
             except (json.JSONDecodeError, subprocess.TimeoutExpired, OSError) as exc:
                 warn.append(f"Could not check Stripe webhooks via CLI: {exc}")
         else:

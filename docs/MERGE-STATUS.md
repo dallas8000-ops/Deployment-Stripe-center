@@ -59,11 +59,8 @@ These require Stripe Dashboard clicks or optional provider token setup:
    Your service has `STRIPE_*`, `DATABASE_URL`, `DJANGO_*`, `CORS/CSRF` — no copy needed from api-transfer  
    Legacy names on unified service (`VAULT_MASTER_KEY_BASE64`, `VAULT_DJANGO_SECRET_KEY`) are **ignored** — use `VAULT_MASTER_KEY` (64-char hex) if not already set  
    **Deploy tokens** (`RAILWAY_API_TOKEN`, `GITHUB_TOKEN`, etc.) were **never** api-transfer Railway vars — store them in **each project's vault** in the app, or add optionally at service level later
-2. [ ] **Disable Stripe webhook** on `api-transfer-production.../api/billing/webhook`  
-   Keep: `stripe-installer-production.../api/v1/billing/webhook/`  
-   Dashboard: Developers -> Webhooks -> `api-transfer-production` -> Disable  
-   CLI (needs secret key with webhook write):  
-   `stripe webhook_endpoints update we_1ThOh0RxznXvj6jhjt7jZ3nm --disabled=true --live -c`
+2. [x] **Disable Stripe webhook** on `api-transfer-production.../api/billing/webhook`  
+   Not registered in live Stripe — already removed (verified via `verify_cutover`)
 3. [ ] **Redeploy unified service** after any variable changes (Railway → Deploy latest `main`)
 4. [ ] **Smoke test** in app: login → project → Transfer panel → dry-run deploy
 5. [ ] **Delete `api-transfer-production`** Railway service (after 48h no traffic)
