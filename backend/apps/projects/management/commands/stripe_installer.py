@@ -113,13 +113,33 @@ class Command(BaseCommand):
 
         from apps.deploy.platform import detect_deploy_platform
         from apps.projects.scanner import ProjectScanner
+        from apps.stripe_installer.portfolio_catalog import catalog_by_slug
+        from apps.stripe_installer.portfolio_workspace import relative_scan_root, resolve_scan_root
 
         if not path:
             raise CommandError("Set --path or project local_path")
-        result = ProjectScanner(path).scan()
+        repo_root = Path(path).resolve()
+        scan_root = resolve_scan_root(repo_root)
+        result = ProjectScanner(scan_root).scan()
         data = result.to_dict()
-        data["deployPlatform"] = detect_deploy_platform(Path(path), data.get("framework", "unknown"))
-        project.local_path = path
+        catalog = catalog_by_slug(project.slug or "")
+        production_url = str((catalog or {}).get("productionUrl") or "")
+        backend_rel = relative_scan_root(repo_root, scan_root)
+        if backend_rel:
+            data["scanBackendPath"] = backend_rel
+        data["deployPlatform"] = detect_deploy_platform(
+            scan_root,
+            data.get("framework", "unknown"),
+            production_url=production_url,
+        )
+        if catalog:
+            if catalog.get("productionUrl"):
+                url = str(catalog["productionUrl"]).rstrip("/")
+                data["productionUrl"] = url
+                data["production_url"] = url
+            if catalog.get("webhookPath"):
+                data["webhookPath"] = catalog["webhookPath"]
+        project.local_path = str(repo_root)
         project.framework = data["framework"]
         project.language = data["language"]
         project.scan_data = data

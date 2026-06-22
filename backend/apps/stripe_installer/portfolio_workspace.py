@@ -7,7 +7,7 @@ from pathlib import Path
 from django.conf import settings
 
 from apps.projects.models import Project
-from apps.stripe_installer.portfolio_catalog import HUB_SLUG, catalog_by_slug, is_stripe_exempt_slug
+from apps.stripe_installer.portfolio_catalog import HUB_SLUG, catalog_by_slug, catalog_live_urls, is_stripe_exempt_slug
 
 
 # Windows dev paths — match portfolio repo locations on Ray's machine.
@@ -24,6 +24,27 @@ DEFAULT_LOCAL_PATHS: dict[str, str] = {
     "elite-fintech-web": r"C:\Software Projects\Elite Fintech Systems",
     "specwright": r"C:\Software Projects\Specwright",
 }
+
+
+def resolve_scan_root(local_path: str | Path) -> Path:
+    """
+    Django monorepos (e.g. apps/backend/manage.py) — scan the API package, not the web root.
+    Keeps local_path on the git repo root; only filesystem detection uses this path.
+    """
+    root = Path(local_path).resolve()
+    for candidate in (root / "apps" / "backend", root / "backend", root):
+        if (candidate / "manage.py").is_file():
+            return candidate
+    return root
+
+
+def relative_scan_root(repo_root: Path, scan_root: Path) -> str:
+    if scan_root.resolve() == repo_root.resolve():
+        return ""
+    try:
+        return str(scan_root.resolve().relative_to(repo_root.resolve())).replace("\\", "/")
+    except ValueError:
+        return ""
 
 
 def catalog_local_path(slug: str) -> str | None:
@@ -141,18 +162,32 @@ def ensure_project_workspace(project: Project, *, clone_if_missing: bool = True)
 
 
 def sync_portfolio_scan_metadata(project: Project, *, save: bool = True) -> None:
-    """Ensure productionUrl in scan_data matches portfolio catalog."""
-    if not is_stripe_exempt_slug(project.slug) and project.slug != HUB_SLUG:
-        return
-    entry = catalog_by_slug(project.slug)
-    if not entry or not entry.get("productionUrl"):
+    """Ensure productionUrl / webhookPath in scan_data matches portfolio catalog."""
+    entry = catalog_by_slug(project.slug or "")
+    if not entry:
         return
     scan = dict(project.scan_data or {})
-    url = str(entry["productionUrl"]).rstrip("/")
-    if scan.get("productionUrl") == url and scan.get("production_url") == url:
-        return
-    scan["productionUrl"] = url
-    scan["production_url"] = url
-    project.scan_data = scan
-    if save:
-        project.save(update_fields=["scan_data", "updated_at"])
+    changed = False
+    url = str(entry.get("productionUrl") or "").rstrip("/")
+    if url and scan.get("productionUrl") != url:
+        scan["productionUrl"] = url
+        scan["production_url"] = url
+        changed = True
+    live = catalog_live_urls(entry)
+    for key, scan_key in (
+        ("webUrl", "webProductionUrl"),
+        ("demoUrl", "demoUrl"),
+        ("portfolioDemoUrl", "portfolioDemoUrl"),
+    ):
+        val = live.get(key) or ""
+        if val and scan.get(scan_key) != val:
+            scan[scan_key] = val
+            changed = True
+    webhook = str(entry.get("webhookPath") or "").strip()
+    if webhook and scan.get("webhookPath") != webhook:
+        scan["webhookPath"] = webhook
+        changed = True
+    if changed:
+        project.scan_data = scan
+        if save:
+            project.save(update_fields=["scan_data", "updated_at"])

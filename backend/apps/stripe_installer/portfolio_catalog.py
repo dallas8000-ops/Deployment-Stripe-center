@@ -9,6 +9,13 @@ class CatalogEntry(TypedDict, total=False):
     id: str
     name: str
     productionUrl: str
+    """API / backend host (webhooks, health)."""
+    webProductionUrl: str
+    """Frontend host on Railway — live view and Stripe customer return URL."""
+    demoUrl: str
+    """Railway live demo route (e.g. /demo). Primary live experience."""
+    portfolioDemoUrl: str
+    """Optional custom domain URL for portfolio Live demo button only (CNAME → Railway web)."""
     defaultLocalPath: str
     webhookPath: str
     healthPath: str
@@ -56,11 +63,13 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
         "id": "elite-fintech",
         "name": "Elite Fintech Systems",
         "productionUrl": "https://elite-fintech-api-production.up.railway.app",
+        "webProductionUrl": "https://elite-fintech-web-production.up.railway.app",
+        "demoUrl": "https://elite-fintech-web-production.up.railway.app/demo",
         "webhookPath": "/webhooks/stripe/",
         "healthPath": "/health/",
         "projectSlug": "elite-fintech-systems",
         "defaultLocalPath": r"C:\Software Projects\Elite Fintech Systems",
-        "notes": "Canonical repo: Elite-Fintech-Systems. Web UI: elite-fintech-web-production.up.railway.app",
+        "notes": "Live on Railway. Custom domain optional for portfolio Live demo button (CNAME to web service).",
     },
     {
         "id": "kistie-store",
@@ -172,6 +181,27 @@ def catalog_by_slug(slug: str) -> CatalogEntry | None:
         if entry.get("projectSlug") == slug:
             return entry
     return None
+
+
+def catalog_live_urls(entry: CatalogEntry | None) -> dict[str, str]:
+    """Railway-first live URLs — API vs web vs demo vs optional portfolio custom domain."""
+    if not entry:
+        return {}
+    api = str(entry.get("productionUrl") or "").strip().rstrip("/")
+    web = str(entry.get("webProductionUrl") or api).strip().rstrip("/")
+    if entry.get("demoUrl"):
+        demo = str(entry["demoUrl"]).strip().rstrip("/")
+    elif web and web != api:
+        demo = f"{web}/demo"
+    else:
+        demo = web
+    portfolio = str(entry.get("portfolioDemoUrl") or "").strip().rstrip("/")
+    return {
+        "apiUrl": api,
+        "webUrl": web,
+        "demoUrl": demo,
+        "portfolioDemoUrl": portfolio or demo,
+    }
 
 
 def is_stripe_exempt_slug(slug: str) -> bool:

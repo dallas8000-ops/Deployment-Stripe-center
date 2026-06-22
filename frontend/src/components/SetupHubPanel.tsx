@@ -264,8 +264,23 @@ export default function SetupHubPanel({
           {status && (
             <div className="setup-meta muted">
               <p>
-                Production URL: <code>{status.productionUrl}</code>
+                API (Railway): <code>{status.productionUrl}</code>
               </p>
+              {status.webProductionUrl && status.webProductionUrl !== status.productionUrl && (
+                <p>
+                  Web (Railway): <code>{status.webProductionUrl}</code>
+                </p>
+              )}
+              {status.demoUrl && (
+                <p>
+                  Live demo: <code>{status.demoUrl}</code>
+                </p>
+              )}
+              {status.portfolioDemoUrl && status.portfolioDemoUrl !== status.demoUrl && (
+                <p>
+                  Portfolio demo (custom domain): <code>{status.portfolioDemoUrl}</code>
+                </p>
+              )}
               <p>
                 Expected webhook: <code>{status.expectedWebhookUrl}</code>
               </p>

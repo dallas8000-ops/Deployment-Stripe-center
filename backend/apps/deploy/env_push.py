@@ -306,6 +306,127 @@ def push_vault_env_to_platform(
     return result
 
 
+def push_monorepo_railway_live_env(project: Project) -> dict[str, Any] | None:
+    """
+    Push Railway live URLs to API + web services (Django monorepos).
+    API: CLIENT_URL, CSRF, ALLOWED_HOSTS + Stripe keys. Web: VITE_API_URL (redeploy to apply build arg).
+  """
+    from urllib.parse import urlparse
+
+    from apps.stripe_installer.portfolio_catalog import catalog_by_slug, catalog_live_urls
+    from apps.stripe_installer.hub_keys import get_hub_project, repair_project_vault_from_hub
+
+    entry = catalog_by_slug(project.slug or "")
+    live = catalog_live_urls(entry)
+    api_url = live.get("apiUrl") or ""
+    web_url = live.get("webUrl") or ""
+    if not api_url or not web_url or api_url == web_url:
+        return None
+
+    token = get_secret(project, "RAILWAY_API_TOKEN")
+    hub = get_hub_project(project.owner)
+    if not token and hub:
+        repair_project_vault_from_hub(project, hub)
+        token = get_secret(project, "RAILWAY_API_TOKEN")
+    if not token:
+        return {"ok": False, "skipped": True, "message": "RAILWAY_API_TOKEN not in vault"}
+
+    from .railway_resolve import resolve_railway_service_by_host
+
+    api_host = (urlparse(api_url).hostname or "").lower()
+    web_host = (urlparse(web_url).hostname or "").lower()
+    api_project_id, api_service_id = resolve_railway_service_by_host(token, api_host)
+    web_project_id, web_service_id = resolve_railway_service_by_host(token, web_host)
+    if not api_project_id or not api_service_id:
+        return {"ok": False, "message": f"Could not resolve Railway API service for {api_url}"}
+    if not web_project_id or not web_service_id:
+        return {"ok": False, "message": f"Could not resolve Railway web service for {web_url}"}
+
+    api_hosts = {api_host, web_host, ".railway.app", ".up.railway.app", "healthcheck.railway.app"}
+    portfolio_demo = live.get("portfolioDemoUrl") or ""
+    if portfolio_demo and portfolio_demo != live.get("demoUrl"):
+        demo_host = (urlparse(portfolio_demo).hostname or "").lower()
+        if demo_host:
+            api_hosts.add(demo_host)
+
+    api_env = build_env_var_payload(project)
+    api_env.update(
+        {
+            "CLIENT_URL": web_url,
+            "CSRF_TRUSTED_ORIGINS": ",".join(
+                sorted({web_url, api_url, portfolio_demo} - {""})
+            ),
+            "ALLOWED_HOSTS": ",".join(sorted(h for h in api_hosts if h and not h.startswith("."))),
+        }
+    )
+    api_result = push_to_railway(token, api_project_id, api_service_id, api_env)
+
+    ws_url = api_url.replace("https://", "wss://").replace("http://", "ws://").rstrip("/") + "/ws/billing/"
+    web_env = {
+        "VITE_API_URL": api_url,
+        "VITE_WS_URL": ws_url,
+    }
+    web_result = push_to_railway(token, web_project_id, web_service_id, web_env)
+
+    return {
+        "ok": True,
+        "message": (
+            f"Live URLs on Railway — API {api_url}, web {web_url} "
+            f"(redeploy web service for VITE_* build args)"
+        ),
+        "apiUrl": api_url,
+        "webUrl": web_url,
+        "demoUrl": live.get("demoUrl"),
+        "portfolioDemoUrl": live.get("portfolioDemoUrl"),
+        "apiServiceId": api_service_id,
+        "webServiceId": web_service_id,
+        "apiPushed": api_result.get("pushed"),
+        "webPushed": web_result.get("pushed"),
+    }
+
+
+def try_auto_push_railway_stripe_env(project: Project) -> dict[str, Any] | None:
+    """
+    After Stripe webhook provisioning, push STRIPE_* vault vars to the Railway API service.
+    Returns push result dict, skip dict with reason, or None when platform is not Railway.
+    """
+    from pathlib import Path
+
+    from apps.deploy.platform import detect_deploy_platform
+    from apps.stripe_installer.hub_keys import get_hub_project, repair_project_vault_from_hub
+
+    root = Path(project.local_path or "")
+    if not root.is_dir():
+        return {"ok": False, "skipped": True, "message": "local_path missing — set real repo folder"}
+
+    scan = project.scan_data or {}
+    platform = scan.get("deployPlatform") or detect_deploy_platform(root, project.framework)
+    if platform != "railway":
+        return None
+
+    hub = get_hub_project(project.owner)
+    if hub and not get_secret(project, "RAILWAY_API_TOKEN"):
+        repair_project_vault_from_hub(project, hub)
+
+    if not get_secret(project, "RAILWAY_API_TOKEN"):
+        return {
+            "ok": False,
+            "skipped": True,
+            "message": "RAILWAY_API_TOKEN not in vault — add on hub project first",
+        }
+
+    try:
+        result = auto_push_railway_env(project)
+        monorepo = push_monorepo_railway_live_env(project)
+        if monorepo and monorepo.get("ok"):
+            result["monorepoLive"] = monorepo
+            result["message"] = monorepo.get("message", result.get("message"))
+        result["ok"] = True
+        return result
+    except (RuntimeError, ValueError) as exc:
+        return {"ok": False, "message": str(exc)}
+
+
 def auto_push_railway_env(
     project: Project,
     *,

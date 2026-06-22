@@ -15,6 +15,9 @@ STRIPE_KEYS = (
     "STRIPE_WEBHOOK_SECRET",
     "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
 )
+from apps.stripe_installer.hub_keys import HUB_SHARED_DEPLOY_KEYS
+
+VAULT_KEYS_FROM_HUB = STRIPE_KEYS + HUB_SHARED_DEPLOY_KEYS
 
 
 class Command(BaseCommand):
@@ -46,6 +49,8 @@ class Command(BaseCommand):
         if not hub and not options.get("skip_vault"):
             raise CommandError(f"Hub project {HUB_SLUG} not found for this user")
 
+        from apps.stripe_installer.portfolio_workspace import resolve_workspace_path
+
         clone_root = Path(getattr(settings, "PROJECT_CLONE_ROOT", settings.BASE_DIR / "clones"))
 
         for slug in slugs:
@@ -55,7 +60,8 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR(f"Unknown project: {slug}"))
                 continue
 
-            target_path = str((clone_root / slug).resolve())
+            # Prefer the real portfolio repo folder; only fall back to hub clones when no catalog path exists.
+            target_path = resolve_workspace_path(project) or str((clone_root / slug).resolve())
             if project.local_path != target_path:
                 project.local_path = target_path
                 project.save(update_fields=["local_path", "updated_at"])
@@ -82,7 +88,7 @@ class Command(BaseCommand):
                     )
 
                 copied: list[str] = []
-                for key in STRIPE_KEYS:
+                for key in VAULT_KEYS_FROM_HUB:
                     if get_secret(project, key):
                         continue
                     value = get_secret(hub, key)

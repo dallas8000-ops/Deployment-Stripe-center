@@ -678,7 +678,11 @@ export default function ProjectPage() {
           <pre className="verify-pre">
             {`Secret key      ${verifyResult.secretKey.valid ? "✓" : "✗"}  ${verifyResult.secretKey.message}
 Publishable key ${verifyResult.publishableKey.valid ? "✓" : "✗"}  ${verifyResult.publishableKey.message}
-${verifyResult.accountName ? `Account         ${verifyResult.accountName}` : ""}`}
+${verifyResult.accountName ? `Stripe account  ${verifyResult.accountName}` : ""}
+${verifyResult.productionUrl ? `API (Railway)   ${verifyResult.productionUrl}` : ""}
+${verifyResult.webProductionUrl ? `Web (Railway)   ${verifyResult.webProductionUrl}` : ""}
+${verifyResult.demoUrl ? `Live demo       ${verifyResult.demoUrl}` : ""}
+${verifyResult.portfolioDemoUrl && verifyResult.portfolioDemoUrl !== verifyResult.demoUrl ? `Portfolio demo  ${verifyResult.portfolioDemoUrl}` : ""}`}
           </pre>
         </section>
       )}

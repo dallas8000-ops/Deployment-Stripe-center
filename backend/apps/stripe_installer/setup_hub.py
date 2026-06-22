@@ -16,6 +16,7 @@ from apps.stripe_installer.portfolio_audit import (
 )
 from apps.stripe_installer.portfolio_catalog import (
     catalog_by_slug,
+    catalog_live_urls,
     catalog_summary,
     is_stripe_exempt_slug,
 )
@@ -23,7 +24,9 @@ from apps.stripe_installer.hub_keys import (
     HUB_SLUG,
     portfolio_app_for_project,
     pull_stripe_keys_for_user,
+    resolve_demo_app_url,
     resolve_production_app_url,
+    resolve_web_app_url,
     sync_vault_to_billing_projects,
 )
 from apps.stripe_installer.portfolio_paths import portfolio_registry_path
@@ -287,6 +290,11 @@ def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
         "registryApp": app_entry.to_dict() if app_entry else None,
         "expectedWebhookUrl": expected_webhook,
         "productionUrl": production_url,
+        "webProductionUrl": resolve_web_app_url(project),
+        "demoUrl": resolve_demo_app_url(project),
+        "portfolioDemoUrl": catalog_live_urls(catalog_by_slug(project.slug or "")).get(
+            "portfolioDemoUrl"
+        ),
         "lastPortfolioAuditSummary": last_summary,
         "lastPortfolioAuditRegistryGaps": registry_gaps,
         "steps": steps,

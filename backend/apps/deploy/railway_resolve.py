@@ -128,6 +128,12 @@ def _list_railway_projects_with_domains(token: str) -> list[dict[str, Any]]:
 def resolve_railway_targets_by_domain(project: Project, token: str) -> tuple[str | None, str | None]:
     """Match catalog productionUrl hostname to a Railway service domain."""
     target_host = _catalog_production_host(project)
+    return resolve_railway_service_by_host(token, target_host)
+
+
+def resolve_railway_service_by_host(token: str, target_host: str) -> tuple[str | None, str | None]:
+    """Match a Railway public hostname to project + service IDs."""
+    target_host = (target_host or "").strip().lower()
     if not target_host:
         return None, None
     try:
@@ -141,7 +147,6 @@ def resolve_railway_targets_by_domain(project: Project, token: str) -> tuple[str
             for domain in svc.get("domains") or []:
                 if domain == target_host or domain.startswith(target_host.split(".")[0]):
                     return proj["id"], svc["id"]
-            # partial: righand-production.up.railway.app vs serviceDomain
             if target_host.endswith(".up.railway.app") and any(
                 target_host in d or d in target_host for d in svc.get("domains") or []
             ):

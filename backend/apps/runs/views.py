@@ -13,7 +13,13 @@ from apps.runs.models import PipelineRun
 from apps.runs.serializers import PipelineRunSerializer, StartPipelineSerializer
 from apps.runs.tasks import execute_pipeline
 from apps.stripe_installer.codegen import build_zip, generate_all
-from apps.stripe_installer.hub_keys import HUB_SLUG, pull_stripe_keys_for_user, resolve_production_app_url
+from apps.stripe_installer.hub_keys import (
+    HUB_SLUG,
+    pull_stripe_keys_for_user,
+    resolve_demo_app_url,
+    resolve_production_app_url,
+    resolve_web_app_url,
+)
 from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
 from apps.stripe_installer.provision import load_manifest
 from apps.stripe_installer.stripe_advisor import run_stripe_advisor
@@ -36,7 +42,16 @@ class VerifyKeysView(ProjectOwnedMixin, APIView):
             secret = get_secret(project, "STRIPE_SECRET_KEY")
             publishable = get_secret(project, "STRIPE_PUBLISHABLE_KEY")
             result = verify_stripe_keys(secret, publishable)
-        return Response(result.to_public_dict())
+        payload = result.to_public_dict()
+        payload["productionUrl"] = resolve_production_app_url(project)
+        payload["webProductionUrl"] = resolve_web_app_url(project)
+        payload["demoUrl"] = resolve_demo_app_url(project)
+        from apps.stripe_installer.portfolio_catalog import catalog_live_urls, catalog_by_slug
+
+        live = catalog_live_urls(catalog_by_slug(project.slug or ""))
+        if live.get("portfolioDemoUrl"):
+            payload["portfolioDemoUrl"] = live["portfolioDemoUrl"]
+        return Response(payload)
 
 
 class PipelineRunListCreateView(ProjectOwnedMixin, generics.ListCreateAPIView):

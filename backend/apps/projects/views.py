@@ -75,18 +75,42 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.save(update_fields=["local_path", "updated_at"])
 
         try:
-            result = ProjectScanner(scan_path).scan()
+            from pathlib import Path
+
+            from apps.deploy.platform import detect_deploy_platform
+            from apps.stripe_installer.portfolio_catalog import catalog_by_slug
+            from apps.stripe_installer.portfolio_workspace import relative_scan_root, resolve_scan_root
+
+            repo_root = Path(scan_path).resolve()
+            scan_root = resolve_scan_root(repo_root)
+            result = ProjectScanner(scan_root).scan()
         except FileNotFoundError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        from pathlib import Path
-
-        from apps.deploy.platform import detect_deploy_platform
 
         data = result.to_dict()
         if data.get("next_router"):
             data["nextRouter"] = data["next_router"]
-        data["deployPlatform"] = detect_deploy_platform(Path(scan_path), data.get("framework", "unknown"))
+        catalog = catalog_by_slug(project.slug or "")
+        production_url = str(
+            (catalog or {}).get("productionUrl")
+            or (project.scan_data or {}).get("productionUrl")
+            or ""
+        )
+        backend_rel = relative_scan_root(repo_root, scan_root)
+        if backend_rel:
+            data["scanBackendPath"] = backend_rel
+        data["deployPlatform"] = detect_deploy_platform(
+            scan_root,
+            data.get("framework", "unknown"),
+            production_url=production_url,
+        )
+        if catalog:
+            if catalog.get("productionUrl"):
+                url = str(catalog["productionUrl"]).rstrip("/")
+                data["productionUrl"] = url
+                data["production_url"] = url
+            if catalog.get("webhookPath"):
+                data["webhookPath"] = catalog["webhookPath"]
         project.framework = data["framework"]
         project.language = data["language"]
         project.scan_data = data

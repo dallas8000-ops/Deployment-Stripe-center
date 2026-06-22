@@ -10,14 +10,27 @@ from apps.projects.models import Project
 PLATFORMS = ("vercel", "railway", "fly", "docker", "unknown")
 
 
-def detect_deploy_platform(project_root: Path, framework: str = "unknown") -> str:
+def detect_deploy_platform(
+    project_root: Path,
+    framework: str = "unknown",
+    *,
+    production_url: str = "",
+) -> str:
     root = project_root.resolve()
-    if (root / "vercel.json").is_file() or (root / ".vercel").is_dir():
-        return "vercel"
-    if (root / "railway.json").is_file() or (root / "railway.toml").is_file():
+    prod = (production_url or "").lower()
+    if ".railway.app" in prod or "railway.app" in prod:
         return "railway"
-    if (root / "fly.toml").is_file():
-        return "fly"
+
+    for candidate in (root, *root.parents):
+        if candidate == candidate.parent:
+            break
+        if (candidate / "railway.json").is_file() or (candidate / "railway.toml").is_file():
+            return "railway"
+        if (candidate / "vercel.json").is_file() or (candidate / ".vercel").is_dir():
+            return "vercel"
+        if (candidate / "fly.toml").is_file():
+            return "fly"
+
     if (root / "Dockerfile").is_file():
         return "docker"
 
@@ -38,7 +51,7 @@ def detect_deploy_platform(project_root: Path, framework: str = "unknown") -> st
             pass
 
     if framework == "django":
-        return "docker"
+        return "railway"
     return "unknown"
 
 
@@ -54,6 +67,8 @@ def platform_deploy_command(platform: str) -> str:
 def health_check_path(framework: str) -> str:
     if framework in ("nextjs", "remix", "nuxt", "sveltekit", "react"):
         return "/api/health"
+    if framework == "django":
+        return "/health/"
     return "/stripe/health"
 
 
@@ -85,7 +100,7 @@ def webhook_path_for(framework: str, next_router: str | None = None) -> str:
     if framework == "nextjs":
         return "/api/stripe/webhook" if next_router != "pages" else "/api/stripe/webhook"
     if framework == "django":
-        return "/stripe/webhook/"
+        return "/webhooks/stripe/"
     if framework == "express":
         return "/stripe/webhook"
     return "/api/stripe/webhook"

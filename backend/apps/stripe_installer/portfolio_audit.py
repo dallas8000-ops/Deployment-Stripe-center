@@ -376,16 +376,21 @@ def fix_webhooks_for_projects(
                 project=project,
                 config=cfg,
             )
-            results.append(
-                {
-                    "app": app.id,
-                    "ok": True,
-                    "webhookUrl": app.webhook_url,
-                    "endpointId": (out.webhook_endpoint or {}).get("id"),
-                    "webhookSecretStored": out.webhook_secret_stored,
-                    "warnings": out.warnings,
-                }
-            )
+            row: dict[str, Any] = {
+                "app": app.id,
+                "ok": True,
+                "webhookUrl": app.webhook_url,
+                "endpointId": (out.webhook_endpoint or {}).get("id"),
+                "webhookSecretStored": out.webhook_secret_stored,
+                "warnings": out.warnings,
+            }
+            if out.webhook_secret_stored:
+                from apps.deploy.env_push import try_auto_push_railway_stripe_env
+
+                env_push = try_auto_push_railway_stripe_env(project)
+                if env_push is not None:
+                    row["envPush"] = env_push
+            results.append(row)
         except Exception as exc:
             results.append({"app": app.id, "ok": False, "message": str(exc)})
     return results

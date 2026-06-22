@@ -532,6 +532,14 @@ export interface VerificationResult {
   accountName?: string | null;
   country?: string | null;
   billingEnabled?: boolean | null;
+  /** API host (webhooks) */
+  productionUrl?: string | null;
+  /** Railway web frontend — live view */
+  webProductionUrl?: string | null;
+  /** Railway /demo — primary live experience */
+  demoUrl?: string | null;
+  /** Optional custom domain for portfolio Live demo button only */
+  portfolioDemoUrl?: string | null;
 }
 
 export interface PipelineRunLog {
@@ -759,6 +767,9 @@ export interface SetupHubStatus {
   registryApp: Record<string, unknown> | null;
   expectedWebhookUrl: string;
   productionUrl: string;
+  webProductionUrl?: string;
+  demoUrl?: string;
+  portfolioDemoUrl?: string;
   lastPortfolioAuditSummary: Record<string, unknown> | null;
   lastPortfolioAuditRegistryGaps: Array<Record<string, string>>;
   steps: SetupHubStep[];

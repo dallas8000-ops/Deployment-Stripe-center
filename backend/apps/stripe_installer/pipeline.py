@@ -52,11 +52,15 @@ def _project_root(project: Project) -> Path:
 
 
 def _webhook_path(framework: str, scan_data: dict | None = None) -> str:
-    # Use the path detected from the codebase first — most accurate
-    if scan_data and scan_data.get("webhook_path"):
-        return scan_data["webhook_path"]
+    if scan_data:
+        for key in ("webhookPath", "webhook_path"):
+            path = scan_data.get(key)
+            if path:
+                return str(path)
     if framework in ("nextjs", "remix", "nuxt", "sveltekit"):
         return "/api/stripe/webhook"
+    if framework == "django":
+        return "/webhooks/stripe/"
     return "/stripe/webhook"
 
 
@@ -219,14 +223,16 @@ def run_pipeline(
         project_root = _project_root(project)
 
     if project.framework == "unknown" or not project.scan_data:
-        scan = ProjectScanner(project_root).scan()
+        from apps.stripe_installer.portfolio_workspace import resolve_scan_root
+
+        scan = ProjectScanner(resolve_scan_root(project_root)).scan()
         project.framework = scan.framework
         project.language = scan.language
         project.scan_data = scan.to_dict()
         project.save(update_fields=["framework", "language", "scan_data", "updated_at"])
 
     webhook_path = _webhook_path(project.framework, project.scan_data)
-    prod_url = resolve_production_app_url(project)
+    prod_url = resolve_web_app_url(project) or resolve_production_app_url(project)
     app_url = (prod_url or options.app_url).rstrip("/")
     provision_data = None
     files_written: list[str] = []
@@ -262,6 +268,30 @@ def run_pipeline(
             "webhookSecretStored": prov.webhook_secret_stored,
             "warnings": prov.warnings,
         }
+        if prov.webhook_secret_stored:
+            from apps.deploy.env_push import try_auto_push_railway_stripe_env
+
+            env_push = try_auto_push_railway_stripe_env(project)
+            if env_push is not None:
+                provision_data["envPush"] = env_push
+                if env_push.get("ok"):
+                    emit(
+                        on_event,
+                        PipelineEvent(
+                            "deploy.railway-env",
+                            "ok",
+                            env_push.get("message", "Railway env vars updated"),
+                        ),
+                    )
+                elif not env_push.get("skipped"):
+                    emit(
+                        on_event,
+                        PipelineEvent(
+                            "deploy.railway-env",
+                            "failed",
+                            env_push.get("message", "Railway env push failed"),
+                        ),
+                    )
 
     if options.generate:
         if stripe_exempt:

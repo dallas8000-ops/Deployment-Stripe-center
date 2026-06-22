@@ -8,6 +8,7 @@ from apps.projects.models import Project
 from apps.stripe_installer.portfolio_catalog import (
     HUB_SLUG,
     catalog_by_slug,
+    catalog_live_urls,
     is_stripe_exempt_slug,
     stripe_billing_apps,
 )
@@ -35,7 +36,7 @@ def get_hub_project(owner) -> Project | None:
 
 
 def resolve_production_app_url(project: Project) -> str:
-    """Railway URL for webhooks/provision — not the local Django dev server."""
+    """Railway API URL for webhooks/provision — not the local Django dev server."""
     for app in load_registry():
         if app.project_slug == project.slug and app.production_url:
             return app.production_url.rstrip("/")
@@ -47,6 +48,28 @@ def resolve_production_app_url(project: Project) -> str:
     scan = project.scan_data or {}
     url = str(scan.get("productionUrl") or scan.get("production_url") or "").strip()
     return url.rstrip("/")
+
+
+def resolve_web_app_url(project: Project) -> str:
+    """Railway web frontend URL — billing return URL, CLIENT_URL, live demo."""
+    live = catalog_live_urls(catalog_by_slug(project.slug or ""))
+    if live.get("webUrl"):
+        return live["webUrl"]
+
+    scan = project.scan_data or {}
+    url = str(scan.get("webProductionUrl") or scan.get("web_production_url") or "").strip()
+    if url:
+        return url.rstrip("/")
+    return resolve_production_app_url(project)
+
+
+def resolve_demo_app_url(project: Project) -> str:
+    """Railway /demo URL for live view; portfolio may use portfolioDemoUrl separately."""
+    live = catalog_live_urls(catalog_by_slug(project.slug or ""))
+    if live.get("demoUrl"):
+        return live["demoUrl"]
+    web = resolve_web_app_url(project)
+    return f"{web.rstrip('/')}/demo" if web else ""
 
 
 def portfolio_app_for_project(project: Project) -> PortfolioApp | None:
@@ -118,7 +141,7 @@ def _secret_needs_repair(project: Project, key: str) -> bool:
 
     if get_secret(project, key):
         return False
-    row = VaultSecret.objects.filter(project=project, key=key).first()
+    row = VaultSecret.objects.filter(project=project, key_name=key).first()
     return row is not None and not is_secret_readable(project, row)
 
 
