@@ -63,8 +63,8 @@ class Command(BaseCommand):
         elif custom_status != 200:
             warn.append(f"Custom domain health check failed ({custom_status}): {custom}")
 
-        status, legacy = _fetch_json(LEGACY_HEALTH)
-        if status == 200:
+        legacy_status, legacy = _fetch_json(LEGACY_HEALTH)
+        if legacy_status == 200:
             warn.append(
                 "Legacy api-transfer-production still responds - delete Railway service after 48h quiet"
             )
@@ -132,7 +132,6 @@ class Command(BaseCommand):
             warn.append("Stripe CLI not found - install to auto-check webhook status")
 
         manual = [
-            "Railway: delete api-transfer-production service after 48h no traffic",
             "Optional: archive local API Transfer folder",
             "Optional: add deploy provider tokens in project vault (RAILWAY_API_TOKEN, GITHUB_TOKEN, etc.)",
         ]

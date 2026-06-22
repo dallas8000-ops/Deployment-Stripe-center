@@ -63,7 +63,7 @@ These require Stripe Dashboard clicks or optional provider token setup:
    Not registered in live Stripe — already removed (verified via `verify_cutover`)
 3. [ ] **Redeploy unified service** after any variable changes (Railway → Deploy latest `main`)
 4. [ ] **Smoke test** in app: login → project → Transfer panel → dry-run deploy
-5. [ ] **Delete `api-transfer-production`** Railway service (after 48h no traffic)
+5. [x] **Delete `api-transfer`** Railway service (`api-transfer.gilliomfrontlinedigital.com` — removed 2026-06-22)
 6. [ ] **Archive** local `API Transfer` / `API-Transfer` folder when comfortable
 
 **Porkbun / gilliomfrontlinedigital.com:** no DNS change — portfolio on `frontlinedigital-1-production`; demo buttons use Railway URLs.
@@ -77,3 +77,5 @@ powershell -File scripts/complete-cutover.ps1
 ```
 
 When steps 1–5 above are done, the merge is **fully complete** in production.
+
+**Status:** Steps 1–5 complete except custom domain TLS (step 3). Legacy `api-transfer` Railway service deleted.
