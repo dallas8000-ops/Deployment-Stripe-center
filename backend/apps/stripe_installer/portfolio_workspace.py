@@ -21,7 +21,6 @@ DEFAULT_LOCAL_PATHS: dict[str, str] = {
     "pc-checker-extreme": r"C:\Software Projects\PC Checker Extreme",
     "dbops-control-center": r"C:\Software Projects\DBOps-Control-Center",
     "elite-fintech-systems": r"C:\Software Projects\Elite Fintech Systems",
-    "elite-fintech-web": r"C:\Software Projects\Elite Fintech Systems",
     "specwright": r"C:\Software Projects\Specwright",
 }
 

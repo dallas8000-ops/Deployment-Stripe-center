@@ -306,6 +306,17 @@ def push_vault_env_to_platform(
     return result
 
 
+def _redis_reference_for_project(token: str, project_id: str) -> str | None:
+    """Return ${{ServiceName.REDIS_URL}} for the first Redis plugin in a Railway project."""
+    from .railway_resolve import _list_railway_services
+
+    for svc in _list_railway_services(token, project_id):
+        name = (svc.get("name") or "").strip()
+        if name and "redis" in name.lower():
+            return "${{" + name + ".REDIS_URL}}"
+    return None
+
+
 def push_monorepo_railway_live_env(project: Project) -> dict[str, Any] | None:
     """
     Push Railway live URLs to API + web services (Django monorepos).
@@ -359,6 +370,17 @@ def push_monorepo_railway_live_env(project: Project) -> dict[str, Any] | None:
             "ALLOWED_HOSTS": ",".join(sorted(h for h in api_hosts if h and not h.startswith("."))),
         }
     )
+    if (project.slug or "") == "elite-fintech-systems":
+        redis_ref = _redis_reference_for_project(token, api_project_id)
+        api_env.update(
+            {
+                "PLATFORM_TIER": "PLATINUM",
+                "DEBUG": "False",
+                "DATABASE_URL": "${{elite-fintech-systems-db.DATABASE_URL}}",
+            }
+        )
+        if redis_ref:
+            api_env["REDIS_URL"] = redis_ref
     api_result = push_to_railway(token, api_project_id, api_service_id, api_env)
 
     ws_url = api_url.replace("https://", "wss://").replace("http://", "ws://").rstrip("/") + "/ws/billing/"

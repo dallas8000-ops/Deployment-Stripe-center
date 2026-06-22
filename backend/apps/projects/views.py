@@ -27,12 +27,27 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         from apps.core.access import get_project_for_user
+        from apps.stripe_installer.portfolio_catalog import canonical_project_slug, is_merged_legacy_slug
         from apps.stripe_installer.portfolio_workspace import (
             repair_portfolio_local_path,
             sync_portfolio_scan_metadata,
         )
 
-        project = get_project_for_user(request.user, kwargs[self.lookup_field])
+        slug = kwargs[self.lookup_field]
+        if is_merged_legacy_slug(slug):
+            target = canonical_project_slug(slug)
+            return Response(
+                {
+                    "merged": True,
+                    "mergedInto": target,
+                    "redirect": f"/projects/{target}",
+                    "message": f"Project '{slug}' was merged into '{target}'.",
+                },
+                status=status.HTTP_301_MOVED_PERMANENTLY,
+                headers={"Location": f"/projects/{target}"},
+            )
+
+        project = get_project_for_user(request.user, slug)
         repair_portfolio_local_path(project)
         sync_portfolio_scan_metadata(project)
         serializer = self.get_serializer(project)
@@ -83,7 +98,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             repo_root = Path(scan_path).resolve()
             scan_root = resolve_scan_root(repo_root)
-            result = ProjectScanner(scan_root).scan()
+            result = (
+                ProjectScanner(repo_root).scan_monorepo()
+                if scan_root == repo_root
+                else ProjectScanner(scan_root).scan()
+            )
         except FileNotFoundError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 

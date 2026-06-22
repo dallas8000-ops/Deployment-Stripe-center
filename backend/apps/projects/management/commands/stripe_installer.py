@@ -120,7 +120,7 @@ class Command(BaseCommand):
             raise CommandError("Set --path or project local_path")
         repo_root = Path(path).resolve()
         scan_root = resolve_scan_root(repo_root)
-        result = ProjectScanner(scan_root).scan()
+        result = ProjectScanner(repo_root).scan_monorepo() if scan_root == repo_root else ProjectScanner(scan_root).scan()
         data = result.to_dict()
         catalog = catalog_by_slug(project.slug or "")
         production_url = str((catalog or {}).get("productionUrl") or "")

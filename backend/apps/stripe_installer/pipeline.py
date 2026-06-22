@@ -13,7 +13,7 @@ from apps.vault.models import get_secret, hydrate_project_vault, vault_health
 from .codegen import generate_all, write_project_files
 from .events import EventEmitter, PipelineEvent, emit
 from .provision import ProvisionConfig, load_manifest, provision_catalog
-from .hub_keys import HUB_SLUG, pull_stripe_keys_for_user, resolve_production_app_url
+from .hub_keys import HUB_SLUG, pull_stripe_keys_for_user, resolve_production_app_url, resolve_web_app_url
 from .portfolio_catalog import is_stripe_exempt_slug
 from .readiness import readiness_label, run_readiness_checks, score_readiness
 from .stripe_config import provision_config_from_stripe_file

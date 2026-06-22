@@ -1,6 +1,17 @@
 /** Keep in sync with backend apps/stripe_installer/portfolio_catalog.py */
 
-export const MERGED_LEGACY_PROJECT_SLUGS = new Set(["api-transfer", "api_transfer"]);
+export const MERGED_LEGACY_PROJECT_SLUGS = new Set([
+  "api-transfer",
+  "api_transfer",
+  "elite-fintech-web",
+]);
+
+/** Legacy slug → canonical project slug (keep in sync with backend portfolio_catalog.py). */
+export const MERGED_INTO_PROJECT_SLUGS: Record<string, string> = {
+  "api-transfer": "stripe-installer",
+  api_transfer: "stripe-installer",
+  "elite-fintech-web": "elite-fintech-systems",
+};
 
 /** Portfolio demos — not Stripe billing workspaces (hidden from Projects list). */
 export const STRIPE_EXEMPT_PROJECT_SLUGS = new Set([
@@ -17,6 +28,10 @@ export const DASHBOARD_HIDDEN_PROJECT_SLUGS = new Set([
 
 export function isMergedLegacyProject(slug: string): boolean {
   return MERGED_LEGACY_PROJECT_SLUGS.has(slug);
+}
+
+export function canonicalProjectSlug(slug: string): string {
+  return MERGED_INTO_PROJECT_SLUGS[slug] ?? slug;
 }
 
 export function isStripeExemptProject(slug: string): boolean {

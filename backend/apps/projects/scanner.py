@@ -64,6 +64,8 @@ class ScanResult:
     recommendations: list[str] = field(default_factory=list)
     source_file_count: int = 0
     webhook_path: str | None = None
+    frontend_framework: str | None = None
+    frontend_language: str | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -82,7 +84,7 @@ class ProjectScanner:
         env_files = self._find_env_files()
 
         framework = self._detect_framework(package_json, source_files)
-        language = self._detect_language(package_json, source_files)
+        language = self._detect_language(package_json, source_files, framework)
         next_router = self._detect_next_router() if framework == "nextjs" else None
 
         deps = list((package_json or {}).get("dependencies", {}).keys())
@@ -109,6 +111,19 @@ class ProjectScanner:
             source_file_count=len(source_files),
             webhook_path=webhook_path,
         )
+
+    def scan_monorepo(self) -> ScanResult:
+        """Scan Django API package when repo root is a JS+Django monorepo."""
+        backend = self._django_monorepo_root()
+        if backend is None:
+            return self.scan()
+        api = ProjectScanner(backend).scan()
+        root = self.scan()
+        if root.framework in ("react", "nextjs", "vue"):
+            return ScanResult(
+                **{**api.to_dict(), "frontend_framework": root.framework, "frontend_language": root.language}
+            )
+        return api
 
     def _read_package_json(self) -> dict | None:
         path = self.root / "package.json"
@@ -145,7 +160,18 @@ class ProjectScanner:
     def _file_exists(self, relative: str) -> bool:
         return (self.root / relative).is_file()
 
+    def _django_monorepo_root(self) -> Path | None:
+        for relative in ("apps/backend", "backend"):
+            candidate = self.root / relative
+            if (candidate / "manage.py").is_file():
+                return candidate
+        return None
+
     def _detect_framework(self, package_json: dict | None, source_files: list[str]) -> str:
+        monorepo_backend = self._django_monorepo_root()
+        if monorepo_backend is not None:
+            return "django"
+
         deps = {}
         if package_json:
             deps.update(package_json.get("dependencies") or {})
@@ -180,7 +206,9 @@ class ProjectScanner:
                     return framework
         return "unknown"
 
-    def _detect_language(self, package_json: dict | None, source_files: list[str]) -> str:
+    def _detect_language(self, package_json: dict | None, source_files: list[str], framework: str = "unknown") -> str:
+        if framework == "django":
+            return "python"
         if any(f.endswith((".ts", ".tsx")) for f in source_files):
             return "typescript"
         if package_json or any(f.endswith((".js", ".jsx")) for f in source_files):

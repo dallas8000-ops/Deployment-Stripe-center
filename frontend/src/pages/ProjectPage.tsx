@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import {
   aiApi,
@@ -34,11 +34,12 @@ import TransferPanel from "../components/TransferPanel";
 import ScoreRing from "../components/ScoreRing";
 import StripeConfigPanel from "../components/StripeConfigPanel";
 import VaultPanel from "../components/VaultPanel";
-import { PORTFOLIO_DEMOS } from "../config/portfolio";
+import { PORTFOLIO_DEMOS, canonicalProjectSlug, isMergedLegacyProject } from "../config/portfolio";
 import { usePipelineWebSocket } from "../hooks/usePipelineWebSocket";
 
 export default function ProjectPage() {
   const { slug = "" } = useParams();
+  const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [vaultEntries, setVaultEntries] = useState<VaultEntry[]>([]);
   const [vaultInitialized, setVaultInitialized] = useState(false);
@@ -106,10 +107,14 @@ export default function ProjectPage() {
   }
 
   useEffect(() => {
+    if (isMergedLegacyProject(slug)) {
+      navigate(`/projects/${canonicalProjectSlug(slug)}`, { replace: true });
+      return;
+    }
     setProject(null);
     setError("");
     void load();
-  }, [slug]);
+  }, [slug, navigate]);
 
   useEffect(() => {
     if (slug === "silverfox") setEnvPushPreset("silverfox");

@@ -1,0 +1,27 @@
+{
+  "productionUrl": "https://stripe-installer-production.up.railway.app",
+  "environments": {
+    "test": {
+      "url": ""
+    },
+    "staging": {
+      "url": ""
+    },
+    "production": {
+      "url": ""
+    }
+  },
+  "platform": "railway",
+  "postgres": {
+    "provider": "neon",
+    "connectionEnvVar": "DATABASE_URL",
+    "autoProvision": true
+  },
+  "monitoring": {
+    "healthCheck": true
+  },
+  "backup": {
+    "enabled": true,
+    "retentionDays": 30
+  }
+}

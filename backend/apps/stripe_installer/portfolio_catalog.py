@@ -25,7 +25,7 @@ class CatalogEntry(TypedDict, total=False):
     notes: str
 
 
-# Slugs hidden from the Projects dashboard (merged into Automation Center).
+# Slugs hidden from the Projects dashboard (merged into a canonical project).
 MERGED_LEGACY_PROJECT_SLUGS: frozenset[str] = frozenset(
     {
         "api-transfer",
@@ -33,6 +33,13 @@ MERGED_LEGACY_PROJECT_SLUGS: frozenset[str] = frozenset(
         "elite-fintech-web",
     }
 )
+
+# Legacy slug → canonical hub project slug (for redirects and automation).
+MERGED_INTO_PROJECT_SLUGS: dict[str, str] = {
+    "api-transfer": "stripe-installer",
+    "api_transfer": "stripe-installer",
+    "elite-fintech-web": "elite-fintech-systems",
+}
 
 HUB_SLUG = "stripe-installer"
 
@@ -59,18 +66,21 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
         "projectSlug": "stripe-installer",
         "notes": "Unified Stripe setup + deploy hub",
     },
-    {
-        "id": "elite-fintech",
-        "name": "Elite Fintech Systems",
-        "productionUrl": "https://elite-fintech-api-production.up.railway.app",
-        "webProductionUrl": "https://elite-fintech-web-production.up.railway.app",
-        "demoUrl": "https://elite-fintech-web-production.up.railway.app/demo",
-        "webhookPath": "/webhooks/stripe/",
-        "healthPath": "/health/",
-        "projectSlug": "elite-fintech-systems",
-        "defaultLocalPath": r"C:\Software Projects\Elite Fintech Systems",
-        "notes": "Live on Railway. Custom domain optional for portfolio Live demo button (CNAME to web service).",
-    },
+        {
+            "id": "elite-fintech",
+            "name": "Elite Fintech Systems",
+            "productionUrl": "https://elite-fintech-api-production.up.railway.app",
+            "webProductionUrl": "https://elite-fintech-web-production.up.railway.app",
+            "demoUrl": "https://elite-fintech-web-production.up.railway.app/demo",
+            "webhookPath": "/webhooks/stripe/",
+            "healthPath": "/health/",
+            "projectSlug": "elite-fintech-systems",
+            "defaultLocalPath": r"C:\Software Projects\Elite Fintech Systems",
+            "notes": (
+                "One Railway project (portfolio hub) — three services: "
+                "elite-fintech-systems-api, -web, -db. Same monorepo, not a separate project."
+            ),
+        },
     {
         "id": "kistie-store",
         "name": "Kistie Store",
@@ -163,7 +173,7 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
         "webhookPath": "/api/stripe/webhook",
         "merged": True,
         "projectSlug": "elite-fintech-web",
-        "notes": "Unwanted automation clone — use elite-fintech-systems / Elite-Fintech-Systems repo",
+        "notes": "Retired duplicate — merged into elite-fintech-systems (Django API + React web monorepo)",
     },
     {
         "id": "api-transfer-legacy",
@@ -216,6 +226,11 @@ def is_merged_legacy_slug(slug: str) -> bool:
     if entry and entry.get("merged"):
         return True
     return slug in MERGED_LEGACY_PROJECT_SLUGS
+
+
+def canonical_project_slug(slug: str) -> str:
+    """Resolve merged legacy slugs to their canonical project."""
+    return MERGED_INTO_PROJECT_SLUGS.get(slug, slug)
 
 
 def stripe_billing_apps() -> list[CatalogEntry]:
