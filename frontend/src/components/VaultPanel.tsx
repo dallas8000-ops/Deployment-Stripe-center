@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
 
 import { vaultApi, type SecretSourceInfo, type VaultEntry } from "../api/client";
+import { isStripeExemptProject } from "../config/portfolio";
 
 const HUB_SLUG = "stripe-installer";
+
+const DEPLOY_KEYS = [
+  { id: "DJANGO_SECRET_KEY", label: "Django secret key", placeholder: "random 50+ chars" },
+  { id: "RAILWAY_API_TOKEN", label: "Railway API token", placeholder: "from railway.com/account/tokens" },
+];
 
 const STRIPE_KEYS = [
   { id: "STRIPE_SECRET_KEY", label: "Secret key", placeholder: "sk_live_…", copyable: false },
@@ -37,6 +43,7 @@ export default function VaultPanel({
   const [vaultNotice, setVaultNotice] = useState("");
 
   const isHub = projectSlug === HUB_SLUG;
+  const stripeExempt = isStripeExemptProject(projectSlug);
   const hasStripeSecret = entries.some((e) => e.key === "STRIPE_SECRET_KEY" && e.readable !== false);
 
   useEffect(() => {
@@ -278,6 +285,13 @@ export default function VaultPanel({
 
       {vaultNotice ? <div className="alert">{vaultNotice}</div> : null}
 
+      {stripeExempt ? (
+        <div className="alert">
+          <strong>Portfolio demo</strong> — Stripe billing keys below are optional. For Railway deploy you need{" "}
+          <code>DJANGO_SECRET_KEY</code> and <code>RAILWAY_API_TOKEN</code> (shown first).
+        </div>
+      ) : null}
+
       {vaultError ? (
         <div className="alert alert-error" role="alert">
           {vaultError}
@@ -337,7 +351,64 @@ export default function VaultPanel({
       ) : null}
 
       <ul className="vault-items">
-        {STRIPE_KEYS.map((def) => {
+        {(stripeExempt ? DEPLOY_KEYS : []).map((def) => {
+          const entry = entryMap.get(def.id);
+          const isAdding = addingKey === def.id;
+          const isSaving = busy === `save-${def.id}`;
+
+          if (entry && !isAdding) {
+            return (
+              <li key={def.id} className="vault-item stored">
+                <div className="vault-item-main">
+                  <span className="vault-item-label">{def.label}</span>
+                  <code className="vault-item-mask">{entry.display}</code>
+                  <span className="vault-badge verified">Stored ✅</span>
+                </div>
+                <div className="vault-item-actions">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm vault-delete-btn"
+                    onClick={() => setDeleteTarget(entry)}
+                    disabled={!!busy}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            );
+          }
+
+          return (
+            <li key={def.id} className="vault-item editing">
+              <label className="vault-item-label">{def.label}</label>
+              <input
+                type="password"
+                className="vault-secret-input"
+                placeholder={def.placeholder}
+                value={addingKey === def.id ? draftValue : ""}
+                onChange={(e) => {
+                  setAddingKey(def.id);
+                  setDraftValue(e.target.value);
+                }}
+                autoComplete="off"
+                aria-label={def.label}
+              />
+              <div className="vault-item-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={addingKey !== def.id || !draftValue.trim() || isSaving}
+                  onClick={() => saveKey(def.id)}
+                >
+                  {isSaving ? "Saving…" : "Save to vault"}
+                </button>
+              </div>
+            </li>
+          );
+        })}
+
+        {!stripeExempt || entries.some((e) => STRIPE_KEYS.some((d) => d.id === e.key)) ? (
+        STRIPE_KEYS.map((def) => {
           const entry = entryMap.get(def.id);
           const isAdding = addingKey === def.id;
           const isSaving = busy === `save-${def.id}`;
@@ -443,10 +514,14 @@ export default function VaultPanel({
           }
 
           return null;
-        })}
+        }) ) : null}
 
         {entries
-          .filter((e) => !STRIPE_KEYS.some((d) => d.id === e.key))
+          .filter(
+            (e) =>
+              !STRIPE_KEYS.some((d) => d.id === e.key) &&
+              !(stripeExempt && DEPLOY_KEYS.some((d) => d.id === e.key))
+          )
           .map((entry) => (
             <li key={entry.key} className="vault-item stored">
               <div className="vault-item-main">

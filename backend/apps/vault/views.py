@@ -7,7 +7,7 @@ from apps.stripe_installer.hub_keys import pull_stripe_keys_for_user
 
 from .crypto import VaultConfigurationError
 from .import_env import auto_import_env_to_vault, find_env_file, import_env_to_vault
-from .models import ProjectVault, delete_secret, get_or_create_vault, list_secret_keys, list_vault_entries, set_secret, vault_health
+from .models import ProjectVault, delete_secret, get_or_create_vault, hydrate_project_vault, list_secret_keys, list_vault_entries, set_secret, vault_health
 from .serializers import (
     VaultDeleteSerializer,
     VaultEntrySerializer,
@@ -46,6 +46,7 @@ class VaultKeysView(ProjectOwnedMixin, APIView):
 
     def get(self, request, project_slug: str):
         project = self.get_project(project_slug, min_role="viewer")
+        hydrate_project_vault(project)
         pull_stripe_keys_for_user(project, request.user)
         initialized = ProjectVault.objects.filter(project=project).exists()
         entries = list_vault_entries(project)

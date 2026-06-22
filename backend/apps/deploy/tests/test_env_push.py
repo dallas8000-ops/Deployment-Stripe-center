@@ -1,6 +1,12 @@
 from django.test import SimpleTestCase
 
-from apps.deploy.env_push import KISTIE_STORE_PRESET, SILVERFOX_PRESET, merge_env_vars
+from apps.deploy.env_push import (
+    KISTIE_STORE_PRESET,
+    SILVERFOX_PRESET,
+    _apply_vault_overrides,
+    merge_env_vars,
+    merge_service_env_vars,
+)
 
 
 class EnvPushMergeTests(SimpleTestCase):
@@ -28,3 +34,24 @@ class EnvPushMergeTests(SimpleTestCase):
         self.assertNotIn("DJANGO_DEBUG", SILVERFOX_PRESET)
         self.assertIn("silverfox-production", SILVERFOX_PRESET["CSRF_TRUSTED_ORIGINS"])
         self.assertEqual(SILVERFOX_PRESET["DATABASE_URL"], "${{Postgres.DATABASE_URL}}")
+
+    def test_vault_literal_db_does_not_override_railway_reference(self):
+        preset = {"DATABASE_URL": "${{Postgres.DATABASE_URL}}", "DEBUG": "False"}
+        vault = {"DATABASE_URL": "postgresql://user:pass@host/db"}
+        filtered = _apply_vault_overrides(preset, vault)
+        self.assertNotIn("DATABASE_URL", filtered)
+        merged = merge_env_vars(preset=preset, vault=filtered)
+        self.assertEqual(merged["DATABASE_URL"], "${{Postgres.DATABASE_URL}}")
+
+    def test_merge_service_env_preserves_unrelated_keys(self):
+        existing = {"SECRET_A": "keep", "SHARED": "old"}
+        incoming = {"SHARED": "new", "SECRET_B": "added"}
+        merged = merge_service_env_vars(existing, incoming)
+        self.assertEqual(merged["SECRET_A"], "keep")
+        self.assertEqual(merged["SHARED"], "new")
+        self.assertEqual(merged["SECRET_B"], "added")
+
+    def test_merge_service_env_skips_empty_overwrite(self):
+        existing = {"SECRET": "keep-me"}
+        merged = merge_service_env_vars(existing, {"SECRET": "  "})
+        self.assertEqual(merged["SECRET"], "keep-me")

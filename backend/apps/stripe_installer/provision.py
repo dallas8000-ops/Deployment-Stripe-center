@@ -381,28 +381,67 @@ def _is_public_url(url: str) -> bool:
     return not any(host == p.rstrip(".") or host.startswith(p) for p in _LOCAL_PREFIXES)
 
 
+def retire_legacy_stripe_webhooks() -> list[dict[str, Any]]:
+    """
+    Delete retired/merged webhook endpoints from Stripe (e.g. api-transfer-production).
+    Called before register/bootstrap so legacy URLs are not left alongside new ones.
+    """
+    from apps.stripe_installer.portfolio_catalog import retired_webhook_hosts, retired_webhook_urls
+
+    retired_urls = {u.rstrip("/") for u in retired_webhook_urls()}
+    retired_hosts = retired_webhook_hosts()
+    removed: list[dict[str, Any]] = []
+
+    for ep in stripe.WebhookEndpoint.list(limit=100).data:
+        url = (ep.url or "").rstrip("/")
+        if not url:
+            continue
+        host = (urlparse(url).hostname or "").lower()
+        if url not in retired_urls and host not in retired_hosts:
+            continue
+        try:
+            stripe.WebhookEndpoint.delete(ep.id)
+            removed.append({"id": ep.id, "url": url, "action": "deleted"})
+        except stripe.StripeError as exc:
+            removed.append({"id": ep.id, "url": url, "action": "error", "message": str(exc)})
+    return removed
+
+
+def _retire_superseded_host_webhooks(keep_url: str) -> list[str]:
+    """Remove other webhook endpoints on the same host (wrong legacy path)."""
+    keep = keep_url.rstrip("/")
+    host = (urlparse(keep).hostname or "").lower()
+    if not host:
+        return []
+    removed: list[str] = []
+    for ep in stripe.WebhookEndpoint.list(limit=100).data:
+        url = (ep.url or "").rstrip("/")
+        if not url or url == keep:
+            continue
+        if (urlparse(url).hostname or "").lower() != host:
+            continue
+        stripe.WebhookEndpoint.delete(ep.id)
+        removed.append(url)
+    return removed
+
+
 def _register_webhook(url: str, events: list[str]) -> dict[str, Any]:
     endpoints = stripe.WebhookEndpoint.list(limit=100)
 
-    # Exact URL match — reuse as-is
-    match = next((e for e in endpoints.data if e.url == url), None)
+    normalized = url.rstrip("/")
+    # Exact URL match — reuse as-is (path must match registry; legacy /stripe/webhook ≠ /api/v1/billing/webhook/)
+    match = next((e for e in endpoints.data if (e.url or "").rstrip("/") == normalized), None)
     if match:
         stripe.WebhookEndpoint.modify(match.id, enabled_events=events, disabled=False)
+        _retire_superseded_host_webhooks(normalized)
         return {"id": match.id, "url": match.url, "secret": None, "reused": True}
-
-    # Same host, different path — the app has its own webhook path; reuse existing endpoint
-    # rather than creating a duplicate at the wrong path.
-    host = urlparse(url).netloc
-    host_match = next((e for e in endpoints.data if urlparse(e.url).netloc == host), None)
-    if host_match:
-        stripe.WebhookEndpoint.modify(host_match.id, enabled_events=events, disabled=False)
-        return {"id": host_match.id, "url": host_match.url, "secret": None, "reused": True}
 
     created = stripe.WebhookEndpoint.create(
         url=url,
         enabled_events=events,
         metadata={"created_by": INSTALLER_TAG},
     )
+    _retire_superseded_host_webhooks(normalized)
     return {"id": created.id, "url": created.url, "secret": created.secret, "reused": False}
 
 

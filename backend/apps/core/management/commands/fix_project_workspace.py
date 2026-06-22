@@ -30,7 +30,7 @@ class Command(BaseCommand):
         from apps.diagnostics.diagnostics import run_diagnostics
         from apps.projects.git_clone import clone_project_repo
         from apps.projects.models import Project
-        from apps.vault.models import VaultSecret, get_secret, set_secret, vault_health
+        from apps.vault.models import clear_project_vault, get_secret, set_secret, vault_health
 
         User = get_user_model()
         email = (options.get("user") or "").strip()
@@ -76,9 +76,9 @@ class Command(BaseCommand):
             if not options.get("skip_vault") and hub:
                 health = vault_health(project)
                 if health["unreadableCount"]:
-                    count, _ = VaultSecret.objects.filter(project=project).delete()
+                    count = clear_project_vault(project)
                     self.stdout.write(
-                        self.style.WARNING(f"{slug}: cleared {count} unreadable vault secret(s)")
+                        self.style.WARNING(f"{slug}: cleared {count} unreadable vault secret(s) (DB + local backup)")
                     )
 
                 copied: list[str] = []

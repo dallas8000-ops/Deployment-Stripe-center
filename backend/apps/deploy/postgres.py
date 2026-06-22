@@ -94,15 +94,19 @@ def postgres_status(project: Project, *, test_connection: bool = False) -> dict:
 
 
 def schema_sql() -> str:
-    template = (
+    candidates = [
         Path(__file__).resolve().parents[1]
-        / "stripe_engine"
+        / "stripe_installer"
         / "codegen"
         / "templates"
         / "shared"
-        / "schema.sql.j2"
-    )
-    return template.read_text(encoding="utf-8")
+        / "schema.sql.j2",
+        Path(__file__).resolve().parents[3] / "db" / "schema.sql",
+    ]
+    for path in candidates:
+        if path.is_file():
+            return path.read_text(encoding="utf-8")
+    raise FileNotFoundError(f"Postgres schema template not found (tried: {candidates})")
 
 
 def get_production_url(project: Project, fallback: str = "") -> str:

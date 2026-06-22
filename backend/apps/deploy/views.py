@@ -3,13 +3,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.access import ProjectOwnedMixin
+from apps.runs.models import PipelineRun
 from apps.runs.tasks import execute_pipeline
 from apps.runs.serializers import PipelineRunSerializer
 from apps.stripe_installer.readiness import readiness_label, run_readiness_checks, score_readiness
 from django.shortcuts import get_object_or_404
 
 from .infra import generate_and_write_infra, generate_infra_files, infra_summary
+from .preflight import run_deploy_preflight
 from .postgres import apply_postgres_schema, get_production_url, postgres_status, schema_sql, test_postgres_connection
+from .automation_gate import run_automation_before_pipeline
 from .provision import provision_postgres
 
 _ERR_NO_LOCAL_PATH = "Set project local_path first."
@@ -109,6 +112,22 @@ class DeployReadinessView(ProjectOwnedMixin, APIView):
         )
 
 
+class DeployPreflightView(ProjectOwnedMixin, APIView):
+    """Check vault/Railway readiness before starting deploy."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, project_slug: str):
+        project = self.get_project(project_slug)
+        push_railway = request.query_params.get("push_railway_env", "true").lower() != "false"
+        result = run_deploy_preflight(
+            project,
+            push_railway_env=push_railway,
+            provision_stripe=request.query_params.get("provision_stripe", "true").lower() != "false",
+        )
+        return Response(result)
+
+
 class DeployRunView(ProjectOwnedMixin, APIView):
     """One-click deploy prep — full pipeline + readiness in one run."""
 
@@ -134,6 +153,44 @@ class DeployRunView(ProjectOwnedMixin, APIView):
             "app_url": request.data.get("app_url")
             or get_production_url(project, request.build_absolute_uri("/").rstrip("/")),
         }
+
+        skip_preflight = request.data.get("skip_preflight", False)
+        skip_platform_bootstrap = request.data.get("skip_platform_bootstrap", False)
+
+        automation = run_automation_before_pipeline(
+            project,
+            user=request.user,
+            hub_bootstrap=not skip_platform_bootstrap,
+        )
+        options["platformAutomation"] = automation
+
+        if not skip_preflight:
+            preflight = run_deploy_preflight(
+                project,
+                push_railway_env=bool(options["push_railway_env"]),
+                provision_postgres=bool(options["provision_postgres"]),
+                provision_stripe=bool(options["provision"]),
+            )
+            if not preflight["ok"]:
+                issues_text = "; ".join(preflight["issues"])
+                return Response(
+                    {
+                        "error": f"Deploy preflight failed: {issues_text}",
+                        "preflight": preflight,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if preflight["warnings"]:
+                options["preflightWarnings"] = preflight["warnings"]
+            elif automation.get("bootstrap", {}).get("actions"):
+                warnings = [
+                    a.get("detail")
+                    for a in automation["bootstrap"]["actions"]
+                    if not a.get("ok", True) and a.get("detail")
+                ]
+                if warnings:
+                    options["preflightWarnings"] = warnings
+
         run = PipelineRun.objects.create(
             project=project,
             started_by=request.user,

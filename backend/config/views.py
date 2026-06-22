@@ -26,10 +26,13 @@ def health(_request):
         checks["database"] = str(exc)
         ok = False
 
-    if settings.VAULT_MASTER_KEY:
+    from apps.vault.master_key import vault_master_key_status
+
+    vault_status = vault_master_key_status()
+    if vault_status["stable"]:
         checks["vault"] = "ok"
     else:
-        checks["vault"] = "VAULT_MASTER_KEY not set"
+        checks["vault"] = vault_status["detail"]
         ok = False
 
     if settings.DEBUG:

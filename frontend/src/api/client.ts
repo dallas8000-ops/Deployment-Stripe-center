@@ -763,6 +763,14 @@ export interface SetupHubStatus {
   lastPortfolioAuditRegistryGaps: Array<Record<string, string>>;
   steps: SetupHubStep[];
   readyForPipeline: boolean;
+  platformAutomation?: {
+    masterKey: { stable: boolean; detail: string };
+    vault: { unreadableCount: number; totalCount: number };
+    deployPlatform: string;
+    railway: { hasToken: boolean; projectId?: string | null; serviceId?: string | null };
+    steps?: SetupHubStep[];
+    readyForAutomation?: boolean;
+  };
   portfolioSummary?: {
     totalApps: number;
     stripeBillingCount: number;
@@ -783,6 +791,10 @@ export interface SetupHubActionResult {
   results?: Array<Record<string, unknown>>;
   expectedWebhookUrl?: string;
   vaultSecretsCleared?: number;
+  message?: string;
+  actions?: Array<Record<string, unknown>>;
+  projects?: Array<{ slug: string; ok: boolean; platform: string; steps: Array<Record<string, unknown>> }>;
+  steps?: Array<{ step: string; ok: boolean; detail: string }>;
 }
 
 export const setupHubApi = {
@@ -817,6 +829,24 @@ export const setupHubApi = {
     apiFetch<SetupHubActionResult>(`/projects/${projectSlug}/setup-hub/actions/`, {
       method: "POST",
       body: JSON.stringify({ action: "sync_vault" }),
+    }),
+
+  bootstrapPlatform: (projectSlug: string) =>
+    apiFetch<SetupHubActionResult>(`/projects/${projectSlug}/setup-hub/actions/`, {
+      method: "POST",
+      body: JSON.stringify({ action: "bootstrap_platform" }),
+    }),
+
+  automateDeploy: (projectSlug: string) =>
+    apiFetch<SetupHubActionResult>(`/projects/${projectSlug}/setup-hub/actions/`, {
+      method: "POST",
+      body: JSON.stringify({ action: "automate_deploy" }),
+    }),
+
+  reconcileMasterKey: (projectSlug: string) =>
+    apiFetch<SetupHubActionResult>(`/projects/${projectSlug}/setup-hub/actions/`, {
+      method: "POST",
+      body: JSON.stringify({ action: "reconcile_master_key" }),
     }),
 };
 
@@ -950,6 +980,14 @@ export interface DeployConfig {
   backup: { enabled: boolean; retentionDays: number };
 }
 
+export interface DeployPreflightResult {
+  ok: boolean;
+  issues: string[];
+  warnings: string[];
+  platform: string;
+  railway: Record<string, unknown>;
+}
+
 export const deployApi = {
   postgresStatus: (projectSlug: string) =>
     apiFetch<PostgresStatus>(`/projects/${projectSlug}/postgres/status/`),
@@ -986,6 +1024,13 @@ export const deployApi = {
   deployReadiness: (projectSlug: string, appUrl?: string) => {
     const q = appUrl ? `?app_url=${encodeURIComponent(appUrl)}` : "";
     return apiFetch<DeployReadinessResult>(`/projects/${projectSlug}/deploy/readiness/${q}`);
+  },
+
+  deployPreflight: (projectSlug: string, opts: { push_railway_env?: boolean } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.push_railway_env === false) params.set("push_railway_env", "false");
+    const q = params.toString() ? `?${params}` : "";
+    return apiFetch<DeployPreflightResult>(`/projects/${projectSlug}/deploy/preflight/${q}`);
   },
 
   deployRun: (

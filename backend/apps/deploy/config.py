@@ -122,15 +122,17 @@ def config_from_project(project: Project, root: Path | None = None) -> dict[str,
 
 
 def sync_project_from_config(project: Project, config: dict[str, Any]) -> None:
-    scan = dict(project.scan_data or {})
+    from apps.projects.scan_data_utils import update_project_scan_data
+
+    patch: dict[str, Any] = {}
     production_url = str(config.get("productionUrl") or "").rstrip("/")
     if production_url:
-        scan["productionUrl"] = production_url
+        patch["productionUrl"] = production_url
     platform = config.get("platform")
     if platform and platform != "unknown":
-        scan["deployPlatform"] = platform
-    project.scan_data = scan
-    project.save(update_fields=["scan_data", "updated_at"])
+        patch["deployPlatform"] = platform
+    if patch:
+        update_project_scan_data(project, patch)
 
 
 def _url_from_deploy_config(cfg: dict[str, Any], active_env: str) -> str:

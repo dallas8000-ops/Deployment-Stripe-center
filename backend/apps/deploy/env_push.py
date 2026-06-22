@@ -48,7 +48,7 @@ KISTIE_STORE_VAULT_KEYS = [
 SILVERFOX_PRESET: dict[str, str] = {
     "DEBUG": "False",
     "DJANGO_ENABLE_ADMIN": "True",
-    "DJANGO_SSL_REDIRECT": "True",
+    "DJANGO_SSL_REDIRECT": "False",
     "DATABASE_URL": "${{Postgres.DATABASE_URL}}",
     "ALLOWED_HOSTS": ".railway.app .up.railway.app silverfox-production.up.railway.app",
     "CSRF_TRUSTED_ORIGINS": "https://silverfox-production.up.railway.app",
@@ -74,6 +74,8 @@ PRESET_VAULT_KEYS: dict[str, list[str]] = {
     "silverfox": SILVERFOX_VAULT_KEYS,
 }
 
+from .railway_client import railway_gql as _railway_gql_impl
+
 RAILWAY_GQL = "https://backboard.railway.app/graphql/v2"
 
 
@@ -94,35 +96,93 @@ def merge_env_vars(
     return merged
 
 
+def is_railway_reference(value: str) -> bool:
+    """True when value is a Railway service reference like ${{Postgres.DATABASE_URL}}."""
+    text = str(value or "").strip()
+    return text.startswith("${{") and text.endswith("}}")
+
+
+def merge_service_env_vars(
+    existing: dict[str, str],
+    incoming: dict[str, str],
+    *,
+    skip_empty_overwrites: bool = True,
+) -> dict[str, str]:
+    """Merge env vars before Railway upsert — incoming wins; empty incoming never wipes secrets."""
+    merged = dict(existing)
+    for key, value in incoming.items():
+        incoming_value = str(value)
+        if skip_empty_overwrites and not incoming_value.strip():
+            if key in merged and str(merged[key]).strip():
+                continue
+            continue
+        merged[key] = incoming_value
+    return merged
+
+
+def _apply_vault_overrides(preset_vars: dict[str, str], vault_vars: dict[str, str]) -> dict[str, str]:
+    """Apply vault values, but keep Railway Postgres references from preset when vault has literal URLs."""
+    result = dict(vault_vars)
+    preset_db = preset_vars.get("DATABASE_URL", "")
+    vault_db = vault_vars.get("DATABASE_URL", "")
+    if (
+        is_railway_reference(preset_db)
+        and vault_db.startswith(("postgres://", "postgresql://"))
+    ):
+        result.pop("DATABASE_URL", None)
+    return result
+
+
 def _railway_gql(token: str, query: str, variables: dict | None = None) -> dict:
-    body = {"query": query, "variables": variables or {}}
-    req = urllib.request.Request(
-        RAILWAY_GQL,
-        data=json.dumps(body).encode(),
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            payload = json.loads(resp.read().decode())
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"Railway API {exc.code}: {exc.read().decode()[:300]}") from exc
-    if payload.get("errors"):
-        raise RuntimeError(str(payload["errors"])[:300])
-    return payload.get("data", {})
+    return _railway_gql_impl(token, query, variables)
 
 
 def _railway_environment_id(token: str, project_id: str) -> str:
     data = _railway_gql(
         token,
-        "query($id: String!) { project(id: $id) { environments { edges { node { id } } } } }",
+        "query($id: String!) { project(id: $id) { environments { edges { node { id name } } } } }",
         {"id": project_id},
     )
     edges = ((data.get("project") or {}).get("environments") or {}).get("edges") or []
+    if not edges:
+        raise RuntimeError("No environment found for Railway project")
+
+    for edge in edges:
+        node = edge.get("node") or {}
+        name = str(node.get("name") or "").strip().lower()
+        env_id = str(node.get("id") or "").strip()
+        if env_id and name == "production":
+            return env_id
+
     env_id = ((edges[0] if edges else {}).get("node") or {}).get("id")
     if not env_id:
         raise RuntimeError("No environment found for Railway project")
     return env_id
+
+
+def get_railway_env_vars(
+    token: str,
+    project_id: str,
+    service_id: str,
+    environment_id: str,
+) -> dict[str, str]:
+    data = _railway_gql(
+        token,
+        """
+        query($projectId: String!, $environmentId: String!, $serviceId: String!) {
+          variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId)
+        }
+        """,
+        {
+            "projectId": project_id,
+            "environmentId": environment_id,
+            "serviceId": service_id,
+        },
+    )
+    variables = data.get("variables") or {}
+    if not isinstance(variables, dict):
+        return {}
+    return {str(key): str(value) for key, value in variables.items()}
 
 
 def push_to_railway(
@@ -131,9 +191,29 @@ def push_to_railway(
     service_id: str,
     env_vars: dict[str, str],
     environment_id: str | None = None,
+    *,
+    preserve_existing: bool = True,
 ) -> dict[str, Any]:
     if not environment_id:
         environment_id = _railway_environment_id(token, project_id)
+
+    upsert_vars = env_vars
+    merge_meta: dict[str, Any] = {"mode": "replace"}
+    if preserve_existing:
+        existing = get_railway_env_vars(token, project_id, service_id, environment_id)
+        upsert_vars = merge_service_env_vars(existing, env_vars)
+        merge_meta = {
+            "mode": "merge",
+            "existingKeyCount": len(existing),
+            "incomingKeyCount": len(env_vars),
+            "mergedKeyCount": len(upsert_vars),
+            "preservedKeys": sorted(set(existing) - set(env_vars)),
+            "updatedKeys": sorted(
+                key for key in env_vars if key in existing and env_vars[key] != existing.get(key)
+            ),
+            "addedKeys": sorted(set(env_vars) - set(existing)),
+        }
+
     _railway_gql(
         token,
         "mutation($input: VariableCollectionUpsertInput!) { variableCollectionUpsert(input: $input) }",
@@ -142,11 +222,15 @@ def push_to_railway(
                 "projectId": project_id,
                 "serviceId": service_id,
                 "environmentId": environment_id,
-                "variables": env_vars,
+                "variables": upsert_vars,
             }
         },
     )
-    return {"pushed": sorted(env_vars.keys()), "environmentId": environment_id}
+    return {
+        "pushed": sorted(env_vars.keys()),
+        "environmentId": environment_id,
+        "merge": merge_meta,
+    }
 
 
 def _vault_subset(project: Project, keys: list[str]) -> dict[str, str]:
@@ -167,6 +251,8 @@ def build_env_var_payload(
     if not vault_keys and not preset_vars and not variables:
         vault_keys = STRIPE_ENV_KEYS
     vault_vars = _vault_subset(project, vault_keys or [])
+    if preset_vars and vault_vars:
+        vault_vars = _apply_vault_overrides(preset_vars, vault_vars)
     return merge_env_vars(preset=preset_vars or None, vault=vault_vars or None, inline=variables)
 
 
@@ -232,6 +318,7 @@ def auto_push_railway_env(
     from datetime import datetime, timezone
 
     from .railway_resolve import (
+        _list_railway_projects,
         preset_for_project,
         remember_railway_targets,
         resolve_railway_project_id,
@@ -247,9 +334,21 @@ def auto_push_railway_env(
     resolved_preset = preset or preset_for_project(project)
     resolved_project_id = (project_id or resolve_railway_project_id(project, token) or "").strip()
     if not resolved_project_id:
+        listed: list[dict[str, str]] = []
+        try:
+            listed = _list_railway_projects(token)
+        except RuntimeError:
+            listed = []
+        hint = ""
+        if not listed:
+            hint = (
+                " Your Railway token returned no projects — it may be expired, project-scoped, "
+                "or from a different account. In Railway -> Project -> Settings, copy the Project ID "
+                "and save RAILWAY_PROJECT_ID in vault (same for the web service's RAILWAY_SERVICE_ID)."
+            )
         raise RuntimeError(
             "Could not resolve Railway project ID — add RAILWAY_PROJECT_ID to vault or name the "
-            "Railway project to match this workspace (e.g. silverfox → SilverFox)."
+            f"Railway project to match this workspace (e.g. silverfox -> SilverFox).{hint}"
         )
 
     resolved_service_id = (
@@ -261,6 +360,8 @@ def auto_push_railway_env(
             "the web service name matches the project (not Postgres)."
         )
 
+    from apps.projects.scan_data_utils import update_project_scan_data
+
     result = push_vault_env_to_platform(
         project,
         "railway",
@@ -271,13 +372,15 @@ def auto_push_railway_env(
     )
     remember_railway_targets(project, resolved_project_id, resolved_service_id)
 
-    scan = dict(project.scan_data or {})
-    railway = dict(scan.get("railway") or {})
-    railway["lastEnvPushAt"] = datetime.now(timezone.utc).isoformat()
-    railway["lastPushedKeys"] = result.get("pushed") or []
-    scan["railway"] = railway
-    project.scan_data = scan
-    project.save(update_fields=["scan_data", "updated_at"])
+    update_project_scan_data(
+        project,
+        {
+            "railway": {
+                "lastEnvPushAt": datetime.now(timezone.utc).isoformat(),
+                "lastPushedKeys": result.get("pushed") or [],
+            }
+        },
+    )
 
     result["projectId"] = resolved_project_id
     result["serviceId"] = resolved_service_id

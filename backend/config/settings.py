@@ -296,6 +296,8 @@ RENDER_DEFAULT_PLAN = os.environ.get("RENDER_DEFAULT_PLAN", "starter")
 RAILWAY_API_TOKEN = os.environ.get("RAILWAY_API_TOKEN", "")
 RAILWAY_API_BASE_URL = os.environ.get("RAILWAY_API_BASE_URL", "https://backboard.railway.app")
 RAILWAY_PROJECT_ID = os.environ.get("RAILWAY_PROJECT_ID", "")
+RAILWAY_SERVICE_ID = os.environ.get("RAILWAY_SERVICE_ID", "")
+RAILWAY_ENVIRONMENT_ID = os.environ.get("RAILWAY_ENVIRONMENT_ID", "")
 
 SUPABASE_ACCESS_TOKEN = os.environ.get("SUPABASE_ACCESS_TOKEN", "")
 SUPABASE_ORG_ID = os.environ.get("SUPABASE_ORG_ID", "")

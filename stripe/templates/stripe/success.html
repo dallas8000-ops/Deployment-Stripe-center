@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Payment successful</title>
+</head>
+<body style="font-family:system-ui;text-align:center;margin:4rem auto">
+  <h1 style="color:#059669">Payment successful</h1>
+  <p>Thank you for your purchase.</p>
+{% if session_id %}<p style="font-size:0.75rem;color:#9ca3af">Reference: {{ session_id }}</p>{% endif %}  <p><a href="{% url 'stripe-account' %}">Go to account</a></p>
+</body>
+</html>

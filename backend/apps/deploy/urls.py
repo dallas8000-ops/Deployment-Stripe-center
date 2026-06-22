@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     DeployConfigView,
+    DeployPreflightView,
     DeployPushView,
     DeployReadinessView,
     DeployRunView,
@@ -45,6 +46,11 @@ urlpatterns = [
         "projects/<slug:project_slug>/deploy/readiness/",
         DeployReadinessView.as_view(),
         name="deploy-readiness",
+    ),
+    path(
+        "projects/<slug:project_slug>/deploy/preflight/",
+        DeployPreflightView.as_view(),
+        name="deploy-preflight",
     ),
     path(
         "projects/<slug:project_slug>/deploy/run/",

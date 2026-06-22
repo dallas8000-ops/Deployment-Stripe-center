@@ -335,25 +335,29 @@ def run_diagnostics(project: Project, project_root: Path) -> DiagnosticReport:
     vault_keys = list_secret_keys(project)
     _check_vault_keys(issues, project, vault_keys)
 
+    from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
+
+    stripe_exempt = is_stripe_exempt_slug(project.slug)
     secret = get_secret(project, "STRIPE_SECRET_KEY")
     publishable = get_secret(project, "STRIPE_PUBLISHABLE_KEY")
     verification = verify_stripe_keys(secret, publishable)
 
-    _check_key_validity(issues, verification, secret, publishable)
-    _check_env_sync(issues, project_root, scan, vault_keys)
+    if not stripe_exempt:
+        _check_key_validity(issues, verification, secret, publishable)
+        _check_env_sync(issues, project_root, scan, vault_keys)
 
-    if "STRIPE_WEBHOOK_SECRET" not in vault_keys:
-        _push(issues, StripeIssue(
-            id="missing-webhook-secret", category="webhooks", severity="warning",
-            title="STRIPE_WEBHOOK_SECRET not configured",
-            message="Webhook handler cannot verify Stripe signatures without whsec_",
-            fix_hint="Provision webhook via pipeline",
-            auto_fixable=True, fix_action="provision-stripe",
-        ))
+        if "STRIPE_WEBHOOK_SECRET" not in vault_keys:
+            _push(issues, StripeIssue(
+                id="missing-webhook-secret", category="webhooks", severity="warning",
+                title="STRIPE_WEBHOOK_SECRET not configured",
+                message="Webhook handler cannot verify Stripe signatures without whsec_",
+                fix_hint="Provision webhook via pipeline",
+                auto_fixable=True, fix_action="provision-stripe",
+            ))
 
-    if verification.secret_key.valid and secret:
-        _check_catalog(issues, manifest, secret)
-        _check_webhook(issues, manifest, secret, scan)
+        if verification.secret_key.valid and secret:
+            _check_catalog(issues, manifest, secret)
+            _check_webhook(issues, manifest, secret, scan)
 
     health_score = score_issues(issues)
     errors = sum(1 for i in issues if i.severity == "error")

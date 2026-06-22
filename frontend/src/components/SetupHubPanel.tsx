@@ -84,6 +84,56 @@ export default function SetupHubPanel({
     }
   }
 
+  async function runBootstrapPlatform() {
+    if (
+      !window.confirm(
+        "Run full platform automation? This will sync vault keys, pin VAULT_MASTER_KEY on Railway, and push env vars to all Railway projects."
+      )
+    ) {
+      return;
+    }
+    setBusy("bootstrap");
+    setError("");
+    setLastAction("");
+    try {
+      const result = await setupHubApi.bootstrapPlatform(projectSlug);
+      if (result.status) setStatus(result.status);
+      const failed = (result.projects || []).filter((p) => !p.ok);
+      setLastAction(
+        result.message ||
+          (failed.length
+            ? `Automation finished — ${failed.length} project(s) need attention.`
+            : "Platform automation complete.")
+      );
+      onVaultChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Platform automation failed");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function runAutomateDeploy() {
+    setBusy("automate");
+    setError("");
+    setLastAction("");
+    try {
+      const result = await setupHubApi.automateDeploy(projectSlug);
+      if (result.status) setStatus(result.status);
+      const failed = (result.steps || []).filter((s) => !s.ok);
+      setLastAction(
+        failed.length
+          ? `Deploy automation: ${failed.map((s) => s.detail).join("; ")}`
+          : "Deploy automation complete — vault synced and Railway env updated."
+      );
+      onVaultChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Deploy automation failed");
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function runSyncVault() {
     setBusy("sync-vault");
     setError("");
@@ -140,6 +190,8 @@ export default function SetupHubPanel({
           <h2>Setup Hub</h2>
           <p className="muted">
             One place to rename, reset, scan Stripe, register webhooks, and run the full pipeline — no CLI required.
+            Run full setup automatically runs platform bootstrap on the hub (pins master key, syncs and
+            pushes env vars to Railway projects) before the pipeline — no separate button required.
           </p>
         </div>
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => void refresh()} disabled={loading}>
@@ -187,6 +239,27 @@ export default function SetupHubPanel({
               </li>
             ))}
           </ul>
+
+          {status?.platformAutomation?.steps && status.platformAutomation.steps.length > 0 && (
+            <>
+              <h3 className="setup-subheading">Platform automation</h3>
+              <p className="muted">
+                Built into this app — no Railway dashboard or separate site required. One click syncs vault,
+                pins the master key, and pushes env vars.
+              </p>
+              <ul className="provider-list setup-checklist">
+                {status.platformAutomation.steps.map((step) => (
+                  <li key={step.id}>
+                    <span className={`badge ${step.ok ? "badge-ok" : "badge-warn"}`}>
+                      {step.ok ? "OK" : "Todo"}
+                    </span>
+                    <strong>{step.label}</strong>
+                    <span className="muted">{step.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
           {status && (
             <div className="setup-meta muted">
@@ -237,6 +310,25 @@ export default function SetupHubPanel({
           </div>
 
           <div className="page-actions compact-actions">
+            {status?.isHubProject ? (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => void runBootstrapPlatform()}
+                disabled={!!busy}
+              >
+                {busy === "bootstrap" ? "Automating…" : "Automate platform setup (all projects)"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => void runAutomateDeploy()}
+                disabled={!!busy}
+              >
+                {busy === "automate" ? "Automating…" : "Automate deploy setup"}
+              </button>
+            )}
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => void runSyncVault()} disabled={!!busy}>
               {busy === "sync-vault" ? "Syncing…" : "Sync keys to billing projects"}
             </button>

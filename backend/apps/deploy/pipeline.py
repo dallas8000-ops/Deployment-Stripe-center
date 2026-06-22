@@ -11,7 +11,9 @@ from typing import Any
 from apps.projects.models import Project
 from apps.stripe_installer.events import EventEmitter, PipelineEvent, emit
 from apps.stripe_installer.pipeline import PipelineOptions, PipelineResult, run_pipeline
+from apps.stripe_installer.portfolio_catalog import catalog_by_slug
 from apps.stripe_installer.readiness import readiness_label
+from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
 
 from .config import config_from_project, sync_project_from_config, write_deploy_config
 from .infra import generate_and_write_infra
@@ -66,11 +68,11 @@ class DeployResult:
 
 def _project_root(project: Project) -> Path:
     from apps.stripe_installer.portfolio_workspace import (
-        repair_portfolio_local_path,
+        ensure_project_workspace,
         sync_portfolio_scan_metadata,
     )
 
-    repair_portfolio_local_path(project)
+    ensure_project_workspace(project, clone_if_missing=True)
     sync_portfolio_scan_metadata(project)
     if not project.local_path:
         raise ValueError("Project local_path is required")
@@ -143,6 +145,7 @@ def run_deploy_pipeline(
         )
 
     postgres_provisioned = None
+    skip_stripe_schema = is_stripe_exempt_slug(project.slug)
     if options.provision_postgres and auto_provision and not get_database_url(project):
         emit(on_event, PipelineEvent("deploy.postgres", "running", "Provisioning PostgreSQL…"))
         try:
@@ -150,10 +153,10 @@ def run_deploy_pipeline(
                 project,
                 provider=postgres_provider,
                 reuse=True,
-                apply_schema=True,
+                apply_schema=not skip_stripe_schema,
             )
             emit(on_event, PipelineEvent("deploy.postgres", "ok", postgres_provisioned.get("message", "Done")))
-        except (RuntimeError, ValueError) as exc:
+        except (RuntimeError, ValueError, OSError) as exc:
             emit(on_event, PipelineEvent("deploy.postgres", "failed", str(exc)))
             next_steps.append(f"PostgreSQL: {exc}")
 
@@ -200,7 +203,10 @@ def run_deploy_pipeline(
         next_steps.append("Set production URL in project Settings")
     else:
         next_steps.append(f"Deploy: {platform_deploy_command(platform)}")
-        next_steps.append(f"Verify: curl {prod_url}{health_check_path(project.framework)}")
+        health_path = (catalog_by_slug(project.slug or "") or {}).get("healthPath") or health_check_path(
+            project.framework
+        )
+        next_steps.append(f"Verify: curl {prod_url}{health_path}")
     next_steps.append("Schedule backups: scripts/backup-db.sh or backup-db.ps1")
 
     env_push_result = None

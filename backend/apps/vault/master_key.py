@@ -95,3 +95,67 @@ def _write_master_key_file(path: Path, key: str) -> None:
         path.chmod(0o600)
     except OSError:
         pass
+
+
+def vault_master_key_status() -> dict[str, str | bool]:
+    """Report how the master key was resolved — for health checks and setup commands."""
+    path = master_key_path()
+    file_key = path.read_text(encoding="utf-8").strip() if path.is_file() else ""
+    env_key = os.environ.get("VAULT_MASTER_KEY", "").strip()
+    on_railway = _on_railway()
+
+    if on_railway:
+        if env_key:
+            source = "railway_env"
+            stable = True
+            detail = "VAULT_MASTER_KEY set in Railway Variables"
+        elif file_key:
+            source = "ephemeral_file"
+            stable = False
+            detail = (
+                "VAULT_MASTER_KEY missing from Railway Variables — using ephemeral disk file; "
+                "secrets will not survive redeploy"
+            )
+        else:
+            source = "ephemeral_generated"
+            stable = False
+            detail = (
+                "VAULT_MASTER_KEY missing — a new ephemeral key was generated; "
+                "previously encrypted secrets are unreadable after redeploy"
+            )
+    elif file_key and env_key and file_key != env_key:
+        source = "file_preferred"
+        stable = True
+        detail = f"Using key file at {path} (VAULT_MASTER_KEY in .env differs — sync recommended)"
+    elif file_key:
+        source = "local_file"
+        stable = True
+        detail = f"Using key file at {path}"
+    elif env_key:
+        source = "local_env"
+        stable = True
+        detail = "Using VAULT_MASTER_KEY from environment (not yet persisted to file)"
+    else:
+        source = "local_generated"
+        stable = True
+        detail = f"Generated new key at {path}"
+
+    return {
+        "onRailway": on_railway,
+        "source": source,
+        "stable": stable,
+        "detail": detail,
+        "filePath": str(path),
+        "hasEnvKey": bool(env_key),
+        "hasFileKey": bool(file_key),
+        "keysMatch": (not env_key or not file_key or env_key == file_key),
+    }
+
+
+def sync_local_master_key_from_env() -> str | None:
+    """Persist VAULT_MASTER_KEY from environment to ~/.stripe-installer/vault-master-key."""
+    env_key = os.environ.get("VAULT_MASTER_KEY", "").strip()
+    if not env_key:
+        return None
+    _write_master_key_file(master_key_path(), env_key)
+    return env_key

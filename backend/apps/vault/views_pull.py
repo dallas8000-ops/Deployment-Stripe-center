@@ -6,7 +6,7 @@ from apps.core.access import ProjectOwnedMixin
 from apps.stripe_installer.hub_keys import HUB_SLUG, pull_stripe_keys_for_user
 from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
 
-from .models import get_or_create_vault, list_secret_keys, list_vault_entries, vault_health
+from .models import get_or_create_vault, get_secret, list_secret_keys, list_vault_entries, vault_health
 
 
 class VaultPullFromHubView(ProjectOwnedMixin, APIView):

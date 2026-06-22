@@ -9,8 +9,10 @@ from apps.projects.models import Project
 
 from .crypto import EncryptedPayload, decrypt_secret, encrypt_secret, generate_salt
 from .local_store import (
+    clear_local_vault,
     delete_secret_from_local,
     load_secret_from_local,
+    list_local_secret_keys,
     save_secret_to_local,
     sync_project_from_local_store,
 )
@@ -120,6 +122,13 @@ def delete_secret(project: Project, key_name: str) -> bool:
     if deleted:
         delete_secret_from_local(project, key_name)
     return deleted > 0
+
+
+def clear_project_vault(project: Project) -> int:
+    """Delete all vault secrets from DB and local backup."""
+    count, _ = VaultSecret.objects.filter(project=project).delete()
+    clear_local_vault(project.slug)
+    return count
 
 def is_secret_readable(project: Project, secret: VaultSecret) -> bool:
     if _decrypt_db_secret(project, secret) is not None:

@@ -203,7 +203,19 @@ export default function ProjectPage() {
     setNextSteps([]);
     setCompletionData(null);
     try {
-      const run = await pipelineApi.start(slug, { sync_env: syncEnv, force: forceOverwrite });
+      const useDeploy = provisionPostgres || pushRailwayEnv || pushPlatform;
+      const run = useDeploy
+        ? await deployApi.deployRun(slug, {
+            sync_env: syncEnv,
+            force: forceOverwrite,
+            provision: true,
+            generate: true,
+            include_infra: true,
+            provision_postgres: provisionPostgres,
+            push: pushPlatform,
+            push_railway_env: pushRailwayEnv,
+          })
+        : await pipelineApi.start(slug, { sync_env: syncEnv, force: forceOverwrite });
       setActiveRunId(run.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pipeline start failed");

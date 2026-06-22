@@ -6,6 +6,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import tempfile
 import time
@@ -19,11 +20,11 @@ from apps.projects.models import Project
 from apps.vault.models import get_secret, set_secret
 
 from .postgres import apply_postgres_schema, test_postgres_connection
+from .railway_client import railway_gql
 
 Provider = Literal["neon", "supabase", "railway", "self-hosted"]
 NEON_API = "https://console.neon.tech/api/v2"
 SUPABASE_API = "https://api.supabase.com/v1"
-RAILWAY_GQL = "https://backboard.railway.app/graphql/v2"
 
 
 def _sanitize_name(name: str) -> str:
@@ -155,22 +156,8 @@ def _provision_supabase(project: Project, region: str, reuse: bool) -> tuple[str
 
 
 def _railway_graphql(token: str, query: str, variables: dict | None = None) -> dict:
-    body = {"query": query, "variables": variables or {}}
-    data = json.dumps(body).encode()
-    req = urllib.request.Request(
-        RAILWAY_GQL,
-        data=data,
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            payload = json.loads(resp.read().decode())
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"Railway API {exc.code}: {exc.read().decode()[:300]}") from exc
-    if payload.get("errors"):
-        raise RuntimeError(str(payload["errors"])[:300])
-    return payload
+    data = railway_gql(token, query, variables)
+    return {"data": data}
 
 
 def _railway_get_database_url(token: str, project_id: str) -> str | None:
@@ -187,18 +174,69 @@ def _railway_get_database_url(token: str, project_id: str) -> str | None:
         {"id": project_id},
     )
     project = data.get("data", {}).get("project") or {}
+    postgres_service_id: str | None = None
     for edge in project.get("services", {}).get("edges", []):
         node = edge.get("node") or {}
         if "postgres" in (node.get("name") or "").lower():
+            postgres_service_id = node.get("id")
             for inst in node.get("serviceInstances", {}).get("edges", []):
                 meta = (inst.get("node") or {}).get("latestDeployment", {}).get("meta") or {}
                 for key in ("DATABASE_URL", "DATABASE_PRIVATE_URL", "POSTGRES_URL"):
                     if meta.get(key):
                         return meta[key]
+
+    if not postgres_service_id:
+        return None
+
+    from .env_push import _railway_environment_id
+
+    try:
+        env_id = _railway_environment_id(token, project_id)
+        vars_payload = _railway_graphql(
+            token,
+            """
+            query($projectId: String!, $environmentId: String!, $serviceId: String!) {
+              variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId)
+            }
+            """,
+            {
+                "projectId": project_id,
+                "environmentId": env_id,
+                "serviceId": postgres_service_id,
+            },
+        )
+        variables = (vars_payload.get("data") or {}).get("variables") or {}
+        if isinstance(variables, str):
+            variables = json.loads(variables)
+        for key in ("DATABASE_URL", "DATABASE_PRIVATE_URL", "POSTGRES_URL", "DATABASE_PUBLIC_URL"):
+            value = variables.get(key) if isinstance(variables, dict) else None
+            if value:
+                return value
+    except RuntimeError:
+        pass
     return None
 
 
+def _railway_cli_available() -> bool:
+    return shutil.which("railway") is not None
+
+
+def _railway_project_matches(node_name: str, safe: str, project: Project) -> bool:
+    from apps.deploy.railway_resolve import _name_matches, _railway_project_candidates
+
+    name = str(node_name or "").strip()
+    if not name:
+        return False
+    if name == safe or _sanitize_name(name) == safe:
+        return True
+    candidates = _railway_project_candidates(project)
+    if name in candidates:
+        return True
+    return any(_name_matches(name, candidate) for candidate in candidates)
+
+
 def _provision_railway_api(project: Project, safe: str, reuse: bool, token: str) -> tuple[str, str, bool]:
+    matched_id: str | None = None
     if reuse:
         listed = _railway_graphql(
             token,
@@ -206,10 +244,23 @@ def _provision_railway_api(project: Project, safe: str, reuse: bool, token: str)
         )
         for edge in listed.get("data", {}).get("projects", {}).get("edges", []):
             node = edge["node"]
-            if node.get("name") == safe:
+            if _railway_project_matches(node.get("name") or "", safe, project):
+                matched_id = node["id"]
                 url = _railway_get_database_url(token, node["id"])
                 if url:
                     return url, node["id"], True
+
+    if reuse and matched_id:
+        for _ in range(15):
+            url = _railway_get_database_url(token, matched_id)
+            if url:
+                return url, matched_id, True
+            time.sleep(4)
+        raise RuntimeError(
+            "Found Railway project but Postgres DATABASE_URL is not available via API. "
+            "Add a Postgres plugin in the Railway dashboard — SilverFox env preset uses "
+            "${{Postgres.DATABASE_URL}} at deploy time."
+        )
 
     created = _railway_graphql(
         token,
@@ -279,7 +330,23 @@ def _provision_railway_cli(project: Project, safe: str, token: str) -> tuple[str
         url = variables.get("DATABASE_URL") or variables.get("DATABASE_PRIVATE_URL")
         if not url:
             raise RuntimeError("Railway CLI did not return DATABASE_URL")
-        return url, safe, False
+
+        listed = _railway_graphql(
+            token,
+            "query { projects { edges { node { id name } } } }",
+        )
+        project_id: str | None = None
+        for edge in listed.get("data", {}).get("projects", {}).get("edges", []):
+            node = edge.get("node") or {}
+            if _railway_project_matches(node.get("name") or "", safe, project):
+                project_id = node.get("id")
+                break
+        if not project_id:
+            raise RuntimeError(
+                "Railway CLI provision succeeded but project ID could not be resolved — "
+                "add RAILWAY_PROJECT_ID to vault manually"
+            )
+        return url, project_id, False
 
 
 def _provision_railway(project: Project, region: str, reuse: bool) -> tuple[str, str, bool]:
@@ -287,11 +354,10 @@ def _provision_railway(project: Project, region: str, reuse: bool) -> tuple[str,
     if not token:
         raise RuntimeError("RAILWAY_API_TOKEN not in vault — https://railway.com/account/tokens")
     safe = _sanitize_name(project.slug or project.name)
-    cli = subprocess.run(["railway", "--version"], capture_output=True, text=True)
-    if cli.returncode == 0:
+    if _railway_cli_available():
         try:
             return _provision_railway_cli(project, safe, token)
-        except (RuntimeError, subprocess.CalledProcessError, json.JSONDecodeError):
+        except (RuntimeError, subprocess.CalledProcessError, json.JSONDecodeError, OSError):
             pass
     return _provision_railway_api(project, safe, reuse, token)
 
@@ -346,10 +412,9 @@ def provision_postgres(
         raise ValueError(f"Unsupported provider: {provider}")
 
     set_secret(project, "DATABASE_URL", url)
-    scan = dict(project.scan_data or {})
-    scan["postgres"] = manifest
-    project.scan_data = scan
-    project.save(update_fields=["scan_data", "updated_at"])
+    from apps.projects.scan_data_utils import update_project_scan_data
+
+    update_project_scan_data(project, {"postgres": manifest})
 
     result = {
         "provider": provider,

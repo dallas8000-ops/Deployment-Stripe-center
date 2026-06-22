@@ -13,10 +13,11 @@ from apps.runs.models import PipelineRun
 from apps.runs.serializers import PipelineRunSerializer, StartPipelineSerializer
 from apps.runs.tasks import execute_pipeline
 from apps.stripe_installer.codegen import build_zip, generate_all
-from apps.stripe_installer.hub_keys import pull_stripe_keys_for_user, resolve_production_app_url
+from apps.stripe_installer.hub_keys import HUB_SLUG, pull_stripe_keys_for_user, resolve_production_app_url
+from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
 from apps.stripe_installer.provision import load_manifest
 from apps.stripe_installer.stripe_advisor import run_stripe_advisor
-from apps.stripe_installer.verify import verify_stripe_keys
+from apps.stripe_installer.verify import KeyCheck, VerificationResult, verify_stripe_keys
 from apps.vault.models import get_secret
 
 
@@ -26,9 +27,15 @@ class VerifyKeysView(ProjectOwnedMixin, APIView):
     def post(self, request, project_slug: str):
         project = self.get_project(project_slug)
         pull_stripe_keys_for_user(project, request.user)
-        secret = get_secret(project, "STRIPE_SECRET_KEY")
-        publishable = get_secret(project, "STRIPE_PUBLISHABLE_KEY")
-        result = verify_stripe_keys(secret, publishable)
+        if is_stripe_exempt_slug(project.slug):
+            result = VerificationResult(
+                secret_key=KeyCheck(True, "unknown", "Portfolio exempt — Stripe keys not required"),
+                publishable_key=KeyCheck(True, "unknown", "Portfolio exempt — Stripe keys not required"),
+            )
+        else:
+            secret = get_secret(project, "STRIPE_SECRET_KEY")
+            publishable = get_secret(project, "STRIPE_PUBLISHABLE_KEY")
+            result = verify_stripe_keys(secret, publishable)
         return Response(result.to_public_dict())
 
 
@@ -56,6 +63,14 @@ class PipelineRunListCreateView(ProjectOwnedMixin, generics.ListCreateAPIView):
         if not options.get("app_url"):
             prod = resolve_production_app_url(project)
             options["app_url"] = prod or request.build_absolute_uri("/").rstrip("/")
+
+        from apps.deploy.automation_gate import run_automation_before_pipeline
+
+        options["platformAutomation"] = run_automation_before_pipeline(
+            project,
+            user=request.user,
+            hub_bootstrap=(project.slug == HUB_SLUG),
+        )
 
         run = PipelineRun.objects.create(
             project=project,

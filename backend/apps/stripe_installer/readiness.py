@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 
 from apps.projects.models import Project
 from apps.stripe_installer.provision import load_manifest
+from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
 from apps.stripe_installer.verify import verify_stripe_keys
 from apps.vault.models import get_secret
 
@@ -84,6 +85,38 @@ def _head_reachable(url: str, timeout: float = 8.0) -> tuple[bool, str]:
 # ---------------------------------------------------------------------------
 
 def _stripe_key_checks(project: Project) -> list[ReadinessCheck]:
+    if is_stripe_exempt_slug(project.slug):
+        return [
+            ReadinessCheck(
+                id="stripe-secret",
+                category="stripe",
+                name="Stripe secret key",
+                status="pass",
+                message="Portfolio exempt — Stripe billing keys not required",
+            ),
+            ReadinessCheck(
+                id="stripe-live-mode",
+                category="stripe",
+                name="Production Stripe keys",
+                status="pass",
+                message="Portfolio exempt — no Stripe subscription billing",
+            ),
+            ReadinessCheck(
+                id="stripe-publishable",
+                category="stripe",
+                name="Stripe publishable key",
+                status="pass",
+                message="Portfolio exempt — optional for future checkout",
+            ),
+            ReadinessCheck(
+                id="stripe-webhook-secret",
+                category="stripe",
+                name="Webhook signing secret",
+                status="pass",
+                message="Portfolio exempt — no Stripe webhook required",
+            ),
+        ]
+
     secret = get_secret(project, "STRIPE_SECRET_KEY")
     publishable = get_secret(project, "STRIPE_PUBLISHABLE_KEY")
     v = verify_stripe_keys(secret, publishable)
@@ -256,7 +289,8 @@ def run_readiness_checks(
 
     checks: list[ReadinessCheck] = []
     checks.extend(_stripe_key_checks(project))
-    checks.append(_stripe_manifest_check(project_root))
+    if not is_stripe_exempt_slug(project.slug):
+        checks.append(_stripe_manifest_check(project_root))
     checks.extend(_database_checks(project, project_root))
     checks.append(ReadinessCheck(
         id="domain-configured", category="domain", name="Production URL configured",

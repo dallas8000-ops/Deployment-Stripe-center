@@ -14,9 +14,10 @@ from .codegen import generate_all, write_project_files
 from .events import EventEmitter, PipelineEvent, emit
 from .provision import ProvisionConfig, load_manifest, provision_catalog
 from .hub_keys import HUB_SLUG, pull_stripe_keys_for_user, resolve_production_app_url
+from .portfolio_catalog import is_stripe_exempt_slug
 from .readiness import readiness_label, run_readiness_checks, score_readiness
 from .stripe_config import provision_config_from_stripe_file
-from .verify import verify_stripe_keys
+from .verify import KeyCheck, VerificationResult, verify_stripe_keys
 
 MAX_STORED_ARTIFACT_BYTES = 3 * 1024 * 1024
 
@@ -139,6 +140,12 @@ def run_pipeline(
     options = opts or PipelineOptions()
     emit(on_event, PipelineEvent("run.started", "running", "Starting full setup…"))
 
+    from apps.deploy.platform_bootstrap import prepare_project_automation
+
+    prep = prepare_project_automation(project, user=project.owner)
+    for item in prep.get("steps") or []:
+        emit(on_event, PipelineEvent(f"automation.{item['step']}", "ok", item["detail"]))
+
     project_root: Path | None = None
     try:
         project_root = _project_root(project)
@@ -176,26 +183,37 @@ def run_pipeline(
                 ),
             )
 
+    stripe_exempt = is_stripe_exempt_slug(project.slug)
     secret = get_secret(project, "STRIPE_SECRET_KEY")
     publishable = get_secret(project, "STRIPE_PUBLISHABLE_KEY")
 
     emit(on_event, PipelineEvent("verify.keys", "running", "Verifying API keys…"))
-    verification = verify_stripe_keys(secret, publishable)
-    if not verification.secret_key.valid:
-        health = vault_health(project)
-        if health["unreadableCount"]:
-            msg = (
-                f"{verification.secret_key.message} "
-                "(Restore keys via the vault UI, Import from .env, or save them once — "
-                "they persist under ~/.stripe-installer/projects/.)"
-            )
-        else:
-            msg = verification.secret_key.message
-        emit(on_event, PipelineEvent("verify.keys", "failed", msg))
-        raise ValueError(msg)
+    if stripe_exempt:
+        verification = VerificationResult(
+            secret_key=KeyCheck(True, "unknown", "Portfolio exempt — Stripe keys not required"),
+            publishable_key=KeyCheck(True, "unknown", "Portfolio exempt — Stripe keys not required"),
+        )
+        emit(
+            on_event,
+            PipelineEvent("verify.keys", "ok", "Portfolio exempt — skipping Stripe key verification"),
+        )
+    else:
+        verification = verify_stripe_keys(secret, publishable)
+        if not verification.secret_key.valid:
+            health = vault_health(project)
+            if health["unreadableCount"]:
+                msg = (
+                    f"{verification.secret_key.message} "
+                    "(Restore keys via the vault UI, Import from .env, or save them once — "
+                    "they persist under ~/.stripe-installer/projects/.)"
+                )
+            else:
+                msg = verification.secret_key.message
+            emit(on_event, PipelineEvent("verify.keys", "failed", msg))
+            raise ValueError(msg)
 
-    mode_label = "live mode" if verification.secret_key.mode == "live" else "test mode"
-    emit(on_event, PipelineEvent("verify.keys", "ok", f"API keys verified ({mode_label})"))
+        mode_label = "live mode" if verification.secret_key.mode == "live" else "test mode"
+        emit(on_event, PipelineEvent("verify.keys", "ok", f"API keys verified ({mode_label})"))
 
     if not project_root:
         project_root = _project_root(project)
@@ -246,23 +264,33 @@ def run_pipeline(
         }
 
     if options.generate:
-        emit(on_event, PipelineEvent("generate.code", "running", "Generating code…"))
-        files_written, generated_files = _run_codegen(
-            project,
-            project_root,
-            app_url=app_url,
-            force=options.force,
-            on_event=on_event,
-        )
-        count = len(files_written)
-        emit(
-            on_event,
-            PipelineEvent(
-                "generate.code",
-                "ok",
-                f"Code generated ({count} file{'s' if count != 1 else ''})",
-            ),
-        )
+        if stripe_exempt:
+            emit(
+                on_event,
+                PipelineEvent(
+                    "generate.code",
+                    "ok",
+                    "Portfolio exempt — skipping Stripe codegen",
+                ),
+            )
+        else:
+            emit(on_event, PipelineEvent("generate.code", "running", "Generating code…"))
+            files_written, generated_files = _run_codegen(
+                project,
+                project_root,
+                app_url=app_url,
+                force=options.force,
+                on_event=on_event,
+            )
+            count = len(files_written)
+            emit(
+                on_event,
+                PipelineEvent(
+                    "generate.code",
+                    "ok",
+                    f"Code generated ({count} file{'s' if count != 1 else ''})",
+                ),
+            )
 
     if options.sync_env:
         emit(on_event, PipelineEvent("sync.env", "running", "Syncing .env.local…"))

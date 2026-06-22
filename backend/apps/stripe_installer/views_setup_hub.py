@@ -6,13 +6,19 @@ from rest_framework.views import APIView
 
 from apps.core.access import ProjectOwnedMixin
 
-from apps.stripe_installer.hub_keys import sync_vault_to_billing_projects
+from apps.stripe_installer.hub_keys import HUB_SLUG, sync_vault_to_billing_projects
 from .setup_hub import (
     audit_stripe_account,
     register_webhooks_for_user,
     reset_workspace,
     setup_hub_status,
     sync_registry_for_user,
+)
+from apps.deploy.platform_bootstrap import (
+    automate_project_deploy,
+    bootstrap_platform_automation,
+    platform_automation_status,
+    reconcile_local_master_key,
 )
 
 
@@ -55,11 +61,18 @@ class SetupHubActionView(ProjectOwnedMixin, APIView):
             if action == "register_webhooks":
                 fixes = register_webhooks_for_user(request.user, dry_run=dry_run)
                 ok = all(r.get("ok") for r in fixes) if fixes else False
+                status_payload = setup_hub_status(project, user=request.user)
+                if ok and not dry_run and project.slug == HUB_SLUG:
+                    try:
+                        audit_stripe_account(project)
+                        status_payload = setup_hub_status(project, user=request.user)
+                    except ValueError:
+                        pass
                 return Response(
                     {
                         "ok": ok,
                         "results": fixes,
-                        "status": setup_hub_status(project),
+                        "status": status_payload,
                     },
                     status=status.HTTP_200_OK if ok or dry_run else status.HTTP_400_BAD_REQUEST,
                 )
@@ -73,6 +86,24 @@ class SetupHubActionView(ProjectOwnedMixin, APIView):
                 result = sync_vault_to_billing_projects(project, request.user)
                 result["status"] = setup_hub_status(project, user=request.user)
                 return Response(result)
+
+            if action == "reconcile_master_key":
+                result = reconcile_local_master_key()
+                result["status"] = setup_hub_status(project, user=request.user)
+                return Response(result)
+
+            if action == "bootstrap_platform":
+                result = bootstrap_platform_automation(project, user=request.user)
+                result["status"] = setup_hub_status(project, user=request.user)
+                return Response(result)
+
+            if action == "automate_deploy":
+                result = automate_project_deploy(project, user=request.user)
+                result["status"] = setup_hub_status(project, user=request.user)
+                return Response(result)
+
+            if action == "automation_status":
+                return Response(platform_automation_status(project))
 
             return Response({"error": f"Unknown action: {action}"}, status=status.HTTP_400_BAD_REQUEST)
         except ValueError as exc:

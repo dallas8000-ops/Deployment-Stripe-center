@@ -72,6 +72,15 @@ def save_secret_to_local(project: Project, secret: VaultSecret, salt: bytes) -> 
     _write_document(project.slug, document)
 
 
+def clear_local_vault(project_slug: str) -> bool:
+    """Remove the on-disk vault backup for a project. Returns True if a file was deleted."""
+    path = local_vault_path(project_slug)
+    if path.is_file():
+        path.unlink()
+        return True
+    return False
+
+
 def delete_secret_from_local(project: Project, key_name: str) -> None:
     document = _read_document(project.slug)
     if not document:

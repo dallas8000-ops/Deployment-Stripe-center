@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pricing</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 0 auto; padding: 2rem; }
+    .grid { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-top: 2rem; }
+    .tier-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.5rem; }
+    .price { font-size: 1.75rem; font-weight: bold; }
+    .trial { color: #059669; font-size: 0.875rem; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; background: #111; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Choose your plan</h1>
+  <p>Simple, transparent pricing — server-rendered for SEO.</p>
+  <div class="grid">
+    <article class="tier-card">
+      <h2>Starter</h2>
+      <p class="price">$9.00/month</p>
+      <p class="trial">14-day free trial</p>
+      <ul><li>Core features</li><li>Email support</li></ul>
+      <form method="post" action="{% url 'stripe-checkout' %}">
+{% csrf_token %}        <input type="hidden" name="priceId" value="price_1ThJVmRxznXvj6jhqPmFSLNM" />
+        <button type="submit">Subscribe</button>
+      </form>
+    </article>
+    <article class="tier-card">
+      <h2>Pro</h2>
+      <p class="price">$29.00/month</p>
+      <p class="trial">14-day free trial</p>
+      <ul><li>Everything in Starter</li><li>Priority support</li><li>Team seats</li></ul>
+      <form method="post" action="{% url 'stripe-checkout' %}">
+{% csrf_token %}        <input type="hidden" name="priceId" value="price_1ThJVmRxznXvj6jh2aTzRO4V" />
+        <button type="submit">Subscribe</button>
+      </form>
+    </article>
+    <article class="tier-card">
+      <h2>Enterprise</h2>
+      <p class="price">$990.00/year</p>
+      <ul><li>Custom SLA</li><li>Dedicated support</li><li>SSO</li></ul>
+      <form method="post" action="{% url 'stripe-checkout' %}">
+{% csrf_token %}        <input type="hidden" name="priceId" value="price_1ThJVnRxznXvj6jhy8uXBJ0z" />
+        <button type="submit">Subscribe</button>
+      </form>
+    </article>
+  </div>
+</body>
+</html>

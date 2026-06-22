@@ -26,6 +26,9 @@ STRIPE_KEY_ALIASES: dict[str, tuple[str, ...]] = {
 
 STRIPE_KEYS_TO_SYNC = tuple(STRIPE_KEY_ALIASES.keys())
 
+# Copied from hub to child projects during platform bootstrap (never hub-specific Railway IDs).
+HUB_SHARED_DEPLOY_KEYS = ("RAILWAY_API_TOKEN", "DJANGO_SECRET_KEY")
+
 
 def get_hub_project(owner) -> Project | None:
     return Project.objects.filter(owner=owner, slug=HUB_SLUG).first()
@@ -110,6 +113,54 @@ def pull_stripe_keys_for_user(target: Project, user) -> list[str]:
     return pull_stripe_keys_from_hub(target, hub)
 
 
+def _secret_needs_repair(project: Project, key: str) -> bool:
+    from apps.vault.models import VaultSecret, is_secret_readable
+
+    if get_secret(project, key):
+        return False
+    row = VaultSecret.objects.filter(project=project, key=key).first()
+    return row is not None and not is_secret_readable(project, row)
+
+
+def repair_project_vault_from_hub(target: Project, hub: Project | None = None) -> list[str]:
+    """Restore unreadable or missing keys from the hub vault (Stripe + shared deploy tokens)."""
+    if target.slug == HUB_SLUG or is_stripe_exempt_slug(target.slug):
+        return []
+    if hub is None:
+        hub = get_hub_project(target.owner)
+    if not hub or hub.id == target.id:
+        return []
+
+    copied: list[str] = []
+    from apps.vault.models import delete_secret, vault_health
+
+    force = vault_health(target)["unreadableCount"] > 0
+
+    for key in STRIPE_KEYS_TO_SYNC:
+        if not force and get_secret(target, key) and not _secret_needs_repair(target, key):
+            continue
+        if _secret_needs_repair(target, key):
+            delete_secret(target, key)
+        value = hub_key_value(hub, key)
+        if not value:
+            continue
+        set_secret(target, key, value)
+        copied.append(key)
+
+    for key in HUB_SHARED_DEPLOY_KEYS:
+        if not force and get_secret(target, key) and not _secret_needs_repair(target, key):
+            continue
+        if _secret_needs_repair(target, key):
+            delete_secret(target, key)
+        value = get_secret(hub, key)
+        if not value:
+            continue
+        set_secret(target, key, value)
+        copied.append(key)
+
+    return copied
+
+
 def sync_vault_to_billing_projects(hub: Project, user) -> dict[str, Any]:
     from apps.stripe_installer.portfolio_catalog import DASHBOARD_HIDDEN_PROJECT_SLUGS
 
@@ -124,13 +175,45 @@ def sync_vault_to_billing_projects(hub: Project, user) -> dict[str, Any]:
 
     results: list[dict[str, Any]] = []
     for target in projects:
-        copied = pull_stripe_keys_from_hub(target, hub, overwrite=False)
+        copied = repair_project_vault_from_hub(target, hub)
+        if not copied:
+            copied = pull_stripe_keys_from_hub(target, hub, overwrite=False)
         results.append(
             {
                 "projectSlug": target.slug,
                 "projectName": target.name,
                 "copiedKeys": copied,
                 "ok": bool(copied) or bool(get_secret(target, "STRIPE_SECRET_KEY")),
+            }
+        )
+    return {"hubSlug": hub.slug, "results": results}
+
+
+def sync_deploy_keys_to_portfolio_projects(hub: Project, user) -> dict[str, Any]:
+    """Sync Railway token + Django secret to portfolio Railway demos (SilverFox, Kistie, …)."""
+    from apps.stripe_installer.portfolio_catalog import PORTFOLIO_CATALOG
+
+    slugs = {
+        str(e.get("projectSlug") or "")
+        for e in PORTFOLIO_CATALOG
+        if e.get("stripeExempt") and ".railway.app" in str(e.get("productionUrl") or "")
+    }
+    slugs.discard("")
+
+    results: list[dict[str, Any]] = []
+    for target in Project.objects.filter(owner=user, slug__in=slugs):
+        copied: list[str] = []
+        for key in HUB_SHARED_DEPLOY_KEYS:
+            value = get_secret(hub, key)
+            if not value:
+                continue
+            set_secret(target, key, value)
+            copied.append(key)
+        results.append(
+            {
+                "projectSlug": target.slug,
+                "copiedKeys": copied,
+                "ok": bool(get_secret(target, "RAILWAY_API_TOKEN")),
             }
         )
     return {"hubSlug": hub.slug, "results": results}
