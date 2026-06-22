@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import SimpleTestCase, override_settings
+from django.test import TestCase, override_settings
 import tempfile
 from pathlib import Path
 
@@ -14,7 +14,7 @@ from apps.deploy.platform_bootstrap import (
 from apps.projects.models import Project
 
 
-class PlatformBootstrapTests(SimpleTestCase):
+class PlatformBootstrapTests(TestCase):
     @override_settings(VAULT_MASTER_KEY="a" * 64)
     def test_reconcile_local_ok_when_file_present(self):
         with patch("apps.deploy.platform_bootstrap.vault_master_key_status") as mock_status:
@@ -31,14 +31,14 @@ class PlatformBootstrapTests(SimpleTestCase):
 
     def test_sync_deploy_platform_from_disk(self):
         User = get_user_model()
-        user = User(email="bootstrap@test.local")
+        user = User.objects.create_user(email="bootstrap@test.local", password="pass12345")
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "deploy.config.json").write_text(
                 '{"platform": "railway", "productionUrl": "https://app.example.com"}',
                 encoding="utf-8",
             )
-            project = Project(
+            project = Project.objects.create(
                 owner=user,
                 name="Test",
                 slug="bootstrap-sync",
@@ -53,8 +53,8 @@ class PlatformBootstrapTests(SimpleTestCase):
     @override_settings(VAULT_MASTER_KEY="b" * 64, RAILWAY_API_TOKEN="")
     def test_platform_automation_status(self):
         User = get_user_model()
-        user = User(email="bootstrap@test.local")
-        project = Project(owner=user, name="Hub", slug="stripe-installer", scan_data={})
+        user = User.objects.create_user(email="bootstrap2@test.local", password="pass12345")
+        project = Project.objects.create(owner=user, name="Hub", slug="bootstrap-hub", scan_data={})
         with patch("apps.deploy.platform_bootstrap.get_secret", return_value=None):
             with patch("apps.deploy.platform_bootstrap.vault_health", return_value={"unreadableCount": 0, "totalCount": 2}):
                 with patch("apps.deploy.platform_bootstrap.sync_deploy_platform_from_disk", return_value=None):
@@ -65,8 +65,10 @@ class PlatformBootstrapTests(SimpleTestCase):
     @override_settings(VAULT_MASTER_KEY="c" * 64)
     def test_automate_project_deploy_runs_preflight(self):
         User = get_user_model()
-        user = User(email="bootstrap@test.local")
-        project = Project(owner=user, name="SilverFox", slug="silverfox", scan_data={"deployPlatform": "railway"})
+        user = User.objects.create_user(email="bootstrap3@test.local", password="pass12345")
+        project = Project.objects.create(
+            owner=user, name="SilverFox", slug="silverfox", scan_data={"deployPlatform": "railway"}
+        )
         with patch("apps.deploy.platform_bootstrap.hydrate_project_vault", return_value=[]):
             with patch("apps.stripe_installer.hub_keys.pull_stripe_keys_for_user", return_value=[]):
                 with patch("apps.deploy.platform_bootstrap.sync_deploy_platform_from_disk", return_value="railway"):

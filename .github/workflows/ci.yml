@@ -42,7 +42,12 @@ jobs:
 
       - name: Backend tests
         working-directory: backend
-        run: python manage.py test apps.accounts apps.deploy apps.vault apps.projects apps.stripe_installer apps.diagnostics apps.api_transfer
+        env:
+          VAULT_MASTER_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+        run: |
+          pip install coverage
+          coverage run manage.py test apps.accounts apps.api_transfer apps.runs apps.diagnostics apps.core apps.deploy apps.vault apps.projects apps.stripe_installer apps.billing apps.organizations
+          coverage report --fail-under=30
 
       - name: Migrate (smoke test DB)
         working-directory: backend
