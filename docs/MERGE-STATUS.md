@@ -64,9 +64,9 @@ These require Stripe Dashboard clicks or optional provider token setup:
 3. [ ] **Redeploy unified service** after any variable changes (Railway → Deploy latest `main`)
 4. [ ] **Smoke test** in app: login → project → Transfer panel → dry-run deploy
 5. [x] **Delete `api-transfer`** Railway service (`api-transfer.gilliomfrontlinedigital.com` — removed 2026-06-22)
-6. [ ] **Archive** local `API Transfer` / `API-Transfer` folder when comfortable
+6. [x] **Archive** local `API Transfer` / `API-Transfer` folders — zip at `C:\Software Projects\_archive\api-transfer-cutover-2026-06-22.zip`, originals removed
 
-**Porkbun / gilliomfrontlinedigital.com:** no DNS change — portfolio on `frontlinedigital-1-production`; demo buttons use Railway URLs.
+**Porkbun / gilliomfrontlinedigital.com:** delete stale CNAME `api-transfer` → `ovnxemb3.up.railway.app` (service deleted). Keep `stripe-installer` → Railway.
 
 ## Verify anytime
 
