@@ -43,7 +43,7 @@ if os.environ.get("DATABASE_URL"):
     os.environ["DATABASE_URL"] = _normalize_database_url(os.environ["DATABASE_URL"])
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-change-me-in-production")
-DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
+DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 
 _env_hosts = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()]
 ALLOWED_HOSTS = _env_hosts or ["localhost", "127.0.0.1"]
@@ -81,6 +81,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "csp.middleware.CSPMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -234,9 +235,14 @@ def _is_local_redis(url: str) -> bool:
 
 
 # Pasted dev .env often sets REDIS_URL=127.0.0.1 — treat as no Redis on Railway.
-RAILWAY_SINGLE_CONTAINER = ON_RAILWAY and (
+# Legacy single-container mode (no Redis addon): set ALLOW_SINGLE_CONTAINER=true on Railway.
+ALLOW_SINGLE_CONTAINER = os.environ.get("ALLOW_SINGLE_CONTAINER", "").lower() == "true"
+RAILWAY_SINGLE_CONTAINER = ON_RAILWAY and ALLOW_SINGLE_CONTAINER and (
     not os.environ.get("REDIS_URL") or _is_local_redis(REDIS_URL)
 )
+
+# Tier-1 multi-replica deploy: Redis + non-eager Celery required when not in dev shortcuts.
+PRODUCTION_SCALE = not DEBUG and not ALLOW_SINGLE_CONTAINER
 
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL)
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", REDIS_URL)
@@ -247,6 +253,8 @@ CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_EAGER", "").lower() == "true"
 if RAILWAY_SINGLE_CONTAINER:
     # Single-service Railway deploy: no Redis addon required for the web process
     CELERY_TASK_ALWAYS_EAGER = True
+elif PRODUCTION_SCALE:
+    CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_EAGER", "false").lower() == "true"
 
 from celery.schedules import crontab  # noqa: E402
 
@@ -336,6 +344,33 @@ EMAIL_BACKEND = os.environ.get(
 )
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@stripe-installer.local")
 
+# MFA (TOTP)
+MFA_ISSUER_NAME = os.environ.get("MFA_ISSUER_NAME", "Automation Center")
+
+# Enterprise OIDC SSO (Okta, Azure AD, etc.)
+OIDC_SSO_ENABLED = os.environ.get("OIDC_SSO_ENABLED", "false").lower() == "true"
+OIDC_ISSUER_URL = os.environ.get("OIDC_ISSUER_URL", "").strip().rstrip("/")
+OIDC_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID", "")
+OIDC_CLIENT_SECRET = os.environ.get("OIDC_CLIENT_SECRET", "")
+OIDC_REDIRECT_URI = os.environ.get("OIDC_REDIRECT_URI", "").strip()
+OIDC_SCOPES = os.environ.get("OIDC_SCOPES", "openid email profile")
+_oidc_domains = os.environ.get("OIDC_ALLOWED_EMAIL_DOMAINS", "")
+OIDC_ALLOWED_EMAIL_DOMAINS = [d.strip() for d in _oidc_domains.split(",") if d.strip()]
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "stripe-installer-default",
+    }
+}
+if PRODUCTION_SCALE or (REDIS_URL and not _is_local_redis(REDIS_URL)):
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+    }
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -355,5 +390,25 @@ elif RAILWAY_SINGLE_CONTAINER:
 if ON_RAILWAY:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     USE_X_FORWARDED_HOST = True
+
+# Production security — active when DJANGO_DEBUG is false (local dev keeps DEBUG=true in .env).
+if not DEBUG:
+    SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = os.environ.get("SECURE_HSTS_PRELOAD", "false").lower() == "true"
+    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "true").lower() == "true"
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    X_FRAME_OPTIONS = "DENY"
+    SECURE_REFERRER_POLICY = "same-origin"
+
+    CSP_DEFAULT_SRC = ("'self'",)
+    CSP_SCRIPT_SRC = ("'self'",)
+    CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")  # Django admin
+    CSP_IMG_SRC = ("'self'", "data:", "https:")
+    CSP_CONNECT_SRC = ("'self'",)
+    CSP_FONT_SRC = ("'self'",)
+    CSP_FRAME_ANCESTORS = ("'none'",)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

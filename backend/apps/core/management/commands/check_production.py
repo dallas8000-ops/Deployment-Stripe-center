@@ -31,6 +31,33 @@ class Command(BaseCommand):
                 errors.append(msg)
 
         require(not settings.DEBUG, "DJANGO_DEBUG is false")
+        if getattr(settings, "PRODUCTION_SCALE", False):
+            require(
+                not settings.CHANNEL_LAYERS["default"]["BACKEND"].endswith("InMemoryChannelLayer"),
+                "CHANNEL_LAYER_INMEMORY is false (Redis channel layer)",
+            )
+            redis_url = getattr(settings, "REDIS_URL", "")
+            require(
+                redis_url and "127.0.0.1" not in redis_url and "localhost" not in redis_url,
+                "REDIS_URL points at managed Redis (not localhost)",
+            )
+        if not settings.DEBUG:
+            require(
+                getattr(settings, "SECURE_SSL_REDIRECT", False),
+                "SECURE_SSL_REDIRECT enabled",
+            )
+            require(
+                getattr(settings, "SESSION_COOKIE_SECURE", False),
+                "SESSION_COOKIE_SECURE enabled",
+            )
+            require(
+                getattr(settings, "CSRF_COOKIE_SECURE", False),
+                "CSRF_COOKIE_SECURE enabled",
+            )
+            require(
+                getattr(settings, "SECURE_HSTS_SECONDS", 0) > 0,
+                "SECURE_HSTS_SECONDS configured",
+            )
         require(
             bool(getattr(settings, "DJANGO_SECRET_KEY", ""))
             and settings.DJANGO_SECRET_KEY != "change-me-in-production",

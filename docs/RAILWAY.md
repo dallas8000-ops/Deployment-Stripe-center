@@ -1,6 +1,8 @@
 # Railway deployment
 
-Single-container deploy using the repo `Dockerfile` and `railway.toml`.
+**Recommended:** three-service split (web + worker + beat). See [deploy/RAILWAY-SERVICES.md](../deploy/RAILWAY-SERVICES.md).
+
+Single-container deploy using the repo `Dockerfile` and `railway.toml` is legacy — set `ALLOW_SINGLE_CONTAINER=true` only if you are not using Redis yet.
 
 ## Required Railway variables
 
@@ -52,9 +54,11 @@ Project secrets (Railway API token, Stripe keys, etc.) are encrypted in Postgres
 
 | Variable | Purpose |
 |----------|---------|
-| `REDIS_URL` | Celery + WebSocket scaling (add Redis plugin) |
+| `REDIS_URL` | Celery + WebSocket scaling (add Redis plugin) — **required** for multi-replica |
 | `CELERY_EAGER` | `false` when Redis + Celery worker service exist |
 | `CHANNEL_LAYER_INMEMORY` | `false` when using Redis |
+| `PROCESS_TYPE` | `web` (default), `worker`, or `beat` per Railway service |
+| `ALLOW_SINGLE_CONTAINER` | `true` only for legacy one-box deploy without Redis |
 | `GITHUB_APP_*` | GitHub App install + PR checks |
 | `APP_PUBLIC_URL` | Custom domain override (if not using `*.up.railway.app`) |
 | `LICENSE_ENFORCEMENT_ENABLED` | `false` unless licensing deployed copies |

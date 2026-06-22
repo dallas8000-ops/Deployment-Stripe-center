@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from celery import shared_task
 
+from apps.core.distributed_lock import beat_singleton
 from apps.projects.models import Project
 from apps.stripe_installer.auto_heal import HealPolicy, run_auto_heal_with_drift
 from apps.diagnostics.drift import detect_drift, persist_drift_snapshot
@@ -21,6 +22,7 @@ def check_project_drift(project_id: str) -> dict:
 
 
 @shared_task(name="stripe_engine.check_all_projects_drift")
+@beat_singleton("check_all_projects_drift", ttl_seconds=7200)
 def check_all_projects_drift() -> dict:
     project_ids = (
         VaultSecret.objects.filter(key_name="STRIPE_SECRET_KEY")
@@ -59,6 +61,7 @@ def auto_heal_project_task(project_id: str, app_url: str = "http://localhost:800
 
 
 @shared_task(name="stripe_engine.auto_heal_all_projects")
+@beat_singleton("auto_heal_all_projects", ttl_seconds=7200)
 def auto_heal_all_projects_task(app_url: str = "http://localhost:8000") -> dict:
     """Run auto-healing on all projects with drift detected."""
     project_ids = (
@@ -80,6 +83,7 @@ def auto_heal_all_projects_task(app_url: str = "http://localhost:8000") -> dict:
 
 
 @shared_task(name="stripe_engine.health_monitor_all_projects")
+@beat_singleton("health_monitor_all_projects", ttl_seconds=3600)
 def health_monitor_all_projects_task() -> dict:
     """Run health monitoring on all projects and alert on critical issues."""
     from apps.stripe_installer.health_monitor import run_all_projects_health_monitor
@@ -104,6 +108,7 @@ def health_monitor_all_projects_task() -> dict:
 
 
 @shared_task(name="stripe_engine.anomaly_detection_all_projects")
+@beat_singleton("anomaly_detection_all_projects", ttl_seconds=7200)
 def anomaly_detection_all_projects_task() -> dict:
     """Run anomaly detection on all projects."""
     from apps.stripe_installer.anomaly_detection import run_all_projects_anomaly_detection
@@ -120,6 +125,7 @@ def anomaly_detection_all_projects_task() -> dict:
 
 
 @shared_task(name="stripe_engine.auto_backup_all_projects")
+@beat_singleton("auto_backup_all_projects", ttl_seconds=7200)
 def auto_backup_all_projects_task() -> dict:
     """Automatically backup all projects before critical operations."""
     from apps.stripe_installer.backup_recovery import create_project_backup

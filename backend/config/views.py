@@ -1,5 +1,24 @@
+import os
+
 from django.conf import settings
 from django.http import JsonResponse
+
+
+def _redis_check() -> tuple[str, bool]:
+    """Return (status message, is_fatal_for_probe)."""
+    eager = getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False)
+    inmemory = settings.CHANNEL_LAYERS["default"]["BACKEND"].endswith("InMemoryChannelLayer")
+    if eager or inmemory:
+        return "skipped (dev mode)", False
+    try:
+        import redis
+
+        client = redis.from_url(settings.REDIS_URL, socket_connect_timeout=2)
+        client.ping()
+        return "ok", False
+    except Exception as exc:
+        fatal = bool(getattr(settings, "PRODUCTION_SCALE", False))
+        return str(exc), fatal
 
 
 def root(_request):
@@ -42,24 +61,17 @@ def health(_request):
 
     eager = getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False)
     inmemory = settings.CHANNEL_LAYERS["default"]["BACKEND"].endswith("InMemoryChannelLayer")
+    redis_status, redis_fatal = _redis_check()
+    checks["redis"] = redis_status
+    if redis_fatal:
+        ok = False
     if not eager and not inmemory:
-        try:
-            import redis
-
-            client = redis.from_url(settings.REDIS_URL, socket_connect_timeout=2)
-            client.ping()
-            checks["redis"] = "ok"
-        except Exception as exc:
-            checks["redis"] = str(exc)
-            # Railway single-container deploys run without Redis — don't fail the probe.
-            if not getattr(settings, "ON_RAILWAY", False):
-                ok = False
-    else:
-        checks["redis"] = "skipped (dev mode)"
+        checks["celery"] = "worker not probed — ensure celery + beat services are running"
+    elif eager or inmemory:
         checks["celery"] = "skipped (eager mode)"
 
-    if not eager and not inmemory:
-        checks["celery"] = "worker not probed — ensure celery + beat are running"
+    process_type = os.environ.get("PROCESS_TYPE", "web")
+    checks["process_type"] = process_type
 
     from pathlib import Path
 
@@ -82,6 +94,33 @@ def health(_request):
     payload = {
         "status": "ok" if ok else "degraded",
         "version": getattr(settings, "APP_VERSION", "1.0.0"),
+        "checks": checks,
+    }
+    return JsonResponse(payload, status=200 if ok else 503)
+
+
+def readiness(_request):
+    """Kubernetes/Railway readiness — DB + Redis required for scaled web replicas."""
+    checks: dict[str, str] = {}
+    ok = True
+
+    try:
+        from django.db import connection
+
+        connection.ensure_connection()
+        checks["database"] = "ok"
+    except Exception as exc:
+        checks["database"] = str(exc)
+        ok = False
+
+    redis_status, redis_fatal = _redis_check()
+    checks["redis"] = redis_status
+    if redis_fatal:
+        ok = False
+
+    payload = {
+        "status": "ready" if ok else "not_ready",
+        "process_type": os.environ.get("PROCESS_TYPE", "web"),
         "checks": checks,
     }
     return JsonResponse(payload, status=200 if ok else 503)

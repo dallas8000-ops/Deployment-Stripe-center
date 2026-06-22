@@ -2,6 +2,9 @@
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
+# Default service: web (Daphne). Add worker + beat services in Railway — see deploy/RAILWAY-SERVICES.md.
+# Each service uses the same image; set PROCESS_TYPE per service (web | worker | beat).
+
 [deploy]
 healthcheckPath = "/health/"
 healthcheckTimeout = 180

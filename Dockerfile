@@ -31,10 +31,13 @@ COPY --from=frontend /app/frontend/dist /app/frontend/dist
 
 RUN DJANGO_SECRET_KEY=build-placeholder-not-used-at-runtime \
     DJANGO_DEBUG=False \
+    PROCESS_TYPE=web \
     python manage.py collectstatic --noinput
 
 COPY scripts/docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+ENV PROCESS_TYPE=web
 
 EXPOSE 8080
 

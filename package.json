@@ -16,6 +16,7 @@
     "check:prod": "cd backend && .venv\\Scripts\\python.exe manage.py check_production",
     "check:prod:strict": "cd backend && .venv\\Scripts\\python.exe manage.py check_production --strict",
     "test": "cd backend && .venv\\Scripts\\python.exe manage.py test",
+    "loadtest": "cd backend && locust -f loadtest/locustfile.py --host http://127.0.0.1:8000",
     "cli": "cd backend && .venv\\Scripts\\python.exe manage.py stripe_installer",
     "deploy:prod": "node scripts/deploy-prod.mjs",
     "docker:prod": "docker compose --profile prod up -d --build",
