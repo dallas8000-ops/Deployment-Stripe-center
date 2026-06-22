@@ -124,3 +124,10 @@ def readiness(_request):
         "checks": checks,
     }
     return JsonResponse(payload, status=200 if ok else 503)
+
+
+def metrics(_request):
+    """Basic ops metrics — DB/Redis latency, queue depth, webhook volume."""
+    from apps.diagnostics.ops_metrics import collect_ops_metrics
+
+    return JsonResponse(collect_ops_metrics())

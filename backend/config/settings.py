@@ -81,6 +81,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "apps.core.middleware.RequestIdMiddleware",
     "csp.middleware.CSPMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
@@ -410,5 +411,48 @@ if not DEBUG:
     CSP_CONNECT_SRC = ("'self'",)
     CSP_FONT_SRC = ("'self'",)
     CSP_FRAME_ANCESTORS = ("'none'",)
+
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "DEBUG" if DEBUG else "INFO")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        "request_id": {
+            "()": "apps.core.logging_context.RequestIdFilter",
+        },
+    },
+    "formatters": {
+        "structured": {
+            "format": "%(asctime)s %(levelname)s [%(request_id)s] %(name)s: %(message)s",
+            "datefmt": "%Y-%m-%dT%H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "structured",
+            "filters": ["request_id"],
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        "django.request": {"level": "WARNING", "propagate": True},
+        "django.security": {"level": "WARNING", "propagate": True},
+        "celery": {"level": "INFO", "propagate": True},
+        "stripe": {"level": "WARNING", "propagate": True},
+    },
+}
+
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
+SENTRY_ENVIRONMENT = os.environ.get("SENTRY_ENVIRONMENT", "development" if DEBUG else "production")
+SENTRY_TRACES_SAMPLE_RATE = os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")
+
+from config.sentry import init_sentry  # noqa: E402
+
+init_sentry()
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

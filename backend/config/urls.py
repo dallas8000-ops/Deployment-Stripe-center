@@ -5,12 +5,13 @@ from apps.projects.ci_views import CiReadinessGateView
 from apps.projects.github_webhook_views import github_webhook
 
 from .spa import spa_asset, spa_index
-from .views import health, readiness, root
+from .views import health, metrics, readiness, root
 
 urlpatterns = [
     path("", root),
     path("health/", health),
     path("health/ready/", readiness),
+    path("health/metrics/", metrics),
     path("admin/", admin.site.urls),
     path("api/v1/auth/", include("apps.accounts.urls")),
     path("api/v1/", include("apps.organizations.urls")),
