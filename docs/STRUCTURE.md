@@ -11,7 +11,7 @@ deployment-stripe-center/          # repo root (this folder)
 │       ├── projects/              # Shared Project model, scanner, GitHub
 │       ├── vault/                 # Encrypted secrets (per project)
 │       ├── api_transfer/          # Deploy / migrate (Railway, Render, …)
-│       ├── stripe_installer/      # Stripe setup, codegen, pipeline
+│       ├── stripe_core/      # Stripe setup, codegen, pipeline
 │       ├── diagnostics/           # Diagnose, readiness, drift, webhook health
 │       ├── ai_assistant/          # Copilot, NL config, handoff
 │       ├── runs/                  # Pipeline runs, WebSocket logs

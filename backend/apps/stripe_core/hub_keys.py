@@ -5,14 +5,14 @@ from __future__ import annotations
 from typing import Any
 
 from apps.projects.models import Project
-from apps.stripe_installer.portfolio_catalog import (
+from apps.stripe_core.portfolio_catalog import (
     HUB_SLUG,
     catalog_by_slug,
     catalog_live_urls,
     is_stripe_exempt_slug,
     stripe_billing_apps,
 )
-from apps.stripe_installer.portfolio_registry import PortfolioApp, load_registry
+from apps.stripe_core.portfolio_registry import PortfolioApp, load_registry
 from apps.vault.models import get_secret, set_secret
 
 STRIPE_KEY_ALIASES: dict[str, tuple[str, ...]] = {
@@ -185,7 +185,7 @@ def repair_project_vault_from_hub(target: Project, hub: Project | None = None) -
 
 
 def sync_vault_to_billing_projects(hub: Project, user) -> dict[str, Any]:
-    from apps.stripe_installer.portfolio_catalog import DASHBOARD_HIDDEN_PROJECT_SLUGS
+    from apps.stripe_core.portfolio_catalog import DASHBOARD_HIDDEN_PROJECT_SLUGS
 
     billing_slugs = {e.get("projectSlug") for e in stripe_billing_apps() if e.get("projectSlug")}
     billing_slugs.discard(hub.slug)
@@ -214,7 +214,7 @@ def sync_vault_to_billing_projects(hub: Project, user) -> dict[str, Any]:
 
 def sync_deploy_keys_to_portfolio_projects(hub: Project, user) -> dict[str, Any]:
     """Sync Railway token + Django secret to portfolio Railway demos (SilverFox, Kistie, …)."""
-    from apps.stripe_installer.portfolio_catalog import PORTFOLIO_CATALOG
+    from apps.stripe_core.portfolio_catalog import PORTFOLIO_CATALOG
 
     slugs = {
         str(e.get("projectSlug") or "")

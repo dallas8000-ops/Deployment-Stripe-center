@@ -5,7 +5,7 @@ from __future__ import annotations
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
-from apps.stripe_installer.events import PipelineEvent
+from apps.stripe_core.events import PipelineEvent
 
 from .models import PipelineRun, PipelineRunLog
 

@@ -9,9 +9,9 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from apps.projects.models import Project
-from apps.stripe_installer.provision import load_manifest
-from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
-from apps.stripe_installer.verify import verify_stripe_keys
+from apps.stripe_core.provision import load_manifest
+from apps.stripe_core.portfolio_catalog import is_stripe_exempt_slug
+from apps.stripe_core.verify import verify_stripe_keys
 from apps.vault.models import get_secret
 
 _DB_PREFIXES = ("postgres://", "postgresql://", "sqlite://", "sqlite+")

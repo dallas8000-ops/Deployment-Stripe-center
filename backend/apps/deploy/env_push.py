@@ -324,8 +324,8 @@ def push_monorepo_railway_live_env(project: Project) -> dict[str, Any] | None:
   """
     from urllib.parse import urlparse
 
-    from apps.stripe_installer.portfolio_catalog import catalog_by_slug, catalog_live_urls
-    from apps.stripe_installer.hub_keys import get_hub_project, repair_project_vault_from_hub
+    from apps.stripe_core.portfolio_catalog import catalog_by_slug, catalog_live_urls
+    from apps.stripe_core.hub_keys import get_hub_project, repair_project_vault_from_hub
 
     entry = catalog_by_slug(project.slug or "")
     live = catalog_live_urls(entry)
@@ -415,7 +415,7 @@ def try_auto_push_railway_stripe_env(project: Project) -> dict[str, Any] | None:
     from pathlib import Path
 
     from apps.deploy.platform import detect_deploy_platform
-    from apps.stripe_installer.hub_keys import get_hub_project, repair_project_vault_from_hub
+    from apps.stripe_core.hub_keys import get_hub_project, repair_project_vault_from_hub
 
     root = Path(project.local_path or "")
     if not root.is_dir():

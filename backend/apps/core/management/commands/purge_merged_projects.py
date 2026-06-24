@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.projects.models import Project
-from apps.stripe_installer.portfolio_catalog import MERGED_INTO_PROJECT_SLUGS, is_merged_legacy_slug
+from apps.stripe_core.portfolio_catalog import MERGED_INTO_PROJECT_SLUGS, is_merged_legacy_slug
 
 
 class Command(BaseCommand):

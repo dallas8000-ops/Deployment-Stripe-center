@@ -10,11 +10,11 @@ from typing import Any
 
 from apps.deploy.postgres import get_production_url
 from apps.projects.models import Project
-from apps.stripe_installer.pipeline import _webhook_path
-from apps.stripe_installer.portfolio_audit import _probe_url
+from apps.stripe_core.pipeline import _webhook_path
+from apps.stripe_core.portfolio_audit import _probe_url
 from apps.diagnostics.webhook_health import webhook_health
-from apps.stripe_installer.webhook_tester import run_webhook_test_suite
-from apps.stripe_installer.verify import verify_stripe_keys
+from apps.stripe_core.webhook_tester import run_webhook_test_suite
+from apps.stripe_core.verify import verify_stripe_keys
 from apps.vault.models import get_secret, list_secret_keys
 
 STRIPE_TEST_KEYS = "https://dashboard.stripe.com/test/apikeys"

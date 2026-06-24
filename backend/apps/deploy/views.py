@@ -6,7 +6,7 @@ from apps.core.access import ProjectOwnedMixin
 from apps.runs.models import PipelineRun
 from apps.runs.tasks import execute_pipeline
 from apps.runs.serializers import PipelineRunSerializer
-from apps.stripe_installer.readiness import readiness_label, run_readiness_checks, score_readiness
+from apps.stripe_core.readiness import readiness_label, run_readiness_checks, score_readiness
 from django.shortcuts import get_object_or_404
 
 from .infra import generate_and_write_infra, generate_infra_files, infra_summary

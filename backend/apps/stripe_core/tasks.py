@@ -4,7 +4,7 @@ from celery import shared_task
 
 from apps.core.distributed_lock import beat_singleton
 from apps.projects.models import Project
-from apps.stripe_installer.auto_heal import HealPolicy, run_auto_heal_with_drift
+from apps.stripe_core.auto_heal import HealPolicy, run_auto_heal_with_drift
 from apps.diagnostics.drift import detect_drift, persist_drift_snapshot
 from apps.vault.models import VaultSecret
 
@@ -86,7 +86,7 @@ def auto_heal_all_projects_task(app_url: str = "http://localhost:8000") -> dict:
 @beat_singleton("health_monitor_all_projects", ttl_seconds=3600)
 def health_monitor_all_projects_task() -> dict:
     """Run health monitoring on all projects and alert on critical issues."""
-    from apps.stripe_installer.health_monitor import run_all_projects_health_monitor
+    from apps.stripe_core.health_monitor import run_all_projects_health_monitor
 
     result = run_all_projects_health_monitor()
     summary = result.get("summary", {})
@@ -111,7 +111,7 @@ def health_monitor_all_projects_task() -> dict:
 @beat_singleton("anomaly_detection_all_projects", ttl_seconds=7200)
 def anomaly_detection_all_projects_task() -> dict:
     """Run anomaly detection on all projects."""
-    from apps.stripe_installer.anomaly_detection import run_all_projects_anomaly_detection
+    from apps.stripe_core.anomaly_detection import run_all_projects_anomaly_detection
 
     result = run_all_projects_anomaly_detection()
     summary = result.get("summary", {})
@@ -128,7 +128,7 @@ def anomaly_detection_all_projects_task() -> dict:
 @beat_singleton("auto_backup_all_projects", ttl_seconds=7200)
 def auto_backup_all_projects_task() -> dict:
     """Automatically backup all projects before critical operations."""
-    from apps.stripe_installer.backup_recovery import create_project_backup
+    from apps.stripe_core.backup_recovery import create_project_backup
 
     project_ids = (
         VaultSecret.objects.filter(key_name="STRIPE_SECRET_KEY")

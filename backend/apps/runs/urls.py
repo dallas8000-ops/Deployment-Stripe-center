@@ -1,6 +1,6 @@
 from django.urls import path
 
-from apps.stripe_installer.views_setup_hub import SetupHubActionView, SetupHubView
+from apps.stripe_core.views_setup_hub import SetupHubActionView, SetupHubView
 
 from .views import (
     CodegenDownloadView,

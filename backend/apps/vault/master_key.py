@@ -7,7 +7,7 @@ import os
 import secrets
 from pathlib import Path
 
-from apps.stripe_installer.portfolio_paths import portfolio_data_dir
+from apps.stripe_core.portfolio_paths import portfolio_data_dir
 
 logger = logging.getLogger(__name__)
 

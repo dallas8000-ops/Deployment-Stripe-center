@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.projects.models import Project
-from apps.stripe_installer.portfolio_catalog import catalog_by_slug, is_stripe_exempt_slug
+from apps.stripe_core.portfolio_catalog import catalog_by_slug, is_stripe_exempt_slug
 from apps.vault.models import get_secret, hydrate_project_vault, vault_health
 
 from .config import config_from_project
@@ -47,7 +47,7 @@ def run_deploy_preflight(
 
     hydrate_project_vault(project)
 
-    from apps.stripe_installer.portfolio_workspace import ensure_project_workspace
+    from apps.stripe_core.portfolio_workspace import ensure_project_workspace
 
     ensure_project_workspace(project, clone_if_missing=False)
     project.refresh_from_db(fields=["local_path"])

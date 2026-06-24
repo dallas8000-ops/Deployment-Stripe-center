@@ -39,7 +39,7 @@ npm run transfer:worker:once
 |-------|-----|
 | Projects | `apps.projects` |
 | Vault | `apps.vault` — `get_project_secret()` |
-| Stripe setup | `apps.stripe_installer` |
+| Stripe setup | `apps.stripe_core` |
 
 ## Rule
 

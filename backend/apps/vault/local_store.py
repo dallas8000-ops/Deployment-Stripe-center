@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from cryptography.exceptions import InvalidTag
 
-from apps.stripe_installer.portfolio_paths import portfolio_data_dir
+from apps.stripe_core.portfolio_paths import portfolio_data_dir
 
 from .crypto import EncryptedPayload, decrypt_secret
 

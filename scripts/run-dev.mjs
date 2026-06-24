@@ -63,7 +63,7 @@ process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
 const python = path.join(root, "backend", ".venv", isWin ? "Scripts" : "bin", isWin ? "python.exe" : "python");
-const daphne = path.join(root, "backend", ".venv", isWin ? "Scripts" : "bin", isWin ? "daphne.exe" : "daphne");
+const uvicorn = path.join(root, "backend", ".venv", isWin ? "Scripts" : "bin", isWin ? "uvicorn.exe" : "uvicorn");
 const viteJs = path.join(root, "frontend", "node_modules", "vite", "bin", "vite.js");
 
 if (!existsSync(python)) {
@@ -137,8 +137,8 @@ if (busy) {
   children.push(
     startProcess(
       "backend",
-      python,
-      ["-m", "daphne", "-b", "127.0.0.1", "-p", "8000", "config.asgi:application"],
+      uvicorn,
+      ["config.asgi:application", "--host", "127.0.0.1", "--port", "8000", "--reload"],
       "backend"
     )
   );

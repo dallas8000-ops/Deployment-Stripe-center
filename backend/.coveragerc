@@ -4,7 +4,7 @@ omit =
     */migrations/*
     */tests/*
     */management/commands/*
-command = manage.py test apps.accounts apps.api_transfer apps.runs apps.diagnostics apps.core apps.deploy apps.vault apps.projects apps.stripe_installer apps.billing apps.organizations
+command = manage.py test apps.accounts apps.api_transfer apps.runs apps.diagnostics apps.core apps.deploy apps.vault apps.projects apps.stripe_core apps.billing apps.organizations
 
 [report]
 fail_under = 30

@@ -111,7 +111,7 @@ class Command(BaseCommand):
                 provision_postgres=False,
                 provision_stripe=project.slug != "stripe-installer"
                 and not __import__(
-                    "apps.stripe_installer.portfolio_catalog",
+                    "apps.stripe_core.portfolio_catalog",
                     fromlist=["is_stripe_exempt_slug"],
                 ).is_stripe_exempt_slug(project.slug),
             )
@@ -157,7 +157,7 @@ class Command(BaseCommand):
         stripe_key = get_secret(project, "STRIPE_SECRET_KEY")
         django_key = get_secret(project, "DJANGO_SECRET_KEY")
         if not stripe_key and project.slug != "stripe-installer":
-            from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
+            from apps.stripe_core.portfolio_catalog import is_stripe_exempt_slug
 
             if not is_stripe_exempt_slug(project.slug):
                 issues += 1

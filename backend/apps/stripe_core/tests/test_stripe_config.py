@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from apps.stripe_installer.stripe_config import (
+from apps.stripe_core.stripe_config import (
     normalize_stripe_config,
     provision_config_from_stripe_file,
     tiers_from_readme,
@@ -16,7 +16,7 @@ class StripeConfigTests(SimpleTestCase):
         import tempfile
         from pathlib import Path
 
-        from apps.stripe_installer.stripe_config import write_stripe_config
+        from apps.stripe_core.stripe_config import write_stripe_config
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -70,7 +70,7 @@ class PlatformBootstrapTests(TestCase):
             owner=user, name="SilverFox", slug="silverfox", scan_data={"deployPlatform": "railway"}
         )
         with patch("apps.deploy.platform_bootstrap.hydrate_project_vault", return_value=[]):
-            with patch("apps.stripe_installer.hub_keys.pull_stripe_keys_for_user", return_value=[]):
+            with patch("apps.stripe_core.hub_keys.pull_stripe_keys_for_user", return_value=[]):
                 with patch("apps.deploy.platform_bootstrap.sync_deploy_platform_from_disk", return_value="railway"):
                     with patch("apps.deploy.preflight.run_deploy_preflight") as mock_preflight:
                         mock_preflight.return_value = {

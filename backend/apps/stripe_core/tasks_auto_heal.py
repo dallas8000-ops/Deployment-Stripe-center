@@ -5,7 +5,7 @@ from __future__ import annotations
 from celery import shared_task
 
 from apps.projects.models import Project
-from apps.stripe_installer.auto_heal import HealPolicy, run_auto_heal_with_drift
+from apps.stripe_core.auto_heal import HealPolicy, run_auto_heal_with_drift
 
 
 @shared_task(name="stripe_engine.auto_heal_project")

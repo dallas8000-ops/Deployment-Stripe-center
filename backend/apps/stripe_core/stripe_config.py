@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from apps.stripe_installer.provision import DEFAULT_TIERS
+from apps.stripe_core.provision import DEFAULT_TIERS
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "appUrl": "http://localhost:3000",

@@ -9,13 +9,13 @@ from rest_framework.response import Response
 
 from apps.ai_assistant.predictive import get_proactive_recommendations, run_predictive_analysis
 from apps.projects.models import Project
-from apps.stripe_installer.anomaly_detection import run_all_projects_anomaly_detection, run_anomaly_detection
-from apps.stripe_installer.auto_heal import HealPolicy, get_heal_recommendations, run_auto_heal
-from apps.stripe_installer.backup_recovery import create_project_backup, cleanup_old_backups, list_project_backups, restore_project_backup
-from apps.stripe_installer.health_monitor import run_all_projects_health_monitor, run_health_monitor
-from apps.stripe_installer.intelligent_scheduler import get_global_optimization_recommendations, get_schedule_recommendations, optimize_celery_schedule
-from apps.stripe_installer.performance_optimizer import run_performance_optimization_analysis
-from apps.stripe_installer.webhook_tester import run_webhook_test_suite
+from apps.stripe_core.anomaly_detection import run_all_projects_anomaly_detection, run_anomaly_detection
+from apps.stripe_core.auto_heal import HealPolicy, get_heal_recommendations, run_auto_heal
+from apps.stripe_core.backup_recovery import create_project_backup, cleanup_old_backups, list_project_backups, restore_project_backup
+from apps.stripe_core.health_monitor import run_all_projects_health_monitor, run_health_monitor
+from apps.stripe_core.intelligent_scheduler import get_global_optimization_recommendations, get_schedule_recommendations, optimize_celery_schedule
+from apps.stripe_core.performance_optimizer import run_performance_optimization_analysis
+from apps.stripe_core.webhook_tester import run_webhook_test_suite
 
 
 @api_view(["POST"])

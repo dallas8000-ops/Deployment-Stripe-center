@@ -6,8 +6,8 @@ from django.utils import timezone
 from apps.projects.models import Project
 from apps.runs.broadcast import make_run_emitter
 from apps.runs.models import PipelineRun
-from apps.stripe_installer.events import PipelineEvent
-from apps.stripe_installer.pipeline import PipelineOptions, run_pipeline
+from apps.stripe_core.events import PipelineEvent
+from apps.stripe_core.pipeline import PipelineOptions, run_pipeline
 
 
 def _serialize_pipeline_result(result) -> dict:

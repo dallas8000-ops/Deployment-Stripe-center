@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from apps.stripe_installer.portfolio_catalog import retired_webhook_hosts, retired_webhook_urls
+from apps.stripe_core.portfolio_catalog import retired_webhook_hosts, retired_webhook_urls
 
 
 class RetiredWebhookTests(SimpleTestCase):

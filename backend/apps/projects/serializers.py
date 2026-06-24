@@ -65,7 +65,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         return obj.organization.name if obj.organization_id else None
 
     def get_stripe_exempt(self, obj: Project) -> bool:
-        from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
+        from apps.stripe_core.portfolio_catalog import is_stripe_exempt_slug
 
         return is_stripe_exempt_slug(obj.slug)
 

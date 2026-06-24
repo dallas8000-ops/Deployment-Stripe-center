@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
-from apps.stripe_installer.portfolio_paths import portfolio_data_dir
+from apps.stripe_core.portfolio_paths import portfolio_data_dir
 from apps.vault.import_env import ENV_FILE_CANDIDATES, ENV_LINE, IMPORT_KEYS, is_importable_key
 from apps.vault.legacy_vault import decrypt_legacy_vault, legacy_vault_exists, list_legacy_vault_keys
 from apps.vault.local_store import list_local_secret_keys, local_vault_path
@@ -68,7 +68,7 @@ def resolve_project_root(project: Project) -> Path | None:
             return root
 
     try:
-        from apps.stripe_installer.portfolio_registry import load_registry
+        from apps.stripe_core.portfolio_registry import load_registry
 
         for app in load_registry():
             if app.project_slug == project.slug and app.local_path:

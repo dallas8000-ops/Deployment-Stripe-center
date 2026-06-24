@@ -14,10 +14,10 @@ from typing import Any
 import stripe
 
 from apps.projects.models import Project
-from apps.stripe_installer.portfolio_paths import portfolio_registry_path, portfolio_reports_dir
-from apps.stripe_installer.portfolio_registry import PortfolioApp, find_app_by_webhook_url, load_registry
-from apps.stripe_installer.provision import ProvisionConfig, provision_catalog
-from apps.stripe_installer.verify import verify_stripe_keys
+from apps.stripe_core.portfolio_paths import portfolio_registry_path, portfolio_reports_dir
+from apps.stripe_core.portfolio_registry import PortfolioApp, find_app_by_webhook_url, load_registry
+from apps.stripe_core.provision import ProvisionConfig, provision_catalog
+from apps.stripe_core.verify import verify_stripe_keys
 from apps.vault.models import get_secret
 
 STRIPE_TEST_KEYS_URL = "https://dashboard.stripe.com/test/apikeys"
@@ -300,7 +300,7 @@ def _markdown_report(data: dict[str, Any]) -> str:
             "## Fix workflow",
             "",
             "1. If HTTP probe fails → fix hosting (app must answer on production URL).",
-            "2. If endpoint missing → run `python manage.py stripe_installer portfolio-audit --fix --project <slug>`.",
+            "2. If endpoint missing → run `python manage.py stripe_core portfolio-audit --fix --project <slug>`.",
             "3. Import `STRIPE_WEBHOOK_SECRET` into the host env (Railway/Render) after re-provision.",
             "4. Rotate keys in Dashboard if secrets were exposed.",
             "",

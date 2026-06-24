@@ -232,7 +232,7 @@ Allowed apps for transfer/deploy linking live at:
 ~/.stripe-installer/portfolio-registry.json
 ```
 
-Template in code: `backend/apps/stripe_installer/portfolio_registry.py` (`EXAMPLE_REGISTRY`).
+Template in code: `backend/apps/stripe_core/portfolio_registry.py` (`EXAMPLE_REGISTRY`).
 
 Current production entry: **`automation-center`** → `https://stripe-installer.gilliomfrontlinedigital.com`
 
@@ -350,8 +350,8 @@ cd backend; python manage.py verify_cutover
 
 ```powershell
 cd backend
-python manage.py stripe_installer run <project-slug>
-python manage.py stripe_installer deploy <project-slug> --push
+python manage.py stripe_core run <project-slug>
+python manage.py stripe_core deploy <project-slug> --push
 python manage.py rotate_vault_key --new-key <hex> --dry-run
 python manage.py check_production
 python manage.py verify_cutover

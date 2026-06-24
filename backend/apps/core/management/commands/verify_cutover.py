@@ -71,7 +71,7 @@ class Command(BaseCommand):
         else:
             ok.append("Legacy api-transfer health unreachable (already down or removed)")
 
-        from apps.stripe_installer.portfolio_paths import portfolio_registry_path
+        from apps.stripe_core.portfolio_paths import portfolio_registry_path
 
         reg_path = portfolio_registry_path()
         if reg_path.is_file():

@@ -123,7 +123,7 @@ CORS_ALLOWED_ORIGINS=https://yourdomain.com
 
 VAULT_MASTER_KEY=<64-hex-chars>
 
-DATABASE_URL=postgresql://user:pass@postgres:5432/stripe_installer
+DATABASE_URL=postgresql://user:pass@postgres:5432/stripe_core
 
 
 
@@ -257,8 +257,8 @@ python manage.py rotate_vault_key --new-key <64-hex>
 ### CLI
 
 ```powershell
-python manage.py stripe_installer run <slug>
-python manage.py stripe_installer deploy <slug> --push
+python manage.py stripe_core run <slug>
+python manage.py stripe_core deploy <slug> --push
 ```
 
 ## Local dev shortcuts

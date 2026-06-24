@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from apps.projects.git_clone import clone_project_repo
 from apps.projects.github_pr import create_setup_pull_request
 from apps.core.access import ROLE_RANK, org_membership, projects_for_user
-from apps.stripe_installer.portfolio_catalog import DASHBOARD_HIDDEN_PROJECT_SLUGS
+from apps.stripe_core.portfolio_catalog import DASHBOARD_HIDDEN_PROJECT_SLUGS
 from apps.organizations.models import Organization
 from apps.projects.api_keys import ProjectApiKey
 from apps.projects.tasks import clone_repo_task
@@ -27,8 +27,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         from apps.core.access import get_project_for_user
-        from apps.stripe_installer.portfolio_catalog import canonical_project_slug, is_merged_legacy_slug
-        from apps.stripe_installer.portfolio_workspace import (
+        from apps.stripe_core.portfolio_catalog import canonical_project_slug, is_merged_legacy_slug
+        from apps.stripe_core.portfolio_workspace import (
             repair_portfolio_local_path,
             sync_portfolio_scan_metadata,
         )
@@ -64,7 +64,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def scan(self, request, slug=None):
         from apps.core.access import get_project_for_user
-        from apps.stripe_installer.portfolio_workspace import (
+        from apps.stripe_core.portfolio_workspace import (
             repair_portfolio_local_path,
             should_repair_local_path,
         )
@@ -93,8 +93,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             from pathlib import Path
 
             from apps.deploy.platform import detect_deploy_platform
-            from apps.stripe_installer.portfolio_catalog import catalog_by_slug
-            from apps.stripe_installer.portfolio_workspace import relative_scan_root, resolve_scan_root
+            from apps.stripe_core.portfolio_catalog import catalog_by_slug
+            from apps.stripe_core.portfolio_workspace import relative_scan_root, resolve_scan_root
 
             repo_root = Path(scan_path).resolve()
             scan_root = resolve_scan_root(repo_root)

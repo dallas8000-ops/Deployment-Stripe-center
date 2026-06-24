@@ -7,7 +7,7 @@ from pathlib import Path
 from django.conf import settings
 
 from apps.projects.models import Project
-from apps.stripe_installer.portfolio_catalog import HUB_SLUG, catalog_by_slug, catalog_live_urls, is_stripe_exempt_slug
+from apps.stripe_core.portfolio_catalog import HUB_SLUG, catalog_by_slug, catalog_live_urls, is_stripe_exempt_slug
 
 
 # Windows dev paths — match portfolio repo locations on Ray's machine.

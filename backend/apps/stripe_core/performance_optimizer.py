@@ -10,7 +10,7 @@ from typing import Any
 
 from apps.projects.models import Project
 from apps.diagnostics.diagnostics import run_diagnostics
-from apps.stripe_installer.readiness import run_readiness_checks
+from apps.stripe_core.readiness import run_readiness_checks
 
 
 @dataclass

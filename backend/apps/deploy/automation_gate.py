@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from apps.projects.models import Project
-from apps.stripe_installer.hub_keys import HUB_SLUG
+from apps.stripe_core.hub_keys import HUB_SLUG
 
 
 def run_automation_before_pipeline(

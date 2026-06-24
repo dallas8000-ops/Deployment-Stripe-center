@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.projects.models import Project
-from apps.stripe_installer.portfolio_catalog import catalog_by_slug
+from apps.stripe_core.portfolio_catalog import catalog_by_slug
 
 VALID_PLATFORMS = frozenset({"vercel", "railway", "fly", "docker", "unknown"})
 VALID_POSTGRES_PROVIDERS = frozenset(

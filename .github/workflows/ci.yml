@@ -46,7 +46,7 @@ jobs:
           VAULT_MASTER_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
         run: |
           pip install coverage
-          coverage run manage.py test apps.accounts apps.api_transfer apps.runs apps.diagnostics apps.core apps.deploy apps.vault apps.projects apps.stripe_installer apps.billing apps.organizations
+          coverage run manage.py test apps.accounts apps.api_transfer apps.runs apps.diagnostics apps.core apps.deploy apps.vault apps.projects apps.stripe_core apps.billing apps.organizations
           coverage report --fail-under=30
 
       - name: Migrate (smoke test DB)

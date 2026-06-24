@@ -10,8 +10,8 @@ import stripe
 
 from apps.deploy.postgres import get_production_url
 from apps.projects.models import Project
-from apps.stripe_installer.pipeline import _webhook_path
-from apps.stripe_installer.provision import INSTALLER_TAG, load_manifest
+from apps.stripe_core.pipeline import _webhook_path
+from apps.stripe_core.provision import INSTALLER_TAG, load_manifest
 from apps.vault.models import get_secret
 
 

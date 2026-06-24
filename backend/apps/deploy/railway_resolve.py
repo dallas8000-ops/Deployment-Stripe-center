@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from apps.projects.models import Project
 from apps.projects.scan_data_utils import update_project_scan_data
-from apps.stripe_installer.portfolio_catalog import catalog_by_slug
+from apps.stripe_core.portfolio_catalog import catalog_by_slug
 from apps.vault.models import get_secret, set_secret
 
 from .env_push import ENV_PRESETS, _railway_gql

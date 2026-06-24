@@ -23,5 +23,5 @@ class ProjectApiKeyAuthentication(authentication.BaseAuthentication):
         if not project:
             raise exceptions.AuthenticationFailed("Invalid or revoked API key")
 
-        request.stripe_installer_project = project
+        request.stripe_core_project = project
         return (None, raw_key)

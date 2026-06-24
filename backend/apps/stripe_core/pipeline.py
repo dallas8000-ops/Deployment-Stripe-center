@@ -16,7 +16,7 @@ from .provision import ProvisionConfig, load_manifest, provision_catalog
 from .hub_keys import HUB_SLUG, pull_stripe_keys_for_user, resolve_production_app_url, resolve_web_app_url
 from .portfolio_catalog import is_stripe_exempt_slug
 from .readiness import readiness_label, run_readiness_checks, score_readiness
-from .stripe_config import provision_config_from_stripe_file
+from .stripe_config import provision_config_from_stripe_file, write_stripe_config
 from .verify import KeyCheck, VerificationResult, verify_stripe_keys
 
 MAX_STORED_ARTIFACT_BYTES = 3 * 1024 * 1024
@@ -223,7 +223,7 @@ def run_pipeline(
         project_root = _project_root(project)
 
     if project.framework == "unknown" or not project.scan_data:
-        from apps.stripe_installer.portfolio_workspace import resolve_scan_root
+        from apps.stripe_core.portfolio_workspace import resolve_scan_root
 
         scan = ProjectScanner(resolve_scan_root(project_root)).scan()
         project.framework = scan.framework
@@ -244,6 +244,18 @@ def run_pipeline(
             app_url=app_url,
             webhook_path=webhook_path,
         )
+        if not (project_root / "stripe.config.json").is_file():
+            write_stripe_config(
+                project_root,
+                {
+                    "appUrl": stripe_opts["app_url"],
+                    "provision": {
+                        "reuseExisting": stripe_opts["reuse_existing"],
+                        "createWebhook": stripe_opts["create_webhook"],
+                        "createPortal": stripe_opts["create_portal"],
+                    },
+                },
+            )
         prov = provision_catalog(
             secret,
             project_root,

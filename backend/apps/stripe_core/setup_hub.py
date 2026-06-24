@@ -9,18 +9,18 @@ from django.conf import settings
 
 from apps.core.access import projects_for_user
 from apps.projects.models import Project
-from apps.stripe_installer.portfolio_audit import (
+from apps.stripe_core.portfolio_audit import (
     fix_webhooks_for_projects,
     run_portfolio_audit,
     write_portfolio_report,
 )
-from apps.stripe_installer.portfolio_catalog import (
+from apps.stripe_core.portfolio_catalog import (
     catalog_by_slug,
     catalog_live_urls,
     catalog_summary,
     is_stripe_exempt_slug,
 )
-from apps.stripe_installer.hub_keys import (
+from apps.stripe_core.hub_keys import (
     HUB_SLUG,
     portfolio_app_for_project,
     pull_stripe_keys_for_user,
@@ -29,11 +29,11 @@ from apps.stripe_installer.hub_keys import (
     resolve_web_app_url,
     sync_vault_to_billing_projects,
 )
-from apps.stripe_installer.portfolio_paths import portfolio_registry_path
-from apps.stripe_installer.portfolio_registry import PortfolioApp, load_registry
-from apps.stripe_installer.portfolio_sync import sync_portfolio_registry
-from apps.stripe_installer.stripe_config import write_stripe_config
-from apps.stripe_installer.verify import verify_stripe_keys
+from apps.stripe_core.portfolio_paths import portfolio_registry_path
+from apps.stripe_core.portfolio_registry import PortfolioApp, load_registry
+from apps.stripe_core.portfolio_sync import sync_portfolio_registry
+from apps.stripe_core.stripe_config import write_stripe_config
+from apps.stripe_core.verify import verify_stripe_keys
 from apps.vault.models import clear_project_vault, get_secret, set_secret, vault_health
 
 PROJECT_NAME = "Deployment & Stripe Automation Center"
@@ -48,7 +48,7 @@ def default_production_url() -> str:
 
 def reset_workspace(project: Project, *, clear_vault: bool = False) -> dict[str, Any]:
     """Refresh project metadata, portfolio registry, and stripe.config.json."""
-    from apps.stripe_installer.portfolio_workspace import (
+    from apps.stripe_core.portfolio_workspace import (
         repair_portfolio_local_path,
         sync_portfolio_scan_metadata,
     )
@@ -64,12 +64,27 @@ def reset_workspace(project: Project, *, clear_vault: bool = False) -> dict[str,
             cleared = clear_project_vault(project)
         catalog = catalog_by_slug(project.slug) or {}
         production_url = str(catalog.get("productionUrl") or resolve_production_app_url(project) or "")
+        config_path = None
+        if local_path and not is_stripe_exempt_slug(project.slug):
+            root = Path(local_path)
+            if root.is_dir():
+                config_path = write_stripe_config(
+                    root,
+                    {
+                        "appUrl": production_url or "http://localhost:3000",
+                        "provision": {
+                            "reuseExisting": True,
+                            "createWebhook": True,
+                            "createPortal": True,
+                        },
+                    },
+                )
         return {
             "projectSlug": project.slug,
             "projectName": project.name,
             "localPath": local_path,
             "registryPath": str(reg_path),
-            "stripeConfigPath": None,
+            "stripeConfigPath": str(config_path) if config_path else None,
             "vaultSecretsCleared": cleared,
             "expectedWebhookUrl": "Portfolio exempt — no Stripe subscription billing"
             if is_stripe_exempt_slug(project.slug)
@@ -151,7 +166,7 @@ def audit_stripe_account(project: Project) -> dict[str, Any]:
 
 
 def register_webhooks_for_user(user, *, dry_run: bool = False) -> list[dict[str, Any]]:
-    from apps.stripe_installer.provision import retire_legacy_stripe_webhooks
+    from apps.stripe_core.provision import retire_legacy_stripe_webhooks
 
     retired: list[dict[str, Any]] = []
     if not dry_run:
@@ -171,7 +186,7 @@ def sync_registry_for_user(user) -> dict[str, Any]:
 
 
 def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
-    from apps.stripe_installer.portfolio_workspace import (
+    from apps.stripe_core.portfolio_workspace import (
         repair_portfolio_local_path,
         should_repair_local_path,
         sync_portfolio_scan_metadata,
@@ -249,7 +264,7 @@ def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
         keys_ok = verification.secret_key.valid
         keys_detail = verification.secret_key.message
         stripe_config_detail = (
-            "Run full setup pipeline to generate"
+            "Run Reset workspace or full setup to generate"
             if project.slug != HUB_SLUG
             else "Run Reset workspace if missing"
         )

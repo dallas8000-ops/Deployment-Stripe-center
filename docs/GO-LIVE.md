@@ -38,8 +38,8 @@ Replace `installer.yourdomain.com` with your public URL throughout.
 
 ```powershell
 cd backend
-.venv\Scripts\python.exe manage.py stripe_installer run <project-slug>
-.venv\Scripts\python.exe manage.py stripe_installer deploy <project-slug>
+.venv\Scripts\python.exe manage.py stripe_core run <project-slug>
+.venv\Scripts\python.exe manage.py stripe_core deploy <project-slug>
 ```
 
 ### Day 1–2 checklist
@@ -84,7 +84,7 @@ DJANGO_ALLOWED_HOSTS=installer.yourdomain.com
 CORS_ALLOWED_ORIGINS=https://installer.yourdomain.com
 
 VAULT_MASTER_KEY=<64-hex>
-DATABASE_URL=postgres://stripe_installer:stripe_installer@postgres:5432/stripe_installer
+DATABASE_URL=postgres://stripe_core:stripe_core@postgres:5432/stripe_core
 REDIS_URL=redis://redis:6379/0
 
 CELERY_EAGER=false

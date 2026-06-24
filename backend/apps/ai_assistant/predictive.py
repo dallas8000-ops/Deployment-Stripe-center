@@ -14,7 +14,7 @@ from apps.ai_assistant.services import _assert_safe
 from apps.projects.models import Project
 from apps.diagnostics.diagnostics import DiagnosticReport, run_diagnostics
 from apps.diagnostics.drift import detect_drift
-from apps.stripe_installer.readiness import ReadinessCheck, run_readiness_checks
+from apps.stripe_core.readiness import ReadinessCheck, run_readiness_checks
 
 
 @dataclass

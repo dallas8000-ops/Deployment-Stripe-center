@@ -41,7 +41,7 @@ class Command(BaseCommand):
         from django.conf import settings
 
         from apps.projects.models import Project
-        from apps.stripe_installer.setup_hub import (
+        from apps.stripe_core.setup_hub import (
             PRODUCTION_URL,
             WEBHOOK_PATH,
             register_webhooks_for_user,

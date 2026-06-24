@@ -1,4 +1,4 @@
-/** Keep in sync with backend apps/stripe_installer/portfolio_catalog.py */
+/** Keep in sync with backend apps/stripe_core/portfolio_catalog.py */
 
 export const MERGED_LEGACY_PROJECT_SLUGS = new Set([
   "api-transfer",

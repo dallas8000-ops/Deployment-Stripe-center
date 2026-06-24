@@ -33,7 +33,7 @@ Project
 | `automation-center/backend/apps/projects/` | `backend/apps/projects/` |
 | `automation-center/backend/apps/vault/` | `backend/apps/vault/` |
 | `automation-center/backend/apps/users/` | `backend/apps/accounts/` + `organizations/` |
-| `stripe_installer/` | `backend/apps/stripe_engine/` (+ `billing/`) |
+| `stripe_core/` | `backend/apps/stripe_engine/` (+ `billing/`) |
 | `api_transfer/` | `backend/apps/api_transfer/` (stub — code migrating from `API Transfer` repo) |
 | `deploy_transfer/` | Partially `backend/apps/deploy/` |
 

@@ -20,8 +20,8 @@ from django.contrib.auth import get_user_model
 from apps.deploy.pipeline import DeployOptions, run_deploy_pipeline
 from apps.deploy.platform_bootstrap import bootstrap_platform_automation
 from apps.projects.models import Project
-from apps.stripe_installer.hub_keys import HUB_SLUG
-from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug, stripe_billing_apps
+from apps.stripe_core.hub_keys import HUB_SLUG
+from apps.stripe_core.portfolio_catalog import is_stripe_exempt_slug, stripe_billing_apps
 
 EMAIL = "dallas8000@gmail.com"
 

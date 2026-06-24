@@ -9,7 +9,7 @@ from apps.deploy.railway_client import railway_gql
 from apps.deploy.railway_layout import audit_report, layout_for_slug
 from apps.deploy.railway_resolve import _list_railway_projects_with_domains
 from apps.projects.models import Project
-from apps.stripe_installer.hub_keys import get_hub_project, repair_project_vault_from_hub
+from apps.stripe_core.hub_keys import get_hub_project, repair_project_vault_from_hub
 from apps.vault.models import get_secret
 
 

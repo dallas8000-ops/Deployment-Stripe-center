@@ -14,7 +14,7 @@ class CiReadinessGateView(APIView):
     permission_classes = (permissions.AllowAny,)
 
     def post(self, request):
-        project = getattr(request, "stripe_installer_project", None)
+        project = getattr(request, "stripe_core_project", None)
         if not project:
             return Response({"error": "Invalid API key"}, status=401)
 

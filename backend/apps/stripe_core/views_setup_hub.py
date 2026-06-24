@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from apps.core.access import ProjectOwnedMixin
 
-from apps.stripe_installer.hub_keys import HUB_SLUG, sync_vault_to_billing_projects
+from apps.stripe_core.hub_keys import HUB_SLUG, sync_vault_to_billing_projects
 from .setup_hub import (
     audit_stripe_account,
     register_webhooks_for_user,

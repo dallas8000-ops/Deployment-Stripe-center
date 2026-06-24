@@ -60,7 +60,7 @@ def sync_deploy_platform_from_disk(project: Project) -> str | None:
 def sync_platform_from_catalog(project: Project) -> str | None:
     """When deploy.config.json is missing, infer Railway from portfolio catalog production URL."""
     from apps.projects.scan_data_utils import update_project_scan_data
-    from apps.stripe_installer.portfolio_catalog import catalog_by_slug
+    from apps.stripe_core.portfolio_catalog import catalog_by_slug
 
     catalog = catalog_by_slug(project.slug or "")
     if not catalog:
@@ -207,7 +207,7 @@ def prepare_project_automation(project: Project, *, user=None) -> dict[str, Any]
     Default prep that should run before every pipeline/deploy — built-in, not optional.
     Hydrates vault, syncs platform metadata, pulls hub keys, reconciles master key on hub.
     """
-    from apps.stripe_installer.hub_keys import (
+    from apps.stripe_core.hub_keys import (
         HUB_SLUG,
         pull_stripe_keys_for_user,
         repair_project_vault_from_hub,
@@ -294,14 +294,14 @@ def bootstrap_platform_automation(hub: Project, *, user) -> dict[str, Any]:
     """
     Hub-only: reconcile master key, pin to Railway, sync all owned projects, push env where ready.
     """
-    from apps.stripe_installer.hub_keys import (
+    from apps.stripe_core.hub_keys import (
         HUB_SLUG,
         repair_project_vault_from_hub,
         sync_deploy_keys_to_portfolio_projects,
         sync_vault_to_billing_projects,
     )
-    from apps.stripe_installer.portfolio_catalog import is_merged_legacy_slug
-    from apps.stripe_installer.provision import retire_legacy_stripe_webhooks
+    from apps.stripe_core.portfolio_catalog import is_merged_legacy_slug
+    from apps.stripe_core.provision import retire_legacy_stripe_webhooks
 
     if hub.slug != HUB_SLUG:
         raise ValueError("Platform bootstrap runs on the Automation Center hub project only")
@@ -332,7 +332,7 @@ def bootstrap_platform_automation(hub: Project, *, user) -> dict[str, Any]:
     portfolio_sync = sync_deploy_keys_to_portfolio_projects(hub, user)
     results["actions"].append({"action": "sync_portfolio_deploy_keys", **portfolio_sync})
 
-    from apps.stripe_installer.portfolio_workspace import repair_portfolio_local_path
+    from apps.stripe_core.portfolio_workspace import repair_portfolio_local_path
 
     project_results: list[dict[str, Any]] = []
     for project in Project.objects.filter(owner=hub.owner).order_by("slug"):

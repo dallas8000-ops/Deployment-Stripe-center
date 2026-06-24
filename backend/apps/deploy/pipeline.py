@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from apps.projects.models import Project
-from apps.stripe_installer.events import EventEmitter, PipelineEvent, emit
-from apps.stripe_installer.pipeline import PipelineOptions, PipelineResult, run_pipeline
-from apps.stripe_installer.portfolio_catalog import catalog_by_slug
-from apps.stripe_installer.readiness import readiness_label
-from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
+from apps.stripe_core.events import EventEmitter, PipelineEvent, emit
+from apps.stripe_core.pipeline import PipelineOptions, PipelineResult, run_pipeline
+from apps.stripe_core.portfolio_catalog import catalog_by_slug
+from apps.stripe_core.readiness import readiness_label
+from apps.stripe_core.portfolio_catalog import is_stripe_exempt_slug
 
 from .config import config_from_project, sync_project_from_config, write_deploy_config
 from .infra import generate_and_write_infra
@@ -67,7 +67,7 @@ class DeployResult:
 
 
 def _project_root(project: Project) -> Path:
-    from apps.stripe_installer.portfolio_workspace import (
+    from apps.stripe_core.portfolio_workspace import (
         ensure_project_workspace,
         sync_portfolio_scan_metadata,
     )

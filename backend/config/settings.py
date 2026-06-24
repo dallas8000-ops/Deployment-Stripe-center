@@ -69,7 +69,7 @@ INSTALLED_APPS = [
     "apps.organizations",
     "apps.projects",
     "apps.vault",
-    "apps.stripe_installer",
+    "apps.stripe_core",
     "apps.diagnostics",
     "apps.runs",
     "apps.billing",

@@ -7,8 +7,8 @@ from rest_framework.views import APIView
 from apps.core.access import ProjectOwnedMixin
 from apps.deploy.postgres import get_production_url
 from apps.projects.models import Project
-from apps.stripe_installer.readiness import readiness_label, run_readiness_checks, score_readiness
-from apps.stripe_installer.repair import run_auto_fix, run_repair_action
+from apps.stripe_core.readiness import readiness_label, run_readiness_checks, score_readiness
+from apps.stripe_core.repair import run_auto_fix, run_repair_action
 
 from .diagnostics import run_diagnostics
 

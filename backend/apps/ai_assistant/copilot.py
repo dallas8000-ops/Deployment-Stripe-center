@@ -10,9 +10,9 @@ from apps.deploy.config import config_from_project, normalize_deploy_config
 from apps.deploy.postgres import get_production_url
 from apps.projects.models import Project
 from apps.diagnostics.diagnostics import DiagnosticReport, StripeIssue, run_diagnostics
-from apps.stripe_installer.readiness import ReadinessCheck, run_readiness_checks, score_readiness
-from apps.stripe_installer.repair import DEFAULT_CONFIG
-from apps.stripe_installer.stripe_config import config_from_disk, normalize_stripe_config
+from apps.stripe_core.readiness import ReadinessCheck, run_readiness_checks, score_readiness
+from apps.stripe_core.repair import DEFAULT_CONFIG
+from apps.stripe_core.stripe_config import config_from_disk, normalize_stripe_config
 
 from .chat import chat_with_ai, extract_json_block
 from .services import _assert_safe

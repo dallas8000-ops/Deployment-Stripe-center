@@ -4,7 +4,7 @@ from django.test import TestCase, override_settings
 from apps.projects.models import Project
 from apps.runs.broadcast import make_run_emitter, run_group_name
 from apps.runs.models import PipelineRun, PipelineRunLog
-from apps.stripe_installer.events import PipelineEvent
+from apps.stripe_core.events import PipelineEvent
 
 User = get_user_model()
 

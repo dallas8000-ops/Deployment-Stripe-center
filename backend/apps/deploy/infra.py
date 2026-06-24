@@ -9,7 +9,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from apps.projects.models import Project
-from apps.stripe_installer.codegen.writer import WriteResult, write_project_files
+from apps.stripe_core.codegen.writer import WriteResult, write_project_files
 
 from .platform import (
     detect_deploy_platform,

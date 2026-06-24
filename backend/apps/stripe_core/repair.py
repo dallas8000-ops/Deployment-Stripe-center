@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from apps.projects.models import Project
-from apps.stripe_installer.codegen import generate_all, write_project_files
+from apps.stripe_core.codegen import generate_all, write_project_files
 from apps.diagnostics.diagnostics import DiagnosticReport, run_diagnostics
-from apps.stripe_installer.pipeline import _sync_env, _webhook_path
-from apps.stripe_installer.provision import ProvisionConfig, provision_catalog
-from apps.stripe_installer.verify import verify_stripe_keys
+from apps.stripe_core.pipeline import _sync_env, _webhook_path
+from apps.stripe_core.provision import ProvisionConfig, provision_catalog
+from apps.stripe_core.verify import verify_stripe_keys
 from apps.vault.models import get_secret, set_secret
 
 DEFAULT_CONFIG = {
@@ -85,7 +85,7 @@ def _generate_infra(project: Project, project_root: Path, force: bool, app_url: 
 
 
 def _generate_files(project: Project, project_root: Path, force: bool) -> RepairResult:
-    from apps.stripe_installer.provision import load_manifest
+    from apps.stripe_core.provision import load_manifest
 
     manifest = load_manifest(project_root)
     files = generate_all(project.framework, manifest)

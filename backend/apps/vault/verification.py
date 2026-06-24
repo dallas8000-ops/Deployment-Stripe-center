@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from apps.stripe_installer.verify import verify_stripe_keys
+from apps.stripe_core.verify import verify_stripe_keys
 
 if TYPE_CHECKING:
     from apps.projects.models import Project

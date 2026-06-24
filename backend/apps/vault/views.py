@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.access import ProjectOwnedMixin
-from apps.stripe_installer.hub_keys import pull_stripe_keys_for_user
+from apps.stripe_core.hub_keys import pull_stripe_keys_for_user
 
 from .crypto import VaultConfigurationError
 from .import_env import auto_import_env_to_vault, find_env_file, import_env_to_vault

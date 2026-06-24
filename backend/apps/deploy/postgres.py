@@ -96,7 +96,7 @@ def postgres_status(project: Project, *, test_connection: bool = False) -> dict:
 def schema_sql() -> str:
     candidates = [
         Path(__file__).resolve().parents[1]
-        / "stripe_installer"
+        / "stripe_core"
         / "codegen"
         / "templates"
         / "shared"

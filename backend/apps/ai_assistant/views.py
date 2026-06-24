@@ -8,10 +8,10 @@ from apps.deploy.config import write_deploy_config
 from apps.deploy.postgres import get_production_url
 from apps.projects.audit import log_audit
 from apps.diagnostics.drift import detect_drift, persist_drift_snapshot
-from apps.stripe_installer.repair import run_repair_action
+from apps.stripe_core.repair import run_repair_action
 from apps.diagnostics.webhook_events import fetch_stripe_event
-from apps.stripe_installer.readiness import readiness_label, run_readiness_checks, score_readiness
-from apps.stripe_installer.stripe_config import write_stripe_config
+from apps.stripe_core.readiness import readiness_label, run_readiness_checks, score_readiness
+from apps.stripe_core.stripe_config import write_stripe_config
 from apps.diagnostics.webhook_health import webhook_health
 from apps.diagnostics.diagnostics import run_diagnostics
 

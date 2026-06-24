@@ -12,18 +12,18 @@ from apps.runs.artifacts import resolve_run_files
 from apps.runs.models import PipelineRun
 from apps.runs.serializers import PipelineRunSerializer, StartPipelineSerializer
 from apps.runs.tasks import execute_pipeline
-from apps.stripe_installer.codegen import build_zip, generate_all
-from apps.stripe_installer.hub_keys import (
+from apps.stripe_core.codegen import build_zip, generate_all
+from apps.stripe_core.hub_keys import (
     HUB_SLUG,
     pull_stripe_keys_for_user,
     resolve_demo_app_url,
     resolve_production_app_url,
     resolve_web_app_url,
 )
-from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
-from apps.stripe_installer.provision import load_manifest
-from apps.stripe_installer.stripe_advisor import run_stripe_advisor
-from apps.stripe_installer.verify import KeyCheck, VerificationResult, verify_stripe_keys
+from apps.stripe_core.portfolio_catalog import is_stripe_exempt_slug
+from apps.stripe_core.provision import load_manifest
+from apps.stripe_core.stripe_advisor import run_stripe_advisor
+from apps.stripe_core.verify import KeyCheck, VerificationResult, verify_stripe_keys
 from apps.vault.models import get_secret
 
 
@@ -46,7 +46,7 @@ class VerifyKeysView(ProjectOwnedMixin, APIView):
         payload["productionUrl"] = resolve_production_app_url(project)
         payload["webProductionUrl"] = resolve_web_app_url(project)
         payload["demoUrl"] = resolve_demo_app_url(project)
-        from apps.stripe_installer.portfolio_catalog import catalog_live_urls, catalog_by_slug
+        from apps.stripe_core.portfolio_catalog import catalog_live_urls, catalog_by_slug
 
         live = catalog_live_urls(catalog_by_slug(project.slug or ""))
         if live.get("portfolioDemoUrl"):
@@ -191,7 +191,7 @@ class StripeConfigView(ProjectOwnedMixin, APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request, project_slug: str):
-        from apps.stripe_installer.stripe_config import config_from_disk, stripe_config_path
+        from apps.stripe_core.stripe_config import config_from_disk, stripe_config_path
 
         project = self.get_project(project_slug)
         if not project.local_path:
@@ -210,7 +210,7 @@ class StripeConfigView(ProjectOwnedMixin, APIView):
         )
 
     def put(self, request, project_slug: str):
-        from apps.stripe_installer.stripe_config import normalize_stripe_config, write_stripe_config
+        from apps.stripe_core.stripe_config import normalize_stripe_config, write_stripe_config
 
         project = self.get_project(project_slug)
         if not project.local_path:

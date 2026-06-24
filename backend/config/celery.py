@@ -8,6 +8,6 @@ from config.sentry import init_sentry  # noqa: E402
 
 init_sentry()
 
-app = Celery("stripe_installer")
+app = Celery("stripe_core")
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()

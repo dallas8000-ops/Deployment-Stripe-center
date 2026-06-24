@@ -30,14 +30,14 @@ Audits **your whole Stripe account** against apps you allow on this PC. Reports 
 
 ```powershell
 cd backend
-python manage.py stripe_installer portfolio-audit --project stripe-installer
+python manage.py stripe_core portfolio-audit --project stripe-installer
 ```
 
 Use any project whose vault has the **Stripe account** secret you want to audit (one account, many endpoints).
 
 ```powershell
 # Re-register webhooks for registry apps (after app is live)
-python manage.py stripe_installer portfolio-audit --project stripe-installer --fix
+python manage.py stripe_core portfolio-audit --project stripe-installer --fix
 ```
 
 Open the report:

@@ -26,7 +26,7 @@ urlpatterns = [
     path("api/v1/", include("apps.api_transfer.urls")),
     path("api/v1/", include("apps.ai_assistant.urls")),
     path("api/v1/", include("apps.licenses.urls")),
-    path("api/v1/", include("apps.stripe_installer.urls")),
+    path("api/v1/", include("apps.stripe_core.urls")),
     re_path(r"^assets/(?P<path>.+)$", spa_asset),
     re_path(r"^(?!api/|admin/|health/|static/|assets/|ws/).*$", spa_index),
 ]

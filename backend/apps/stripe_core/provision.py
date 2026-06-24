@@ -386,7 +386,7 @@ def retire_legacy_stripe_webhooks() -> list[dict[str, Any]]:
     Delete retired/merged webhook endpoints from Stripe (e.g. api-transfer-production).
     Called before register/bootstrap so legacy URLs are not left alongside new ones.
     """
-    from apps.stripe_installer.portfolio_catalog import retired_webhook_hosts, retired_webhook_urls
+    from apps.stripe_core.portfolio_catalog import retired_webhook_hosts, retired_webhook_urls
 
     retired_urls = {u.rstrip("/") for u in retired_webhook_urls()}
     retired_hosts = retired_webhook_hosts()

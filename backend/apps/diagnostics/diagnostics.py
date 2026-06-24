@@ -10,9 +10,9 @@ from typing import Any
 import stripe
 
 from apps.projects.models import Project
-from apps.stripe_installer.codegen.generator import generate_all
-from apps.stripe_installer.provision import load_manifest
-from apps.stripe_installer.verify import verify_stripe_keys
+from apps.stripe_core.codegen.generator import generate_all
+from apps.stripe_core.provision import load_manifest
+from apps.stripe_core.verify import verify_stripe_keys
 from apps.vault.models import get_secret, list_secret_keys
 
 _BACKEND_FRAMEWORKS = ("django", "flask", "rails", "laravel")
@@ -335,7 +335,7 @@ def run_diagnostics(project: Project, project_root: Path) -> DiagnosticReport:
     vault_keys = list_secret_keys(project)
     _check_vault_keys(issues, project, vault_keys)
 
-    from apps.stripe_installer.portfolio_catalog import is_stripe_exempt_slug
+    from apps.stripe_core.portfolio_catalog import is_stripe_exempt_slug
 
     stripe_exempt = is_stripe_exempt_slug(project.slug)
     secret = get_secret(project, "STRIPE_SECRET_KEY")

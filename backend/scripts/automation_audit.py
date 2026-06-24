@@ -19,9 +19,9 @@ django.setup()
 from django.contrib.auth import get_user_model
 from apps.deploy.preflight import run_deploy_preflight
 from apps.projects.models import Project
-from apps.stripe_installer.hub_keys import HUB_SLUG
-from apps.stripe_installer.portfolio_catalog import DASHBOARD_HIDDEN_PROJECT_SLUGS, stripe_billing_apps
-from apps.stripe_installer.setup_hub import setup_hub_status
+from apps.stripe_core.hub_keys import HUB_SLUG
+from apps.stripe_core.portfolio_catalog import DASHBOARD_HIDDEN_PROJECT_SLUGS, stripe_billing_apps
+from apps.stripe_core.setup_hub import setup_hub_status
 from apps.vault.models import get_secret
 
 EMAIL = "dallas8000@gmail.com"

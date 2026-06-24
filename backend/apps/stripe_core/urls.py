@@ -1,10 +1,10 @@
-"""URL configuration for stripe_installer app."""
+"""URL configuration for stripe_core app."""
 
 from django.urls import path
 
-from apps.stripe_installer import views
+from apps.stripe_core import views
 
-app_name = "stripe_installer"
+app_name = "stripe_core"
 
 urlpatterns = [
     path("projects/<uuid:project_id>/auto-heal/", views.auto_heal, name="auto-heal"),

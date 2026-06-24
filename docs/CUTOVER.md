@@ -221,7 +221,7 @@ flowchart TD
 
 1. Update `~/.stripe-installer/portfolio-registry.json` — remove `api-transfer-legacy` entry (template in repo uses `automation-center` id).
 2. Delete duplicate `API-Transfer` folder if you kept `API Transfer`.
-3. Run portfolio audit: `python manage.py stripe_installer portfolio-audit --project stripe-installer`
+3. Run portfolio audit: `python manage.py stripe_core portfolio-audit --project stripe-installer`
 4. Confirm `backend/clones/` still resolves for each project slug in Settings.
 
 ---

@@ -113,8 +113,8 @@ class Command(BaseCommand):
 
         from apps.deploy.platform import detect_deploy_platform
         from apps.projects.scanner import ProjectScanner
-        from apps.stripe_installer.portfolio_catalog import catalog_by_slug
-        from apps.stripe_installer.portfolio_workspace import relative_scan_root, resolve_scan_root
+        from apps.stripe_core.portfolio_catalog import catalog_by_slug
+        from apps.stripe_core.portfolio_workspace import relative_scan_root, resolve_scan_root
 
         if not path:
             raise CommandError("Set --path or project local_path")
@@ -147,7 +147,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Scanned {path} — {data['framework']}"))
 
     def _verify(self, project: Project) -> None:
-        from apps.stripe_installer.verify import verify_stripe_keys
+        from apps.stripe_core.verify import verify_stripe_keys
         from apps.vault.models import get_secret
 
         result = verify_stripe_keys(
@@ -157,7 +157,7 @@ class Command(BaseCommand):
         self.stdout.write(str(result.to_public_dict()))
 
     def _run(self, project: Project, options: dict) -> None:
-        from apps.stripe_installer.pipeline import PipelineOptions, run_pipeline
+        from apps.stripe_core.pipeline import PipelineOptions, run_pipeline
 
         result = run_pipeline(
             project,
@@ -214,7 +214,7 @@ class Command(BaseCommand):
     def _readiness(self, project: Project) -> None:
         from pathlib import Path
 
-        from apps.stripe_installer.readiness import run_readiness_checks, score_readiness
+        from apps.stripe_core.readiness import run_readiness_checks, score_readiness
 
         if not project.local_path:
             raise CommandError("Set project local_path first")
@@ -225,12 +225,12 @@ class Command(BaseCommand):
     def _portfolio_audit(self, options: dict) -> None:
         import os
 
-        from apps.stripe_installer.portfolio_audit import (
+        from apps.stripe_core.portfolio_audit import (
             fix_webhooks_for_projects,
             run_portfolio_audit,
             write_portfolio_report,
         )
-        from apps.stripe_installer.portfolio_registry import ensure_registry_template, load_registry
+        from apps.stripe_core.portfolio_registry import ensure_registry_template, load_registry
         from apps.vault.models import get_secret
 
         ensure_registry_template()
