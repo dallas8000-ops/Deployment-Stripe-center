@@ -58,6 +58,17 @@ DASHBOARD_HIDDEN_PROJECT_SLUGS: frozenset[str] = MERGED_LEGACY_PROJECT_SLUGS | S
 # Matches FrontlineDigital portfolioLiveUrls.ts (Railway hostnames for webhooks/audit).
 PORTFOLIO_CATALOG: list[CatalogEntry] = [
     {
+        "id": "eastbridge",
+        "name": "EastBridge Ops Intelligence",
+        "productionUrl": "https://eastbridge-production.up.railway.app",
+        "portfolioDemoUrl": "https://eastbridge.gilliomfrontlinedigital.com",
+        "healthPath": "/api/v1/health/",
+        "projectSlug": "eastbridge-ops",
+        "defaultLocalPath": r"C:\Software Projects\EastBridge Ops Intelligence",
+        "stripeExempt": True,
+        "notes": "EU→East Africa compliance, trade, vendor intelligence — monorepo Django+React on Railway",
+    },
+    {
         "id": "automation-center",
         "name": "Deployment & Stripe Automation Center",
         "productionUrl": "https://stripe-installer-production.up.railway.app",
