@@ -8,7 +8,7 @@ import urllib.request
 from typing import Any
 
 from apps.projects.models import Project
-from apps.vault.models import get_secret, vault_health
+from apps.vault.models import get_secret, set_secret, vault_health
 
 STRIPE_ENV_KEYS = [
     "STRIPE_SECRET_KEY",
@@ -64,11 +64,12 @@ SILVERFOX_VAULT_KEYS = [
     "EMAIL_HOST_PASSWORD",
 ]
 
-# AgriPay — Django backend uses SECRET_KEY (not DJANGO_SECRET_KEY).
+# AgriPay — Django uses SECRET_KEY; DATABASE_URL via Railway Postgres reference.
 AGRIPAY_PRESET: dict[str, str] = {
     "DEBUG": "False",
-    "DATABASE_URL": "${{Postgres.DATABASE_URL}}",
     "ALLOWED_HOSTS": ".railway.app .up.railway.app",
+    "APP_URL": "https://agripay-api-production.up.railway.app",
+    "DATABASE_URL": "${{Postgres.DATABASE_URL}}",
 }
 
 AGRIPAY_VAULT_KEYS = [
@@ -90,7 +91,6 @@ PRESET_VAULT_KEYS: dict[str, list[str]] = {
     "agripay-logistics-ai": AGRIPAY_VAULT_KEYS,
 }
 
-# When the app expects a different env name than the hub vault uses.
 VAULT_KEY_ALIASES: dict[str, dict[str, str]] = {
     "agripay-logistics-ai": {"DJANGO_SECRET_KEY": "SECRET_KEY"},
 }
@@ -123,6 +123,25 @@ def is_railway_reference(value: str) -> bool:
     return text.startswith("${{") and text.endswith("}}")
 
 
+def is_placeholder_database_url(value: str) -> bool:
+    """True for hub .env.example templates and other non-production Postgres URLs."""
+    text = str(value or "").strip().lower()
+    if not text or is_railway_reference(value):
+        return not bool(text)
+    if not text.startswith(("postgres://", "postgresql://")):
+        return True
+    markers = (
+        "localhost",
+        "127.0.0.1",
+        "yourdb",
+        "user:pass@",
+        "@host:",
+        "host:5432/db",
+        "example.com",
+    )
+    return any(marker in text for marker in markers)
+
+
 def merge_service_env_vars(
     existing: dict[str, str],
     incoming: dict[str, str],
@@ -139,6 +158,9 @@ def merge_service_env_vars(
             continue
         if key == "DATABASE_URL":
             existing_db = str(merged.get("DATABASE_URL", "")).strip()
+            if is_placeholder_database_url(existing_db):
+                merged[key] = incoming_value
+                continue
             if existing_db.startswith(("postgres://", "postgresql://")) and is_railway_reference(
                 incoming_value
             ):
@@ -266,6 +288,8 @@ def _vault_subset(project: Project, keys: list[str]) -> dict[str, str]:
     for source, target in VAULT_KEY_ALIASES.get((project.slug or "").strip().lower(), {}).items():
         if target in keys and target not in result and (v := get_secret(project, source)):
             result[target] = v
+    if is_placeholder_database_url(result.get("DATABASE_URL", "")):
+        result.pop("DATABASE_URL", None)
     return result
 
 
@@ -331,6 +355,11 @@ def push_vault_env_to_platform(
         return {"pushed": [], "message": "No variables to push (empty preset, vault, and inline)"}
 
     result = push_to_railway(token, project_id, service_id, env_vars, environment_id)
+    db_pushed = env_vars.get("DATABASE_URL")
+    if db_pushed and is_railway_reference(db_pushed):
+        vault_db = get_secret(project, "DATABASE_URL")
+        if not vault_db or is_placeholder_database_url(vault_db):
+            set_secret(project, "DATABASE_URL", db_pushed)
     result["preset"] = preset
     result["message"] = (
         f"Pushed {len(env_vars)} var(s) to {platform}: {', '.join(sorted(env_vars.keys()))}"

@@ -101,6 +101,11 @@ def import_env_to_vault(project: Project, project_root: Path, env_file: str = "a
         value = raw.strip().strip('"').strip("'")
         if not value:
             continue
+        if key == "DATABASE_URL":
+            from apps.deploy.env_push import is_placeholder_database_url
+
+            if is_placeholder_database_url(value):
+                continue
         set_secret(project, key, value)
         imported.append(key)
 

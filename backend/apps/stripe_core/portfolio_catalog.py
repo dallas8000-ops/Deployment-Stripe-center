@@ -113,6 +113,17 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
         "notes": "Men's fashion e-commerce — Django SSR, live FX, Stripe checkout planned",
     },
     {
+        "id": "agripay-logistics",
+        "name": "AgriPay Logistics AI",
+        "productionUrl": "https://agripay-api-production.up.railway.app",
+        "demoUrl": "https://agripay-api-production.up.railway.app/demo",
+        "webhookPath": "/webhooks/stripe/",
+        "healthPath": "/health/",
+        "projectSlug": "agripay-logistics-ai",
+        "defaultLocalPath": r"C:\Software Projects\AgriPay Logistics AI",
+        "notes": "Django API + React — mobile money + Stripe subscription billing",
+    },
+    {
         "id": "blog-api",
         "name": "Django REST Blog API",
         "productionUrl": "https://blog-2-production-72bc.up.railway.app",

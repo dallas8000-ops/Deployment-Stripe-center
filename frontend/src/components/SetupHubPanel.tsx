@@ -360,7 +360,15 @@ export default function SetupHubPanel({
 
           {status?.lastPortfolioAuditRegistryGaps && status.lastPortfolioAuditRegistryGaps.length > 0 && (
             <div className="alert alert-error">
-              <strong>Missing Stripe webhooks</strong>
+              <strong>
+                {status.isHubProject ? "Missing Stripe webhooks (portfolio)" : "Stripe webhook gap"}
+              </strong>
+              {status.isHubProject && (
+                <p className="muted">
+                  Run <strong>2. Scan Stripe account</strong> on this hub, then{" "}
+                  <strong>3. Register webhooks</strong> to create endpoints for apps that are deployed.
+                </p>
+              )}
               <ul>
                 {status.lastPortfolioAuditRegistryGaps.map((gap) => (
                   <li key={`${gap.app}-${gap.expectedUrl}`}>

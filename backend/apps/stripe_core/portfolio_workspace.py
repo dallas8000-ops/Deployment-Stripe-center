@@ -13,7 +13,7 @@ from apps.stripe_core.portfolio_catalog import HUB_SLUG, catalog_by_slug, catalo
 
 # Windows dev paths — match portfolio repo locations on Ray's machine.
 DEFAULT_LOCAL_PATHS: dict[str, str] = {
-    "agripay-logistics-ai": r"C:\Software Projects\AgriPay-Logistics-AI",
+    "agripay-logistics-ai": r"C:\Software Projects\AgriPay Logistics AI",
     "silverfox": r"C:\Software Projects\SilverFox",
     "kistie-store": r"C:\Software Projects\Kristie-Store",
     "blog-2": r"C:\Software Projects\Blog-2",

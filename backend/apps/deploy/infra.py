@@ -258,7 +258,7 @@ def generate_infra_files(project: Project, project_root: Path, *, prod_url: str)
     if project.framework == "nextjs" and next_router != "pages":
         files["app/api/health/route.ts"] = _health_route_next_app()
     elif project.framework == "django":
-        files["stripe/health_views.py"] = _health_route_django()
+        files["stripe_billing/health_views.py"] = _health_route_django()
     elif project.framework in ("express", "fastify"):
         files["src/routes/health.ts"] = _health_route_express()
 
@@ -280,6 +280,9 @@ def generate_and_write_infra(
 
     url = prod_url or _prod_url(project, "https://your-domain.com")
     files = generate_infra_files(project, root, prod_url=url)
+    from apps.stripe_core.codegen.paths import filter_infra_paths
+
+    files = filter_infra_paths(files, project, root)
     results = write_project_files(root, files, force=force)
 
     scan = dict(project.scan_data or {})

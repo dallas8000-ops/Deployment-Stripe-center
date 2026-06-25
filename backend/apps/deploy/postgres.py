@@ -15,6 +15,18 @@ def get_database_url(project: Project) -> str | None:
     return get_secret(project, "DATABASE_URL")
 
 
+def is_testable_database_url(database_url: str | None) -> bool:
+    """True only for literal postgres URLs we can connect to from the hub machine."""
+    if not database_url or not str(database_url).strip():
+        return False
+    from apps.deploy.env_push import is_placeholder_database_url, is_railway_reference
+
+    url = str(database_url).strip()
+    if is_railway_reference(url) or is_placeholder_database_url(url):
+        return False
+    return bool(DATABASE_URL_PATTERN.match(url))
+
+
 def _needs_ssl(url: str) -> bool:
     return any(
         token in url

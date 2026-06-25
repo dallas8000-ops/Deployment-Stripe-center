@@ -171,13 +171,13 @@ class Command(BaseCommand):
             opts=DeployOptions(force=options["force"], push_platform=options["push"]),
         )
         for step in result.next_steps:
-            self.stdout.write(f"→ {step}")
+            self.stdout.write(f"-> {step}")
 
     def _git_pull(self, project: Project) -> None:
         from apps.projects.git_clone import pull_project_repo
 
         out = pull_project_repo(project)
-        self.stdout.write(self.style.SUCCESS(f"{out['action']} → {out['local_path']}"))
+        self.stdout.write(self.style.SUCCESS(f"{out['action']} -> {out['local_path']}"))
 
     def _open_pr(self, project: Project) -> None:
         from apps.projects.github_pr import create_setup_pull_request

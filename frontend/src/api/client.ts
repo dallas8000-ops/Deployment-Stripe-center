@@ -814,6 +814,7 @@ export interface SetupHubStatus {
   portfolioDemoUrl?: string;
   lastPortfolioAuditSummary: Record<string, unknown> | null;
   lastPortfolioAuditRegistryGaps: Array<Record<string, string>>;
+  projectPortfolioGaps?: Array<Record<string, string>>;
   steps: SetupHubStep[];
   readyForPipeline: boolean;
   platformAutomation?: {

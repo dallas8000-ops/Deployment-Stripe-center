@@ -379,14 +379,20 @@ def should_skip_external_postgres_for_railway(
 ) -> bool:
     """
     Railway-hosted apps with a Postgres plugin should use ${{Postgres.DATABASE_URL}}
-    via env push — not Neon/Supabase provisioning.
+    via env push — not Neon/Supabase provisioning or legacy Railway serviceCreate API.
     """
     if platform != "railway":
         return False
-    if get_secret(project, "DATABASE_URL"):
-        return False
-    from apps.deploy.env_push import ENV_PRESETS
+
+    from apps.deploy.env_push import ENV_PRESETS, is_railway_reference
     from apps.deploy.railway_resolve import preset_for_project
+
+    existing = (get_secret(project, "DATABASE_URL") or "").strip()
+    if existing and is_railway_reference(existing):
+        return True
+
+    if provider == "railway":
+        return True
 
     preset = preset_for_project(project)
     preset_db = (ENV_PRESETS.get(preset or "") or {}).get("DATABASE_URL", "")
@@ -404,7 +410,19 @@ def provision_postgres(
     reuse: bool = True,
     apply_schema: bool = True,
 ) -> dict:
-    existing = get_secret(project, "DATABASE_URL")
+    from apps.deploy.env_push import is_railway_reference
+
+    existing = (get_secret(project, "DATABASE_URL") or "").strip()
+    if existing and reuse and is_railway_reference(existing):
+        return {
+            "provider": provider,
+            "stored": True,
+            "reused": True,
+            "message": (
+                "Using Railway Postgres reference in vault — "
+                "DATABASE_URL is resolved on Railway at deploy time"
+            ),
+        }
     if existing and reuse and existing.startswith(("postgres://", "postgresql://")):
         result = {
             "provider": provider,

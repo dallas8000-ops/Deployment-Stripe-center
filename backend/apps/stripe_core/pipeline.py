@@ -10,7 +10,7 @@ from apps.projects.models import Project
 from apps.projects.scanner import ProjectScanner
 from apps.vault.models import get_secret, hydrate_project_vault, vault_health
 
-from .codegen import generate_all, write_project_files
+from .codegen import generate_all, write_codegen_files
 from .events import EventEmitter, PipelineEvent, emit
 from .provision import ProvisionConfig, load_manifest, provision_catalog
 from .hub_keys import HUB_SLUG, pull_stripe_keys_for_user, resolve_production_app_url, resolve_web_app_url
@@ -120,7 +120,7 @@ def _run_codegen(
         app_url=app_url,
         next_router=next_router,
     )
-    results = write_project_files(project_root, files, force=force)
+    results = write_codegen_files(project, project_root, files, force=force)
 
     written = [r.path for r in results if r.action in ("created", "updated")]
     for result in results:

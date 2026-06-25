@@ -64,7 +64,7 @@ class PortfolioWorkspaceTests(SimpleTestCase):
         p = P()
         path, changed = repair_portfolio_local_path(p, save=False)
         self.assertTrue(changed)
-        self.assertEqual(path, r"C:\Software Projects\AgriPay-Logistics-AI")
+        self.assertEqual(path, r"C:\Software Projects\AgriPay Logistics AI")
 
     def test_repair_clears_invalid_hub_path_without_known_target(self):
         class P:

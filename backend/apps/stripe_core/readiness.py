@@ -226,10 +226,12 @@ def _security_checks(project_root: Path, scan: dict) -> list[ReadinessCheck]:
 
 
 def _deploy_checks(project: Project, project_root: Path, scan: dict) -> list[ReadinessCheck]:
+    from apps.stripe_core.codegen.paths import resolve_stripe_module_path
+
     has_health = any(
         _file_exists(project_root / p)
-        for p in ("app/api/health/route.ts", "pages/api/health.ts", "stripe/views.py")
-    )
+        for p in ("app/api/health/route.ts", "pages/api/health.ts")
+    ) or _file_exists(resolve_stripe_module_path(project, project_root))
     has_backup = (
         _file_exists(project_root / "scripts" / "backup-db.sh")
         or _file_exists(project_root / "scripts" / "backup-db.ps1")

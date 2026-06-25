@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.projects.models import Project
-from apps.stripe_core.codegen import generate_all, write_project_files
+from apps.stripe_core.codegen import generate_all, write_codegen_files
 from apps.diagnostics.diagnostics import DiagnosticReport, run_diagnostics
 from apps.stripe_core.pipeline import _sync_env, _webhook_path
 from apps.stripe_core.provision import ProvisionConfig, provision_catalog
@@ -86,7 +86,7 @@ def _generate_files(project: Project, project_root: Path, force: bool) -> Repair
 
     manifest = load_manifest(project_root)
     files = generate_all(project.framework, manifest)
-    results = write_project_files(project_root, files, force=force)
+    results = write_codegen_files(project, project_root, files, force=force)
     created = [r.path for r in results if r.action != "skipped"]
     if not created:
         return RepairResult("generate-files", True, "All integration files already exist")

@@ -4,6 +4,7 @@ from apps.deploy.env_push import (
     KISTIE_STORE_PRESET,
     SILVERFOX_PRESET,
     _apply_vault_overrides,
+    is_placeholder_database_url,
     merge_env_vars,
     merge_service_env_vars,
 )
@@ -57,8 +58,22 @@ class EnvPushMergeTests(SimpleTestCase):
         self.assertEqual(merged["SECRET"], "keep-me")
 
     def test_merge_service_env_preserves_working_database_url(self):
-        existing = {"DATABASE_URL": "postgresql://user:pass@host/db?sslmode=require"}
+        existing = {
+            "DATABASE_URL": "postgresql://postgres:secret@monorail.proxy.rlwy.net:6543/railway",
+        }
         incoming = {"DATABASE_URL": "${{Postgres.DATABASE_URL}}", "DEBUG": "False"}
         merged = merge_service_env_vars(existing, incoming)
         self.assertEqual(merged["DATABASE_URL"], existing["DATABASE_URL"])
         self.assertEqual(merged["DEBUG"], "False")
+
+    def test_merge_service_env_replaces_placeholder_database_url(self):
+        existing = {"DATABASE_URL": "postgresql://user:pass@localhost:5432/yourdb"}
+        incoming = {"DATABASE_URL": "${{Postgres.DATABASE_URL}}"}
+        merged = merge_service_env_vars(existing, incoming)
+        self.assertEqual(merged["DATABASE_URL"], "${{Postgres.DATABASE_URL}}")
+
+    def test_placeholder_database_url_detector(self):
+        self.assertTrue(is_placeholder_database_url("postgresql://user:pass@localhost:5432/yourdb"))
+        self.assertFalse(
+            is_placeholder_database_url("postgresql://postgres:secret@monorail.proxy.rlwy.net:6543/railway")
+        )

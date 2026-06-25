@@ -25,6 +25,7 @@ from apps.stripe_core.hub_keys import (
     portfolio_app_for_project,
     pull_stripe_keys_for_user,
     resolve_demo_app_url,
+    resolve_expected_webhook_url,
     resolve_production_app_url,
     resolve_web_app_url,
     sync_vault_to_billing_projects,
@@ -64,6 +65,11 @@ def reset_workspace(project: Project, *, clear_vault: bool = False) -> dict[str,
             cleared = clear_project_vault(project)
         catalog = catalog_by_slug(project.slug) or {}
         production_url = str(catalog.get("productionUrl") or resolve_production_app_url(project) or "")
+        expected_webhook = (
+            "Portfolio exempt — no Stripe subscription billing"
+            if is_stripe_exempt_slug(project.slug)
+            else resolve_expected_webhook_url(project) or production_url
+        )
         config_path = None
         if local_path and not is_stripe_exempt_slug(project.slug):
             root = Path(local_path)
@@ -86,9 +92,7 @@ def reset_workspace(project: Project, *, clear_vault: bool = False) -> dict[str,
             "registryPath": str(reg_path),
             "stripeConfigPath": str(config_path) if config_path else None,
             "vaultSecretsCleared": cleared,
-            "expectedWebhookUrl": "Portfolio exempt — no Stripe subscription billing"
-            if is_stripe_exempt_slug(project.slug)
-            else production_url,
+            "expectedWebhookUrl": expected_webhook,
             "portfolioSummary": sync_result.get("portfolioSummary"),
             "registryAppCount": sync_result.get("appCount"),
         }
@@ -205,12 +209,13 @@ def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
 
     registry = load_registry()
     app_entry = portfolio_app_for_project(project)
-    expected_webhook = app_entry.webhook_url if app_entry else f"{PRODUCTION_URL.rstrip('/')}{WEBHOOK_PATH}"
-    app_registry_id = app_entry.id if app_entry else REGISTRY_ID
+    expected_webhook = resolve_expected_webhook_url(project)
+    app_registry_id = app_entry.id if app_entry else (project.slug or REGISTRY_ID)
     production_url = (
         app_entry.production_url
         if app_entry and app_entry.production_url
-        else resolve_production_app_url(project) or PRODUCTION_URL
+        else resolve_production_app_url(project)
+        or (PRODUCTION_URL if project.slug == HUB_SLUG else "")
     )
 
     scan_data = project.scan_data or {}
@@ -336,7 +341,8 @@ def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
             "portfolioDemoUrl"
         ),
         "lastPortfolioAuditSummary": last_summary,
-        "lastPortfolioAuditRegistryGaps": registry_gaps,
+        "lastPortfolioAuditRegistryGaps": registry_gaps if project.slug == HUB_SLUG else project_gaps,
+        "projectPortfolioGaps": project_gaps,
         "steps": steps,
         "readyForPipeline": all(s["ok"] for s in steps if s["id"] in required_step_ids),
         "portfolioSummary": catalog_summary(),

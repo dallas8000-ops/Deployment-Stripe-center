@@ -4,12 +4,31 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from apps.projects.models import Project
 
 
 @dataclass
 class WriteResult:
     path: str
     action: str  # created | updated | skipped
+
+
+def write_codegen_files(
+    project: "Project",
+    repo_root: Path,
+    files: dict[str, str],
+    *,
+    force: bool = False,
+) -> list[WriteResult]:
+    """Write codegen output, relocating app paths for Django/Flask monorepos."""
+    from apps.stripe_core.codegen.paths import relocate_codegen_paths, codegen_backend_prefix
+
+    prefix = codegen_backend_prefix(project, repo_root)
+    relocated = relocate_codegen_paths(files, project.framework, prefix)
+    return write_project_files(repo_root, relocated, force=force)
 
 
 def write_project_files(

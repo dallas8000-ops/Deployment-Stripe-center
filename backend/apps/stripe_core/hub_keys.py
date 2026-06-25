@@ -72,13 +72,61 @@ def resolve_demo_app_url(project: Project) -> str:
     return f"{web.rstrip('/')}/demo" if web else ""
 
 
+def resolve_expected_webhook_url(project: Project) -> str:
+    """Production webhook URL for this project — never the hub URL unless slug is stripe-installer."""
+    if project.slug == HUB_SLUG:
+        return f"https://stripe-installer-production.up.railway.app/api/v1/billing/webhook/"
+
+    app = portfolio_app_for_project(project)
+    if app and app.webhook_url:
+        return app.webhook_url
+
+    prod = resolve_production_app_url(project)
+    if not prod:
+        return ""
+
+    scan = project.scan_data or {}
+    wh_path = str(scan.get("webhookPath") or "").strip()
+
+    if not wh_path and project.local_path:
+        from pathlib import Path
+        from urllib.parse import urlparse
+
+        root = Path(project.local_path)
+        try:
+            from apps.stripe_core.stripe_config import read_stripe_config
+
+            cfg = read_stripe_config(root)
+            url = str(cfg.get("webhookUrl") or "").strip()
+            if url:
+                cfg_host = urlparse(url).netloc
+                prod_host = urlparse(prod).netloc
+                if not cfg_host or not prod_host or cfg_host == prod_host:
+                    return url.rstrip("/")
+        except ValueError:
+            pass
+
+    if not wh_path:
+        from apps.deploy.platform import webhook_path_for
+
+        wh_path = webhook_path_for(
+            project.framework or "django",
+            scan.get("nextRouter") or scan.get("next_router"),
+        )
+
+    path = wh_path if wh_path.startswith("/") else f"/{wh_path}"
+    return f"{prod.rstrip('/')}{path}"
+
+
 def portfolio_app_for_project(project: Project) -> PortfolioApp | None:
     catalog = catalog_by_slug(project.slug)
     for app in load_registry():
         if app.project_slug == project.slug:
             if catalog:
-                if not app.production_url and catalog.get("productionUrl"):
+                if catalog.get("productionUrl"):
                     app.production_url = str(catalog["productionUrl"]).rstrip("/")
+                if catalog.get("webhookPath"):
+                    app.webhook_path = str(catalog["webhookPath"])
                 if not app.local_path and catalog.get("defaultLocalPath"):
                     app.local_path = str(catalog["defaultLocalPath"])
             return app

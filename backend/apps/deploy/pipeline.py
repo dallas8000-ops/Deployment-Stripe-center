@@ -19,7 +19,7 @@ from .config import config_from_project, sync_project_from_config, write_deploy_
 from .infra import generate_and_write_infra
 from .platform import detect_deploy_platform, health_check_path, platform_deploy_command
 from .platform_push import push_to_platform
-from .postgres import get_database_url, get_production_url, test_postgres_connection
+from .postgres import get_database_url, get_production_url, is_testable_database_url, test_postgres_connection
 from .provision import provision_postgres, should_skip_external_postgres_for_railway
 
 
@@ -180,7 +180,7 @@ def run_deploy_pipeline(
 
     postgres_connected = None
     db_url = get_database_url(project)
-    if db_url:
+    if db_url and is_testable_database_url(db_url):
         conn = test_postgres_connection(db_url)
         postgres_connected = conn["ok"]
         if not conn["ok"]:
