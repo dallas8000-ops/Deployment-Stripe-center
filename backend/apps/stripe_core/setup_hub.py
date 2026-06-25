@@ -428,8 +428,16 @@ def _platform_automation_block(project: Project) -> dict[str, Any]:
                 "ok": bool(auto["railway"]["projectId"] and auto["railway"]["serviceId"]),
                 "detail": (
                     f"project={auto['railway']['projectId']} service={auto['railway']['serviceId']}"
+                    + (
+                        f" — {auto['railway'].get('detectionMessage')}"
+                        if auto["railway"].get("detectionMessage")
+                        else ""
+                    )
                     if auto["railway"]["projectId"]
-                    else "Run Automate platform setup to resolve and save IDs"
+                    else (
+                        auto["railway"].get("detectionMessage")
+                        or "Run Automate platform setup to resolve and save IDs"
+                    )
                 ),
             }
         )

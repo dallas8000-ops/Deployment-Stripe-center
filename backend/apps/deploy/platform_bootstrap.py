@@ -181,6 +181,16 @@ def platform_automation_status(project: Project) -> dict[str, Any]:
 
     token = _hub_railway_token(project)
     project_id, service_id, _ = _host_railway_ids(project)
+    railway_detected = False
+    railway_message = ""
+    if token:
+        from apps.deploy.railway_resolve import ensure_railway_targets_detected
+
+        detection = ensure_railway_targets_detected(project, token)
+        project_id = detection.get("projectId") or project_id
+        service_id = detection.get("serviceId") or service_id
+        railway_detected = bool(detection.get("detected"))
+        railway_message = str(detection.get("message") or "")
 
     return {
         "masterKey": {
@@ -197,6 +207,8 @@ def platform_automation_status(project: Project) -> dict[str, Any]:
             "projectId": project_id or None,
             "serviceId": service_id or None,
             "canPinMasterKey": bool(token and (project_id or token)),
+            "detected": railway_detected,
+            "detectionMessage": railway_message,
         },
         "ready": health["unreadableCount"] == 0 and key_status["stable"],
     }

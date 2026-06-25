@@ -194,9 +194,110 @@ def _name_matches(candidate: str, target: str) -> bool:
     return bool(left and right and left == right)
 
 
+def _service_public_hosts(token: str, project_id: str, service_id: str) -> set[str]:
+    try:
+        projects = _list_railway_projects_with_domains(token)
+    except RuntimeError:
+        return set()
+    for proj in projects:
+        if proj.get("id") != project_id:
+            continue
+        for svc in proj.get("services") or []:
+            if svc.get("id") != service_id:
+                continue
+            return {str(d).strip().lower() for d in svc.get("domains") or [] if str(d).strip()}
+    return set()
+
+
+def _railway_ids_trusted_for_catalog(
+    project: Project, token: str, project_id: str, service_id: str
+) -> bool:
+    """True when stored Railway IDs serve this project's catalog production hostname."""
+    catalog_host = _catalog_production_host(project)
+    if not catalog_host:
+        return True
+    hosts = _service_public_hosts(token, project_id, service_id)
+    if not hosts:
+        return False
+    return catalog_host in hosts or any(
+        catalog_host == host or catalog_host in host or host in catalog_host for host in hosts
+    )
+
+
+def ensure_railway_targets_detected(project: Project, token: str | None = None) -> dict[str, Any]:
+    """
+    Detect Railway project + web service from catalog hostname, name, or slug.
+    Re-resolves when vault IDs point at a different app's service.
+    """
+    resolved_token = (token or get_secret(project, "RAILWAY_API_TOKEN") or "").strip()
+    if not resolved_token:
+        from apps.stripe_core.hub_keys import HUB_SLUG, get_hub_project
+
+        if project.slug != HUB_SLUG:
+            hub = get_hub_project(project.owner)
+            if hub:
+                resolved_token = (get_secret(hub, "RAILWAY_API_TOKEN") or "").strip()
+    if not resolved_token:
+        scan = project.scan_data or {}
+        railway = scan.get("railway") or {}
+        return {
+            "detected": False,
+            "projectId": get_secret(project, "RAILWAY_PROJECT_ID") or railway.get("projectId"),
+            "serviceId": get_secret(project, "RAILWAY_SERVICE_ID") or railway.get("serviceId"),
+            "message": "Add RAILWAY_API_TOKEN to hub vault to auto-detect Railway targets",
+        }
+
+    stored_pid = (get_secret(project, "RAILWAY_PROJECT_ID") or "").strip()
+    stored_sid = (get_secret(project, "RAILWAY_SERVICE_ID") or "").strip()
+    if (
+        stored_pid
+        and stored_sid
+        and _railway_ids_trusted_for_catalog(project, resolved_token, stored_pid, stored_sid)
+    ):
+        return {
+            "detected": False,
+            "projectId": stored_pid,
+            "serviceId": stored_sid,
+            "message": "Railway targets match portfolio catalog",
+        }
+
+    project_id = resolve_railway_project_id(project, resolved_token)
+    if not project_id:
+        return {
+            "detected": False,
+            "projectId": stored_pid or None,
+            "serviceId": stored_sid or None,
+            "message": "Could not match Railway project — check token scope or save RAILWAY_PROJECT_ID",
+        }
+    service_id = resolve_railway_web_service_id(project, resolved_token, project_id)
+    if not service_id:
+        return {
+            "detected": False,
+            "projectId": project_id,
+            "serviceId": None,
+            "message": "Railway project found but web service could not be matched",
+        }
+
+    remember_railway_targets(project, project_id, service_id, overwrite=True)
+    sync_production_url_from_railway(project, resolved_token, project_id, service_id)
+    return {
+        "detected": True,
+        "projectId": project_id,
+        "serviceId": service_id,
+        "message": "Detected Railway project/service from portfolio catalog + Railway API",
+    }
+
+
 def resolve_railway_project_id(project: Project, token: str) -> str | None:
     stored = (get_secret(project, "RAILWAY_PROJECT_ID") or "").strip()
-    if stored:
+    service_stored = (get_secret(project, "RAILWAY_SERVICE_ID") or "").strip()
+    if stored and (
+        not _catalog_production_host(project)
+        or (
+            service_stored
+            and _railway_ids_trusted_for_catalog(project, token, stored, service_stored)
+        )
+    ):
         return stored
 
     scan = project.scan_data or {}
@@ -225,7 +326,7 @@ def resolve_railway_project_id(project: Project, token: str) -> str | None:
 
 def resolve_railway_web_service_id(project: Project, token: str, project_id: str) -> str | None:
     stored = (get_secret(project, "RAILWAY_SERVICE_ID") or "").strip()
-    if stored:
+    if stored and _railway_ids_trusted_for_catalog(project, token, project_id, stored):
         return stored
 
     scan = project.scan_data or {}
@@ -294,15 +395,17 @@ def sync_production_url_from_railway(
     return None
 
 
-def remember_railway_targets(project: Project, project_id: str, service_id: str) -> None:
+def remember_railway_targets(
+    project: Project, project_id: str, service_id: str, *, overwrite: bool = False
+) -> None:
     update_project_scan_data(
         project,
         {"railway": {"projectId": project_id, "serviceId": service_id}},
     )
 
-    if not get_secret(project, "RAILWAY_PROJECT_ID"):
+    if overwrite or not get_secret(project, "RAILWAY_PROJECT_ID"):
         set_secret(project, "RAILWAY_PROJECT_ID", project_id)
-    if not get_secret(project, "RAILWAY_SERVICE_ID"):
+    if overwrite or not get_secret(project, "RAILWAY_SERVICE_ID"):
         set_secret(project, "RAILWAY_SERVICE_ID", service_id)
 
 
