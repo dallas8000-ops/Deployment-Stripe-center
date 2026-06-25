@@ -25,6 +25,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return base.exclude(slug__in=DASHBOARD_HIDDEN_PROJECT_SLUGS)
         return base
 
+    def list(self, request, *args, **kwargs):
+        from apps.stripe_core.portfolio_workspace import reconcile_hub_workspace
+
+        queryset = self.filter_queryset(self.get_queryset())
+        for project in queryset:
+            reconcile_hub_workspace(project)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     def retrieve(self, request, *args, **kwargs):
         from apps.core.access import get_project_for_user
         from apps.stripe_core.portfolio_catalog import canonical_project_slug, is_merged_legacy_slug

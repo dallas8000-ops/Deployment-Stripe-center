@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node ./node_modules/vite/bin/vite.js",
+    "dev:stop": "node ../scripts/stop-dev.mjs",
     "build": "tsc -b && node ./node_modules/vite/bin/vite.js build",
     "preview": "node ./node_modules/vite/bin/vite.js preview"
   },

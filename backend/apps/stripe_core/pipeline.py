@@ -43,11 +43,18 @@ class PipelineResult:
 
 
 def _project_root(project: Project) -> Path:
+    from apps.stripe_core.portfolio_workspace import ensure_project_workspace
+
+    ensure_project_workspace(project)
     if not project.local_path:
-        raise ValueError("Project local_path is required for pipeline execution")
+        raise ValueError(
+            "Set local_path to your real app folder (e.g. C:\\Software Projects\\YourApp) before running setup."
+        )
     root = Path(project.local_path).resolve()
     if not root.is_dir():
-        raise FileNotFoundError(f"Project path not found: {root}")
+        raise FileNotFoundError(
+            f"Project folder not found: {root}. Clone the repo there manually, then set local_path in Settings."
+        )
     return root
 
 

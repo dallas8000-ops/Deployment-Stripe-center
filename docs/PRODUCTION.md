@@ -229,11 +229,11 @@ Set `SAAS_STRIPE_*` vars in `.env` for Stripe Installer subscriptions. See `back
 
 
 
-## Git clone workspace
+## Git workspace (real app folders only)
 
 
 
-Projects with a `git_url` can be cloned into `backend/clones/{slug}` (override with `PROJECT_CLONE_ROOT`). In Docker prod, clones persist in the `clone_data` volume.
+Each project must use `local_path` pointing at **your app's own folder** on disk (e.g. `C:\Software Projects\YourApp`). The hub **does not** clone repos into `backend/clones/` — clone manually in your app folder, then use **Git pull** in Settings or `POST /api/v1/projects/{slug}/git-pull/`.
 
 ### Private repositories
 
@@ -243,7 +243,7 @@ Projects with a `git_url` can be cloned into `backend/clones/{slug}` (override w
 | **SSH key** | `GIT_SSH_KEY_PATH` in `backend/.env` | Mount: `GIT_SSH_KEY_PATH=./.git-secrets/id_ed25519` |
 | **Credential file** | `GIT_CREDENTIALS_PATH` in `.env` | Mount read-only into web/celery |
 
-Async clone: `POST /api/v1/projects/{slug}/clone/` with `{ "async": true }`.
+Git pull: `POST /api/v1/projects/{slug}/git-pull/` (pulls in `local_path` only).
 
 Open PR: `POST /api/v1/projects/{slug}/open-pr/` (requires `GITHUB_TOKEN` in vault).
 
@@ -289,7 +289,7 @@ Use this before pointing a real domain at the installer.
 - [ ] `REDIS_URL` reachable from web + celery + celery-beat
 - [ ] `CELERY_EAGER=false`, `CHANNEL_LAYER_INMEMORY=false`
 - [ ] `CORS_ALLOWED_ORIGINS` / `SAAS_BILLING_RETURN_URL` match your public URL
-- [ ] `PROJECT_CLONE_ROOT` on persistent volume (Docker: `clone_data`)
+- [ ] Each project's `local_path` points at its real app folder (not inside this hub repo)
 
 ### Services
 

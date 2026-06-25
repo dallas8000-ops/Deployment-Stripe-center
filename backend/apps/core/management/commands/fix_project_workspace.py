@@ -57,28 +57,23 @@ class Command(BaseCommand):
 
         slugs = options.get("projects") or []
         if options.get("all_projects"):
-            slugs = list(Project.objects.exclude(slug=HUB_SLUG).values_list("slug", flat=True))
+            project_qs = Project.objects.exclude(slug=HUB_SLUG)
         elif options.get("all"):
-            slugs = list(
-                Project.objects.filter(owner=owner)
-                .exclude(slug=HUB_SLUG)
-                .values_list("slug", flat=True)
-            )
-        if not slugs and not options.get("remove_stale_workspaces"):
-            raise CommandError("Pass --project <slug>, --all, or --remove-stale-workspaces")
+            project_qs = Project.objects.filter(owner=owner).exclude(slug=HUB_SLUG)
+        elif slugs:
+            project_qs = Project.objects.filter(slug__in=slugs).exclude(slug=HUB_SLUG)
+        else:
+            project_qs = Project.objects.none()
 
-        hub = Project.objects.filter(owner=owner, slug=HUB_SLUG).first()
-        if not hub and not options.get("skip_vault") and slugs:
-            raise CommandError(f"Hub project {HUB_SLUG} not found for this user")
+        if not project_qs.exists() and not options.get("remove_stale_workspaces"):
+            raise CommandError("Pass --project <slug>, --all, --all-projects, or --remove-stale-workspaces")
+
+        default_hub = Project.objects.filter(owner=owner, slug=HUB_SLUG).first()
 
         repaired = 0
 
-        for slug in slugs:
-            try:
-                project = Project.objects.get(owner=owner, slug=slug)
-            except Project.DoesNotExist:
-                self.stdout.write(self.style.ERROR(f"Unknown project: {slug}"))
-                continue
+        for project in project_qs:
+            slug = project.slug
 
             before = (project.local_path or "").strip()
             path, changed = reconcile_hub_workspace(project)
@@ -102,27 +97,34 @@ class Command(BaseCommand):
                     )
                 )
 
-            if not options.get("skip_vault") and hub:
-                health = vault_health(project)
-                if health["unreadableCount"]:
-                    count = clear_project_vault(project)
-                    self.stdout.write(
-                        self.style.WARNING(f"{slug}: cleared {count} unreadable vault secret(s)")
-                    )
+            if not options.get("skip_vault"):
+                hub = (
+                    Project.objects.filter(owner=project.owner, slug=HUB_SLUG).first()
+                    or default_hub
+                )
+                if not hub:
+                    self.stdout.write(self.style.WARNING(f"{slug}: hub project not found — skipped vault copy"))
+                else:
+                    health = vault_health(project)
+                    if health["unreadableCount"]:
+                        count = clear_project_vault(project)
+                        self.stdout.write(
+                            self.style.WARNING(f"{slug}: cleared {count} unreadable vault secret(s)")
+                        )
 
-                copied: list[str] = []
-                for key in VAULT_KEYS_FROM_HUB:
-                    if get_secret(project, key):
-                        continue
-                    value = get_secret(hub, key)
-                    if value:
-                        set_secret(project, key, value)
-                        copied.append(key)
+                    copied: list[str] = []
+                    for key in VAULT_KEYS_FROM_HUB:
+                        if get_secret(project, key):
+                            continue
+                        value = get_secret(hub, key)
+                        if value:
+                            set_secret(project, key, value)
+                            copied.append(key)
 
-                if copied:
-                    self.stdout.write(self.style.SUCCESS(f"{slug}: copied vault keys — {', '.join(copied)}"))
-                elif not get_secret(project, "STRIPE_SECRET_KEY"):
-                    self.stdout.write(self.style.WARNING(f"{slug}: STRIPE_SECRET_KEY still missing in vault"))
+                    if copied:
+                        self.stdout.write(self.style.SUCCESS(f"{slug}: copied vault keys — {', '.join(copied)}"))
+                    elif not get_secret(project, "STRIPE_SECRET_KEY"):
+                        self.stdout.write(self.style.WARNING(f"{slug}: STRIPE_SECRET_KEY still missing in vault"))
 
             root = Path(project.local_path or path or target_path)
             if root.is_dir():

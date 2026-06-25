@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -74,6 +74,16 @@ if (!existsSync(python)) {
 if (!existsSync(viteJs)) {
   console.error("Frontend not set up. Run first:\n  npm run setup:frontend\n");
   process.exit(1);
+}
+
+const repair = spawnSync(
+  python,
+  ["manage.py", "fix_project_workspace", "--all-projects", "--skip-vault", "--remove-stale-workspaces"],
+  { cwd: path.join(root, "backend"), stdio: "inherit", shell: false }
+);
+if (repair.status !== 0) {
+  console.error("Workspace repair failed — fix_project_workspace exited with code", repair.status);
+  process.exit(repair.status || 1);
 }
 
 async function portInUse(port) {

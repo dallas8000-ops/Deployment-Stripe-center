@@ -41,7 +41,8 @@ class PortfolioWorkspaceTests(SimpleTestCase):
             git_url = ""
 
         self.assertTrue(is_invalid_portfolio_path(P(), P.local_path))
-        self.assertIn("cannot be inside", workspace_path_error(P()) or "")
+        err = workspace_path_error(P()) or ""
+        self.assertTrue("cannot be inside" in err or "backend/clones" in err)
 
     def test_hub_project_allows_repo_root(self):
         class P:
@@ -51,14 +52,28 @@ class PortfolioWorkspaceTests(SimpleTestCase):
 
         self.assertFalse(is_invalid_portfolio_path(P(), P.local_path))
 
-    def test_repair_clears_invalid_hub_path_without_catalog(self):
+    def test_repair_points_agripay_at_default_local_path(self):
         class P:
             slug = "agripay-logistics-ai"
             local_path = r"C:\Software Projects\Deployment-Stripe-center\backend\clones\agripay-logistics-ai"
             git_url = "https://github.com/example/agripay.git"
 
-            def save(self, **kwargs):
-                self.local_path = kwargs.get("update_fields") and "" or self.local_path
+            def save(self, update_fields=None):
+                pass
+
+        p = P()
+        path, changed = repair_portfolio_local_path(p, save=False)
+        self.assertTrue(changed)
+        self.assertEqual(path, r"C:\Software Projects\AgriPay-Logistics-AI")
+
+    def test_repair_clears_invalid_hub_path_without_known_target(self):
+        class P:
+            slug = "custom-unknown-app"
+            local_path = r"C:\Software Projects\Deployment-Stripe-center\backend\clones\custom-unknown-app"
+            git_url = ""
+
+            def save(self, update_fields=None):
+                pass
 
         p = P()
         path, changed = repair_portfolio_local_path(p, save=False)

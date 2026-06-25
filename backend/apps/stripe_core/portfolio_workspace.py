@@ -13,6 +13,7 @@ from apps.stripe_core.portfolio_catalog import HUB_SLUG, catalog_by_slug, catalo
 
 # Windows dev paths — match portfolio repo locations on Ray's machine.
 DEFAULT_LOCAL_PATHS: dict[str, str] = {
+    "agripay-logistics-ai": r"C:\Software Projects\AgriPay-Logistics-AI",
     "silverfox": r"C:\Software Projects\SilverFox",
     "kistie-store": r"C:\Software Projects\Kristie-Store",
     "blog-2": r"C:\Software Projects\Blog-2",
@@ -75,6 +76,8 @@ def is_invalid_portfolio_path(project: Project, path: str) -> bool:
     """Portfolio projects must use their own repo folder — never a path inside this hub."""
     if project.slug == HUB_SLUG or not path:
         return False
+    if is_legacy_hub_clone_path(path):
+        return True
     return is_inside_hub_repo(path, project)
 
 
@@ -123,6 +126,11 @@ def workspace_path_error(project: Project, path: str | None = None) -> str | Non
     target = (path or project.local_path or "").strip()
     if not target:
         return "Set local_path to your real project folder (e.g. C:\\Software Projects\\YourApp)."
+    if is_legacy_hub_clone_path(target):
+        return (
+            "local_path cannot use backend/clones inside this hub. "
+            "Use your app's own folder on disk (clone the repo there manually if needed)."
+        )
     if is_invalid_portfolio_path(project, target):
         return (
             "local_path cannot be inside the Automation Center repository. "
@@ -221,6 +229,20 @@ def remove_stale_hub_workspaces() -> list[str]:
         shutil.rmtree(path, ignore_errors=True)
         removed.append(str(path))
     return removed
+
+
+def reconcile_all_portfolio_workspaces() -> dict[str, list[str]]:
+    """Repair every non-hub project and delete legacy backend/clones folders."""
+    from apps.projects.models import Project
+
+    repaired: list[str] = []
+    for project in Project.objects.exclude(slug=HUB_SLUG):
+        before = (project.local_path or "").strip()
+        _, changed = reconcile_hub_workspace(project)
+        if changed or (before and is_invalid_portfolio_path(project, before)):
+            repaired.append(project.slug)
+    removed = remove_stale_hub_workspaces()
+    return {"repaired": repaired, "removed": removed}
 
 
 def sync_portfolio_scan_metadata(project: Project, *, save: bool = True) -> None:
