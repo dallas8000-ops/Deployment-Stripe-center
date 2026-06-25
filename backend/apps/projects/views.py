@@ -67,7 +67,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        project = serializer.save(owner=self.request.user)
+        from apps.deploy.platform_bootstrap import bootstrap_new_project
+
+        try:
+            bootstrap_new_project(project, user=self.request.user)
+        except Exception as exc:
+            from apps.projects.scan_data_utils import update_project_scan_data
+            from django.utils import timezone
+
+            update_project_scan_data(
+                project,
+                {
+                    "lastAutomationAt": timezone.now().isoformat(),
+                    "lastAutomationOk": False,
+                    "lastAutomationMessage": str(exc),
+                },
+            )
 
     def get_serializer_class(self):
         if self.action in ("update", "partial_update"):

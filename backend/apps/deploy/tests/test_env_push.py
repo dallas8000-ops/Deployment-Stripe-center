@@ -55,3 +55,10 @@ class EnvPushMergeTests(SimpleTestCase):
         existing = {"SECRET": "keep-me"}
         merged = merge_service_env_vars(existing, {"SECRET": "  "})
         self.assertEqual(merged["SECRET"], "keep-me")
+
+    def test_merge_service_env_preserves_working_database_url(self):
+        existing = {"DATABASE_URL": "postgresql://user:pass@host/db?sslmode=require"}
+        incoming = {"DATABASE_URL": "${{Postgres.DATABASE_URL}}", "DEBUG": "False"}
+        merged = merge_service_env_vars(existing, incoming)
+        self.assertEqual(merged["DATABASE_URL"], existing["DATABASE_URL"])
+        self.assertEqual(merged["DEBUG"], "False")

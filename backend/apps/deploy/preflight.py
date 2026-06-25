@@ -76,7 +76,10 @@ def run_deploy_preflight(
 
     if provision_postgres and platform == "railway":
         preset = preset_for_project(project)
-        if preset and not get_secret(project, "DJANGO_SECRET_KEY"):
+        if preset == "agripay-logistics-ai":
+            if not get_secret(project, "SECRET_KEY") and not get_secret(project, "DJANGO_SECRET_KEY"):
+                warnings.append("SECRET_KEY missing — required for AgriPay on Railway")
+        elif preset and not get_secret(project, "DJANGO_SECRET_KEY"):
             warnings.append("DJANGO_SECRET_KEY missing — required for Django apps on Railway")
 
     if push_railway_env and platform == "railway":

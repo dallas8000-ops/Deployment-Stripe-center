@@ -372,6 +372,31 @@ def _provision_self_hosted(project: Project) -> tuple[str, str, bool]:
     return url, "self-hosted", True
 
 
+def should_skip_external_postgres_for_railway(
+    project: Project,
+    platform: str,
+    provider: str,
+) -> bool:
+    """
+    Railway-hosted apps with a Postgres plugin should use ${{Postgres.DATABASE_URL}}
+    via env push — not Neon/Supabase provisioning.
+    """
+    if platform != "railway":
+        return False
+    if get_secret(project, "DATABASE_URL"):
+        return False
+    from apps.deploy.env_push import ENV_PRESETS
+    from apps.deploy.railway_resolve import preset_for_project
+
+    preset = preset_for_project(project)
+    preset_db = (ENV_PRESETS.get(preset or "") or {}).get("DATABASE_URL", "")
+    if preset_db.startswith("${{"):
+        return True
+    if provider == "neon" and not get_secret(project, "NEON_API_KEY"):
+        return True
+    return False
+
+
 def provision_postgres(
     project: Project,
     provider: Provider = "neon",

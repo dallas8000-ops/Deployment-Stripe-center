@@ -64,14 +64,35 @@ SILVERFOX_VAULT_KEYS = [
     "EMAIL_HOST_PASSWORD",
 ]
 
+# AgriPay — Django backend uses SECRET_KEY (not DJANGO_SECRET_KEY).
+AGRIPAY_PRESET: dict[str, str] = {
+    "DEBUG": "False",
+    "DATABASE_URL": "${{Postgres.DATABASE_URL}}",
+    "ALLOWED_HOSTS": ".railway.app .up.railway.app",
+}
+
+AGRIPAY_VAULT_KEYS = [
+    "SECRET_KEY",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_PUBLISHABLE_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+]
+
 ENV_PRESETS: dict[str, dict[str, str]] = {
     "kistie-store": KISTIE_STORE_PRESET,
     "silverfox": SILVERFOX_PRESET,
+    "agripay-logistics-ai": AGRIPAY_PRESET,
 }
 
 PRESET_VAULT_KEYS: dict[str, list[str]] = {
     "kistie-store": KISTIE_STORE_VAULT_KEYS,
     "silverfox": SILVERFOX_VAULT_KEYS,
+    "agripay-logistics-ai": AGRIPAY_VAULT_KEYS,
+}
+
+# When the app expects a different env name than the hub vault uses.
+VAULT_KEY_ALIASES: dict[str, dict[str, str]] = {
+    "agripay-logistics-ai": {"DJANGO_SECRET_KEY": "SECRET_KEY"},
 }
 
 from .railway_client import railway_gql as _railway_gql_impl
@@ -116,6 +137,13 @@ def merge_service_env_vars(
             if key in merged and str(merged[key]).strip():
                 continue
             continue
+        if key == "DATABASE_URL":
+            existing_db = str(merged.get("DATABASE_URL", "")).strip()
+            if existing_db.startswith(("postgres://", "postgresql://")) and is_railway_reference(
+                incoming_value
+            ):
+                # Never replace a working Railway Postgres URL with a plugin reference.
+                continue
         merged[key] = incoming_value
     return merged
 
@@ -234,7 +262,11 @@ def push_to_railway(
 
 
 def _vault_subset(project: Project, keys: list[str]) -> dict[str, str]:
-    return {k: v for k in keys if (v := get_secret(project, k))}
+    result = {k: v for k in keys if (v := get_secret(project, k))}
+    for source, target in VAULT_KEY_ALIASES.get((project.slug or "").strip().lower(), {}).items():
+        if target in keys and target not in result and (v := get_secret(project, source)):
+            result[target] = v
+    return result
 
 
 def build_env_var_payload(
@@ -438,7 +470,9 @@ def try_auto_push_railway_stripe_env(project: Project) -> dict[str, Any] | None:
         }
 
     try:
-        result = auto_push_railway_env(project)
+        from apps.deploy.railway_resolve import preset_for_project
+
+        result = auto_push_railway_env(project, preset=preset_for_project(project))
         monorepo = push_monorepo_railway_live_env(project)
         if monorepo and monorepo.get("ok"):
             result["monorepoLive"] = monorepo
@@ -466,6 +500,7 @@ def auto_push_railway_env(
         remember_railway_targets,
         resolve_railway_project_id,
         resolve_railway_web_service_id,
+        sync_production_url_from_railway,
     )
 
     token = get_secret(project, "RAILWAY_API_TOKEN")
@@ -514,6 +549,10 @@ def auto_push_railway_env(
         variables=variables,
     )
     remember_railway_targets(project, resolved_project_id, resolved_service_id)
+
+    sync_production_url_from_railway(
+        project, token, resolved_project_id, resolved_service_id
+    )
 
     update_project_scan_data(
         project,

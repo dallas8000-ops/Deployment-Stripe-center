@@ -281,13 +281,50 @@ def automate_project_deploy(project: Project, *, user=None) -> dict[str, Any]:
             steps.append({"step": "railway_env_push", "ok": False, "detail": str(exc)})
 
     return {
-        "ok": all(s["ok"] for s in steps if s["step"] in {"preflight", "railway_env_push"})
-        and preflight["ok"],
+        "ok": preflight["ok"] and (env_push is not None or preflight["platform"] != "railway"),
         "steps": steps,
         "preflight": preflight,
         "envPush": env_push,
         "platform": preflight["platform"],
     }
+
+
+def bootstrap_new_project(project: Project, *, user) -> dict[str, Any]:
+    """
+    Run after create (or when local_path is set): repair paths, sync metadata,
+    pull hub keys, and push Railway env when the project folder exists.
+    """
+    from django.utils import timezone
+
+    from apps.deploy.automation_gate import run_automation_before_pipeline
+    from apps.projects.scan_data_utils import update_project_scan_data
+    from apps.stripe_core.portfolio_workspace import reconcile_hub_workspace, sync_portfolio_scan_metadata
+
+    reconcile_hub_workspace(project)
+    sync_portfolio_scan_metadata(project)
+    project.refresh_from_db(fields=["local_path", "scan_data"])
+
+    if not (project.local_path or "").strip():
+        update_project_scan_data(
+            project,
+            {
+                "lastAutomationAt": timezone.now().isoformat(),
+                "lastAutomationOk": False,
+                "lastAutomationMessage": "Set local_path to your real app folder to finish automation.",
+            },
+        )
+        return {"ok": False, "skipped": True, "message": "local_path required for automation"}
+
+    auto = run_automation_before_pipeline(project, user=user, hub_bootstrap=False)
+    update_project_scan_data(
+        project,
+        {
+            "lastAutomationAt": timezone.now().isoformat(),
+            "lastAutomationOk": auto.get("ok", False),
+            "lastAutomationMessage": auto.get("message", ""),
+        },
+    )
+    return auto
 
 
 def bootstrap_platform_automation(hub: Project, *, user) -> dict[str, Any]:

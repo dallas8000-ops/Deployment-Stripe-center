@@ -164,6 +164,16 @@ class ProjectUpdateSerializer(serializers.ModelSerializer):
             instance.scan_data = scan
             instance.save(update_fields=["scan_data", "updated_at"])
 
+        if local_path is not None and instance.local_path:
+            from apps.deploy.platform_bootstrap import bootstrap_new_project
+
+            request = self.context.get("request")
+            if request and request.user.is_authenticated:
+                try:
+                    bootstrap_new_project(instance, user=request.user)
+                except Exception:
+                    pass
+
         if organization_slug is not None:
             request = self.context.get("request")
             if organization_slug == "":

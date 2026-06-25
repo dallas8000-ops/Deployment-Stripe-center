@@ -20,7 +20,7 @@ from .infra import generate_and_write_infra
 from .platform import detect_deploy_platform, health_check_path, platform_deploy_command
 from .platform_push import push_to_platform
 from .postgres import get_database_url, get_production_url, test_postgres_connection
-from .provision import provision_postgres
+from .provision import provision_postgres, should_skip_external_postgres_for_railway
 
 
 def format_readiness_report(checks: list[dict[str, Any]], score: int) -> str:
@@ -110,6 +110,11 @@ def run_deploy_pipeline(
     )
     if postgres_provider == "unknown":
         postgres_provider = "neon"
+    if platform == "railway" and postgres_provider == "neon":
+        from apps.vault.models import get_secret
+
+        if not get_secret(project, "NEON_API_KEY"):
+            postgres_provider = "railway"
     auto_provision = (deploy_cfg.get("postgres") or {}).get("autoProvision", True)
 
     emit(on_event, PipelineEvent("deploy.started", "running", "Starting full deploy pipeline…"))
@@ -146,19 +151,32 @@ def run_deploy_pipeline(
 
     postgres_provisioned = None
     skip_stripe_schema = is_stripe_exempt_slug(project.slug)
+    deploy_blockers: list[str] = []
     if options.provision_postgres and auto_provision and not get_database_url(project):
-        emit(on_event, PipelineEvent("deploy.postgres", "running", "Provisioning PostgreSQL…"))
-        try:
-            postgres_provisioned = provision_postgres(
-                project,
-                provider=postgres_provider,
-                reuse=True,
-                apply_schema=not skip_stripe_schema,
+        if should_skip_external_postgres_for_railway(project, platform, postgres_provider):
+            emit(
+                on_event,
+                PipelineEvent(
+                    "deploy.postgres",
+                    "ok",
+                    "Using Railway Postgres — DATABASE_URL will be set via env push (${{Postgres.DATABASE_URL}})",
+                ),
             )
-            emit(on_event, PipelineEvent("deploy.postgres", "ok", postgres_provisioned.get("message", "Done")))
-        except (RuntimeError, ValueError, OSError) as exc:
-            emit(on_event, PipelineEvent("deploy.postgres", "failed", str(exc)))
-            next_steps.append(f"PostgreSQL: {exc}")
+        else:
+            emit(on_event, PipelineEvent("deploy.postgres", "running", "Provisioning PostgreSQL…"))
+            try:
+                postgres_provisioned = provision_postgres(
+                    project,
+                    provider=postgres_provider,
+                    reuse=True,
+                    apply_schema=not skip_stripe_schema,
+                )
+                emit(on_event, PipelineEvent("deploy.postgres", "ok", postgres_provisioned.get("message", "Done")))
+            except (RuntimeError, ValueError, OSError) as exc:
+                msg = str(exc)
+                emit(on_event, PipelineEvent("deploy.postgres", "failed", msg))
+                deploy_blockers.append(f"PostgreSQL: {msg}")
+                next_steps.append(f"PostgreSQL: {msg}")
 
     postgres_connected = None
     db_url = get_database_url(project)
@@ -215,8 +233,10 @@ def run_deploy_pipeline(
         emit(on_event, PipelineEvent("deploy.railway-env", "running", "Pushing env vars to Railway…"))
         try:
             from .env_push import auto_push_railway_env
+            from .railway_resolve import preset_for_project
 
-            env_push_result = auto_push_railway_env(project)
+            env_push_result = auto_push_railway_env(project, preset=preset_for_project(project))
+            pushed = env_push_result.get("pushed") or []
             emit(
                 on_event,
                 PipelineEvent(
@@ -226,9 +246,16 @@ def run_deploy_pipeline(
                 ),
             )
             next_steps.insert(0, env_push_result.get("message", "Railway env vars updated"))
+            if platform == "railway" and "DATABASE_URL" not in pushed and not get_database_url(project):
+                deploy_blockers.append(
+                    "Railway env push did not include DATABASE_URL — add Postgres service in Railway "
+                    "or store DATABASE_URL in vault"
+                )
         except (RuntimeError, ValueError) as exc:
-            emit(on_event, PipelineEvent("deploy.railway-env", "failed", str(exc)))
-            next_steps.insert(0, f"Railway env push: {exc}")
+            msg = str(exc)
+            emit(on_event, PipelineEvent("deploy.railway-env", "failed", msg))
+            deploy_blockers.append(f"Railway env push: {msg}")
+            next_steps.insert(0, f"Railway env push: {msg}")
 
     push_result = None
     if options.push_platform:
@@ -242,6 +269,18 @@ def run_deploy_pipeline(
             next_steps.insert(0, f"Platform push failed: {push_result['message']}")
 
     label = readiness_label(readiness_score) if readiness_score is not None else "complete"
+    if deploy_blockers:
+        summary = "; ".join(deploy_blockers)
+        emit(
+            on_event,
+            PipelineEvent(
+                "run.completed",
+                "failed",
+                f"Deploy pipeline incomplete — {summary}",
+                score=readiness_score,
+            ),
+        )
+        raise RuntimeError(summary)
     emit(
         on_event,
         PipelineEvent(

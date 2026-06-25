@@ -259,6 +259,41 @@ def resolve_railway_web_service_id(project: Project, token: str, project_id: str
     return None
 
 
+def sync_production_url_from_railway(
+    project: Project,
+    token: str,
+    project_id: str,
+    service_id: str,
+) -> str | None:
+    """Set productionUrl from Railway public domain when still localhost or empty."""
+    scan = project.scan_data or {}
+    current = str(scan.get("productionUrl") or scan.get("production_url") or "").strip()
+    if current and not current.startswith("http://127.0.0.1") and "localhost" not in current:
+        return current
+
+    try:
+        projects = _list_railway_projects_with_domains(token)
+    except RuntimeError:
+        return None
+
+    for proj in projects:
+        if proj.get("id") != project_id:
+            continue
+        for svc in proj.get("services") or []:
+            if svc.get("id") != service_id:
+                continue
+            domains = svc.get("domains") or []
+            if not domains:
+                return None
+            url = f"https://{domains[0].lstrip('https://').lstrip('http://')}"
+            update_project_scan_data(
+                project,
+                {"productionUrl": url, "production_url": url},
+            )
+            return url
+    return None
+
+
 def remember_railway_targets(project: Project, project_id: str, service_id: str) -> None:
     update_project_scan_data(
         project,

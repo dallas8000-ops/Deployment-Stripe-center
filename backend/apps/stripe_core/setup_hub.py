@@ -237,6 +237,18 @@ def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
     elif project_gaps:
         webhook_detail = project_gaps[0].get("issue") or expected_webhook
 
+    deploy_platform = str((project.scan_data or {}).get("deployPlatform") or "unknown")
+    railway_scan = (project.scan_data or {}).get("railway") or {}
+    railway_env_ok = bool(railway_scan.get("lastEnvPushAt"))
+    railway_env_detail = (
+        f"Pushed {len(railway_scan.get('lastPushedKeys') or [])} variable(s) to Railway"
+        if railway_env_ok
+        else (
+            (project.scan_data or {}).get("lastAutomationMessage")
+            or "Run Automate deploy setup after setting a real local_path"
+        )
+    )
+
     if exempt:
         django_ok = bool(get_secret(project, "DJANGO_SECRET_KEY"))
         railway_ok = bool(get_secret(project, "RAILWAY_API_TOKEN"))
@@ -295,6 +307,19 @@ def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
             "detail": webhook_detail,
         },
     ]
+    if not exempt and deploy_platform == "railway" and project.slug != HUB_SLUG:
+        steps.append(
+            {
+                "id": "railway",
+                "label": "Railway env vars pushed",
+                "ok": railway_env_ok,
+                "detail": railway_env_detail,
+            }
+        )
+
+    required_step_ids = {"vault", "keys"}
+    if not exempt and deploy_platform == "railway" and project.slug != HUB_SLUG:
+        required_step_ids.add("railway")
 
     return {
         "projectSlug": project.slug,
@@ -313,7 +338,7 @@ def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
         "lastPortfolioAuditSummary": last_summary,
         "lastPortfolioAuditRegistryGaps": registry_gaps,
         "steps": steps,
-        "readyForPipeline": all(s["ok"] for s in steps if s["id"] in {"vault", "keys"}),
+        "readyForPipeline": all(s["ok"] for s in steps if s["id"] in required_step_ids),
         "portfolioSummary": catalog_summary(),
         "stripeExempt": is_stripe_exempt_slug(project.slug),
         "isHubProject": project.slug == HUB_SLUG,
