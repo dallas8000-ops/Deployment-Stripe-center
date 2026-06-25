@@ -240,6 +240,9 @@ def _display_webhook_for_project(project: Project, expected: str, detail: str) -
     if resolved and HUB_PRODUCTION_HOST not in resolved:
         return resolved
     return expected
+
+
+def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
     from apps.stripe_core.portfolio_workspace import (
         repair_portfolio_local_path,
         should_repair_local_path,
