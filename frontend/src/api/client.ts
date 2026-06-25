@@ -294,14 +294,10 @@ export const projectsApi = {
       method: "POST",
       body: JSON.stringify(local_path ? { local_path } : {}),
     }),
-  clone: (slug: string, opts: { branch?: string; force?: boolean; async?: boolean } = {}) =>
+  gitPull: (slug: string, opts: { async?: boolean } = {}) =>
     apiFetch<{ action?: string; local_path?: string; status?: string; task_id?: string; project: Project }>(
-      `/projects/${slug}/clone/`,
+      `/projects/${slug}/git-pull/`,
       { method: "POST", body: JSON.stringify(opts) }
-    ),
-  cloneStatus: (slug: string) =>
-    apiFetch<{ status: string; error: string; local_path: string; task_id?: string }>(
-      `/projects/${slug}/clone-status/`
     ),
   openPr: (
     slug: string,

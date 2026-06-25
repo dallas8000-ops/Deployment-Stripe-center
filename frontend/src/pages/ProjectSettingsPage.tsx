@@ -16,7 +16,7 @@ export default function ProjectSettingsPage() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState("");
-  const [cloneMessage, setCloneMessage] = useState("");
+  const [pullMessage, setPullMessage] = useState("");
 
   useEffect(() => {
     orgsApi.list().then(setOrgs).catch(() => setOrgs([]));
@@ -57,21 +57,21 @@ export default function ProjectSettingsPage() {
     }
   }
 
-  async function runClone(asyncMode = false) {
-    setBusy("clone");
+  async function runGitPull(asyncMode = false) {
+    setBusy("pull");
     setError("");
-    setCloneMessage("");
+    setPullMessage("");
     try {
-      const result = await projectsApi.clone(slug, { async: asyncMode });
+      const result = await projectsApi.gitPull(slug, { async: asyncMode });
       if (result.status === "queued") {
-        setCloneMessage(`Clone queued (task ${result.task_id})`);
+        setPullMessage(`Git pull queued (task ${result.task_id})`);
       } else {
         setProject(result.project);
         setLocalPath(result.local_path || result.project.local_path || "");
-        setCloneMessage(`${result.action === "cloned" ? "Cloned" : "Updated"} → ${result.local_path}`);
+        setPullMessage(`Updated ${result.local_path}`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Clone failed");
+      setError(err instanceof Error ? err.message : "Git pull failed");
     } finally {
       setBusy("");
     }
@@ -91,7 +91,7 @@ export default function ProjectSettingsPage() {
         <div>
           <h1>Project settings</h1>
           <p className="muted">
-            <Link to={`/projects/${slug}`}>{project.name}</Link> · paths and production URL for webhooks/readiness
+            <Link to={`/projects/${slug}`}>{project.name}</Link> · point setup at your real app folder
           </p>
         </div>
       </div>
@@ -111,26 +111,25 @@ export default function ProjectSettingsPage() {
           </label>
           <label>
             Local path
-            <input value={localPath} onChange={(e) => setLocalPath(e.target.value)} placeholder="C:\path\to\repo" />
+            <input value={localPath} onChange={(e) => setLocalPath(e.target.value)} placeholder="C:\Software Projects\YourApp" required />
           </label>
+          <p className="muted" style={{ marginTop: "-0.5rem" }}>
+            Your app&apos;s folder on disk. Stripe setup writes files here — never inside Deployment-Stripe-center.
+          </p>
           <label>
             Git URL
             <input value={gitUrl} onChange={(e) => setGitUrl(e.target.value)} placeholder="https://github.com/…" />
           </label>
-          {gitUrl && (
+          {gitUrl && localPath.trim() && (
             <div className="option-row compact">
-              <button type="button" className="btn btn-secondary" onClick={() => runClone(false)} disabled={busy === "clone"}>
-                {busy === "clone" ? "Cloning…" : "Clone / pull repo"}
+              <button type="button" className="btn btn-secondary" onClick={() => runGitPull(false)} disabled={busy === "pull"}>
+                {busy === "pull" ? "Pulling…" : "Git pull in local folder"}
               </button>
-              <button type="button" className="btn btn-ghost" onClick={() => runClone(true)} disabled={busy === "clone"}>
-                Clone async
-              </button>
-              {cloneMessage && <span className="text-success">{cloneMessage}</span>}
+              {pullMessage && <span className="text-success">{pullMessage}</span>}
             </div>
           )}
           <p className="muted vault-hint">
-            Private repos: store <code>GITHUB_TOKEN</code> or <code>GIT_TOKEN</code> in vault. Docker prod: mount
-            SSH key via <code>GIT_SSH_KEY_PATH</code> (see docs/PRODUCTION.md).
+            Private repos: store <code>GITHUB_TOKEN</code> or <code>GIT_TOKEN</code> in vault.
           </p>
           <label>
             Organization (agency)
@@ -153,7 +152,7 @@ export default function ProjectSettingsPage() {
             />
             <span className="field-hint">Used for Stripe webhooks, readiness checks, and deploy prep.</span>
           </label>
-          <button type="submit" className="btn btn-primary" disabled={!!busy}>
+          <button type="submit" className="btn btn-primary" disabled={busy === "save"}>
             {busy === "save" ? "Saving…" : "Save settings"}
           </button>
         </form>

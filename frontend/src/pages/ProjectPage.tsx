@@ -81,7 +81,7 @@ export default function ProjectPage() {
   const scanPathLooksWrong =
     !!portfolioDemo &&
     !!scanPath &&
-    scanPath.replace(/\\/g, "/").toLowerCase().includes("deployment-stripe-center/clones");
+    scanPath.replace(/\\/g, "/").toLowerCase().includes("deployment-stripe-center");
 
   async function load() {
     try {
@@ -546,8 +546,8 @@ export default function ProjectPage() {
           <h2>Scanner</h2>
           {scanPathLooksWrong && portfolioDemo && (
             <div className="alert alert-error">
-              Wrong scan path — this points at an Automation Center git clone, not{" "}
-              <strong>{portfolioDemo.name}</strong>. Reload the page to auto-fix, or set:{" "}
+              Wrong scan path — setup must run in your real app folder, not inside{" "}
+              <strong>Deployment-Stripe-center</strong>. Reload the page to auto-fix, or set:{" "}
               <code>{portfolioDemo.localPath}</code>
             </div>
           )}

@@ -35,12 +35,9 @@ class RepairResult:
 
 
 def _project_root(project: Project) -> Path:
-    if not project.local_path:
-        raise ValueError("Project local_path is required")
-    root = Path(project.local_path).resolve()
-    if not root.is_dir():
-        raise FileNotFoundError(f"Project path not found: {root}")
-    return root
+    from apps.stripe_core.portfolio_workspace import require_project_folder
+
+    return require_project_folder(project)
 
 
 def _fix_gitignore(project_root: Path) -> RepairResult:

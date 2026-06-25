@@ -3,13 +3,13 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.projects.git_clone import clone_project_repo
+from apps.projects.git_clone import pull_project_repo
 from apps.projects.github_pr import create_setup_pull_request
 from apps.core.access import ROLE_RANK, org_membership, projects_for_user
 from apps.stripe_core.portfolio_catalog import DASHBOARD_HIDDEN_PROJECT_SLUGS
 from apps.organizations.models import Organization
 from apps.projects.api_keys import ProjectApiKey
-from apps.projects.tasks import clone_repo_task
+from apps.projects.tasks import pull_repo_task
 from .scanner import ProjectScanner
 from .serializers import ProjectScanSerializer, ProjectSerializer, ProjectUpdateSerializer
 
@@ -29,7 +29,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         from apps.core.access import get_project_for_user
         from apps.stripe_core.portfolio_catalog import canonical_project_slug, is_merged_legacy_slug
         from apps.stripe_core.portfolio_workspace import (
-            repair_portfolio_local_path,
+            reconcile_hub_workspace,
             sync_portfolio_scan_metadata,
         )
 
@@ -48,7 +48,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
 
         project = get_project_for_user(request.user, slug)
-        repair_portfolio_local_path(project)
+        reconcile_hub_workspace(project)
         sync_portfolio_scan_metadata(project)
         serializer = self.get_serializer(project)
         return Response(serializer.data)
@@ -65,7 +65,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def scan(self, request, slug=None):
         from apps.core.access import get_project_for_user
         from apps.stripe_core.portfolio_workspace import (
-            repair_portfolio_local_path,
+            reconcile_hub_workspace,
             should_repair_local_path,
         )
 
@@ -75,9 +75,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         scan_path = body.validated_data.get("local_path") or project.local_path
         if scan_path and should_repair_local_path(project, scan_path):
-            scan_path, _ = repair_portfolio_local_path(project)
+            scan_path, _ = reconcile_hub_workspace(project)
         elif not scan_path:
-            scan_path, _ = repair_portfolio_local_path(project)
+            scan_path, _ = reconcile_hub_workspace(project)
+
+        from apps.stripe_core.portfolio_workspace import workspace_path_error
+
+        path_err = workspace_path_error(project, scan_path)
+        if path_err:
+            return Response({"error": path_err}, status=status.HTTP_400_BAD_REQUEST)
 
         if not scan_path:
             return Response(
@@ -140,35 +146,41 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         return Response(ProjectSerializer(project).data)
 
-    @action(detail=True, methods=["post"])
-    def clone(self, request, slug=None):
+    @action(detail=True, methods=["post"], url_path="git-pull")
+    def git_pull(self, request, slug=None):
         project = self.get_object()
         if not project.git_url:
             return Response(
                 {"error": "Set git_url on the project first (Settings)."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        branch = request.data.get("branch") or None
-        force = bool(request.data.get("force", False))
         async_mode = bool(request.data.get("async", False))
 
         if async_mode:
-            task = clone_repo_task.delay(str(project.id), branch=branch, force=force)
-            scan = dict(project.scan_data or {})
-            scan["cloneStatus"] = "queued"
-            scan["cloneTaskId"] = task.id
-            project.scan_data = scan
-            project.save(update_fields=["scan_data", "updated_at"])
+            task = pull_repo_task.delay(str(project.id))
             return Response(
                 {"status": "queued", "task_id": task.id, "project": ProjectSerializer(project).data},
                 status=status.HTTP_202_ACCEPTED,
             )
 
         try:
-            result = clone_project_repo(project, branch=branch, force=force)
-        except (RuntimeError, ValueError) as exc:
+            result = pull_project_repo(project)
+        except (RuntimeError, ValueError, FileNotFoundError) as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({**result, "project": ProjectSerializer(project).data}, status=status.HTTP_201_CREATED)
+        return Response({**result, "project": ProjectSerializer(project).data})
+
+    @action(detail=True, methods=["post"], url_path="clone")
+    def clone(self, request, slug=None):
+        """Deprecated — use git-pull. Never clones into this hub repo."""
+        return Response(
+            {
+                "error": (
+                    "Clone into this hub was removed. Set local_path to your real app folder "
+                    "and use POST .../git-pull/ to run git pull there."
+                )
+            },
+            status=status.HTTP_410_GONE,
+        )
 
     @action(detail=True, methods=["post"], url_path="open-pr")
     def open_pr(self, request, slug=None):
@@ -267,15 +279,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         log_audit(project, "api_key.revoked", actor=request.user, detail={"prefix": key.key_prefix})
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=["get"], url_path="clone-status")
-    def clone_status(self, request, slug=None):
-        project = self.get_object()
-        scan = project.scan_data or {}
-        return Response(
-            {
-                "status": scan.get("cloneStatus", "idle"),
-                "error": scan.get("cloneError", ""),
-                "local_path": project.local_path,
-                "task_id": scan.get("cloneTaskId"),
-            }
-        )
+    @action(detail=True, methods=["get"], url_path="git-pull-status")
+    def git_pull_status(self, request, slug=None):
+        return Response({"status": "idle", "local_path": self.get_object().local_path})

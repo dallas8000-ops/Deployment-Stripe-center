@@ -1,10 +1,9 @@
-"""Clone or update a project git repository with private-repo credential support."""
+"""Git pull in the project's real folder — never clone into the Automation Center repo."""
 
 from __future__ import annotations
 
 import os
 import re
-import shutil
 import subprocess
 import urllib.parse
 from pathlib import Path
@@ -12,16 +11,11 @@ from pathlib import Path
 from django.conf import settings
 
 from apps.projects.models import Project
+from apps.stripe_core.portfolio_workspace import require_project_folder, workspace_path_error
 from apps.vault.models import get_secret
 
 _GIT_URL = re.compile(r"^(https?://|git@|ssh://)", re.I)
 _GITHUB_HTTPS = re.compile(r"^https://(?:[^@]+@)?github\.com/([^/]+)/([^/.]+)", re.I)
-
-
-def _clone_root() -> Path:
-    root = Path(getattr(settings, "PROJECT_CLONE_ROOT", settings.BASE_DIR / "clones"))
-    root.mkdir(parents=True, exist_ok=True)
-    return root
 
 
 def validate_git_url(url: str) -> str:
@@ -83,71 +77,37 @@ def _git_subprocess_env(project: Project) -> dict[str, str]:
     return env
 
 
-def _set_clone_status(project: Project, status: str, *, error: str = "", extra: dict | None = None) -> None:
-    scan = dict(project.scan_data or {})
-    scan["cloneStatus"] = status
-    scan["cloneError"] = error
-    if extra:
-        scan.update(extra)
-    project.scan_data = scan
-    project.save(update_fields=["scan_data", "updated_at"])
+def pull_project_repo(project: Project) -> dict:
+    """git pull --ff-only in the project's local_path. Does not clone new repos."""
+    validate_git_url(project.git_url)
+    err = workspace_path_error(project)
+    if err:
+        raise ValueError(err)
+    dest = require_project_folder(project)
+    if not (dest / ".git").is_dir():
+        raise ValueError(
+            f"{dest} is not a git repository. Clone your app there manually, then set local_path in Settings."
+        )
 
-
-def clone_project_repo(
-    project: Project,
-    *,
-    branch: str | None = None,
-    force: bool = False,
-) -> dict:
-    git_url = validate_git_url(project.git_url)
-    auth_url = _authenticated_url(git_url, project)
-    dest = _clone_root() / project.slug
     env = _git_subprocess_env(project)
+    pull = subprocess.run(
+        ["git", "-C", str(dest), "pull", "--ff-only"],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=env,
+    )
+    if pull.returncode != 0:
+        hint = ""
+        if "Authentication failed" in (pull.stderr or "") or "403" in (pull.stderr or ""):
+            hint = " — store GITHUB_TOKEN or GIT_TOKEN in vault"
+        raise RuntimeError((pull.stderr.strip() or pull.stdout.strip() or "git pull failed") + hint)
 
-    _set_clone_status(project, "running")
-
-    if dest.exists() and force:
-        shutil.rmtree(dest)
-
-    try:
-        if dest.exists() and (dest / ".git").is_dir():
-            pull = subprocess.run(
-                ["git", "-C", str(dest), "pull", "--ff-only"],
-                capture_output=True,
-                text=True,
-                timeout=300,
-                env=env,
-            )
-            if pull.returncode != 0:
-                raise RuntimeError(pull.stderr.strip() or pull.stdout.strip() or "git pull failed")
-            action = "updated"
-        else:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            cmd = ["git", "clone", "--depth", "1", auth_url, str(dest)]
-            if branch:
-                cmd = ["git", "clone", "--depth", "1", "-b", branch, auth_url, str(dest)]
-            clone = subprocess.run(cmd, capture_output=True, text=True, timeout=600, env=env)
-            if clone.returncode != 0:
-                if dest.exists():
-                    shutil.rmtree(dest, ignore_errors=True)
-                hint = ""
-                if "Authentication failed" in (clone.stderr or "") or "403" in (clone.stderr or ""):
-                    hint = " — store GITHUB_TOKEN or GIT_TOKEN in vault, or mount GIT_SSH_KEY_PATH / GIT_CREDENTIALS_PATH"
-                raise RuntimeError(
-                    (clone.stderr.strip() or clone.stdout.strip() or "git clone failed") + hint
-                )
-            action = "cloned"
-
-        project.local_path = str(dest.resolve())
-        project.save(update_fields=["local_path", "updated_at"])
-        _set_clone_status(project, "completed", extra={"cloneAction": action})
-        return {
-            "action": action,
-            "local_path": project.local_path,
-            "git_url": git_url,
-            "branch": branch,
-            "authenticated": auth_url != git_url or bool(env.get("GIT_SSH_COMMAND")),
-        }
-    except Exception as exc:
-        _set_clone_status(project, "failed", error=str(exc))
-        raise
+    project.local_path = str(dest)
+    project.save(update_fields=["local_path", "updated_at"])
+    return {
+        "action": "updated",
+        "local_path": project.local_path,
+        "git_url": project.git_url,
+        "authenticated": bool(env.get("GIT_SSH_COMMAND")),
+    }

@@ -58,7 +58,7 @@ export default function DeployConfigPanel({ projectSlug, hasLocalPath, onSaved, 
     return (
       <section className="card">
         <h2>Deploy config</h2>
-        <p className="muted">Set a local path or clone from Git to edit deploy.config.json.</p>
+        <p className="muted">Set your real app local path to edit deploy.config.json.</p>
       </section>
     );
   }

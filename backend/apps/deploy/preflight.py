@@ -49,7 +49,7 @@ def run_deploy_preflight(
 
     from apps.stripe_core.portfolio_workspace import ensure_project_workspace
 
-    ensure_project_workspace(project, clone_if_missing=False)
+    ensure_project_workspace(project)
     project.refresh_from_db(fields=["local_path"])
 
     health = vault_health(project)

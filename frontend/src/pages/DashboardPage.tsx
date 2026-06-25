@@ -13,7 +13,6 @@ export default function DashboardPage() {
   const [name, setName] = useState("");
   const [localPath, setLocalPath] = useState("");
   const [gitUrl, setGitUrl] = useState("");
-  const [cloneOnCreate, setCloneOnCreate] = useState(true);
   const [creating, setCreating] = useState(false);
   const [wizardDismissed, setWizardDismissed] = useState(
     () => localStorage.getItem("wizard-dismissed") === "true"
@@ -66,17 +65,18 @@ export default function DashboardPage() {
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
+    if (!localPath.trim()) {
+      setError("Set the local path to your real app folder before creating a project.");
+      return;
+    }
     setCreating(true);
     setError("");
     try {
-      const project = await projectsApi.create({
+      await projectsApi.create({
         name,
-        local_path: localPath || undefined,
+        local_path: localPath.trim(),
         git_url: gitUrl || undefined,
       });
-      if (gitUrl && cloneOnCreate) {
-        await projectsApi.clone(project.slug);
-      }
       setName("");
       setLocalPath("");
       setGitUrl("");
@@ -101,31 +101,23 @@ export default function DashboardPage() {
         <WelcomeWizard onComplete={handleWizardComplete} />
       )}
       <div className="page">
-        <div className="page-header">
-          <div>
-            <h1>Projects</h1>
-            <p className="muted">Seven Stripe billing workspaces — portfolio demos (Kistie Store, Blog API) are managed separately.</p>
-          </div>
+      <div className="page-header">
+        <div>
+          <h1>Projects</h1>
+          <p className="muted">
+            Stripe setup runs in each app&apos;s own folder — open that folder in your editor to write code.
+          </p>
         </div>
+        {!loading && stats.total > 0 && (
+          <div className="stats-row">
+            <span>{stats.total} projects</span>
+            {stats.avg !== null && <span>Avg readiness {stats.avg}</span>}
+            {stats.running > 0 && <span>{stats.running} running</span>}
+          </div>
+        )}
+      </div>
 
       {error && <div className="alert alert-error">{error}</div>}
-
-      <section className="stats-row">
-        <div className="stat-card">
-          <span className="muted">Projects</span>
-          <strong>{stats.total}</strong>
-        </div>
-        <div className="stat-card">
-          <span className="muted">Avg readiness</span>
-          <div className="stat-with-ring">
-            <ScoreRing score={stats.avg} size={52} />
-          </div>
-        </div>
-        <div className="stat-card">
-          <span className="muted">Running pipelines</span>
-          <strong>{stats.running}</strong>
-        </div>
-      </section>
 
       <section className="card">
         <h2>Portfolio demos (Railway storefronts)</h2>
@@ -186,31 +178,25 @@ export default function DashboardPage() {
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </label>
           <label>
-            Local path (optional if using Git)
+            Local path
             <input
               value={localPath}
               onChange={(e) => setLocalPath(e.target.value)}
-              placeholder="C:\path\to\repo"
+              placeholder="C:\Software Projects\YourApp"
+              required
             />
           </label>
+          <p className="muted" style={{ marginTop: "-0.5rem" }}>
+            Your app&apos;s real folder on disk. Setup and Stripe files are written here — not inside this hub repo.
+          </p>
           <label>
-            Git URL
+            Git URL (optional)
             <input
               value={gitUrl}
               onChange={(e) => setGitUrl(e.target.value)}
               placeholder="https://github.com/org/repo"
             />
           </label>
-          {gitUrl && (
-            <label className="toggle-inline">
-              <input
-                type="checkbox"
-                checked={cloneOnCreate}
-                onChange={(e) => setCloneOnCreate(e.target.checked)}
-              />
-              Clone repo on create
-            </label>
-          )}
           <button type="submit" className="btn btn-primary" disabled={creating}>
             {creating ? "Creating…" : "Create project"}
           </button>
@@ -224,7 +210,7 @@ export default function DashboardPage() {
         ) : visibleProjects.length === 0 ? (
           <div className="empty-state">
             <p className="empty-state-title">No projects yet</p>
-            <p className="muted">Create a project above, set a local path, then unlock the vault and run the pipeline.</p>
+            <p className="muted">Create a project above with your real local path, then unlock the vault and run the pipeline.</p>
           </div>
         ) : (
           <ul className="project-grid">

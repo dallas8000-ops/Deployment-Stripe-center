@@ -1,10 +1,9 @@
-"""Repair project workspace: clone path, git checkout, vault keys from Automation Center hub."""
+"""Repair project workspace: real repo paths and vault keys from Automation Center hub."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
@@ -21,18 +20,33 @@ VAULT_KEYS_FROM_HUB = STRIPE_KEYS + HUB_SHARED_DEPLOY_KEYS
 
 
 class Command(BaseCommand):
-    help = "Fix local_path, clone repo, and copy Stripe vault keys from the Automation Center hub project"
+    help = "Fix local_path to real repo folders and copy vault keys from hub"
 
     def add_arguments(self, parser):
         parser.add_argument("--project", action="append", dest="projects", help="Project slug (repeatable)")
+        parser.add_argument("--all", action="store_true", help="Repair every non-hub project for the user")
+        parser.add_argument(
+            "--all-projects",
+            action="store_true",
+            help="Repair every non-hub project in the database (all owners)",
+        )
         parser.add_argument("--user", default="", help="Owner email (default: first user)")
-        parser.add_argument("--skip-clone", action="store_true", help="Only fix paths and vault")
-        parser.add_argument("--skip-vault", action="store_true", help="Only fix paths and clone")
+        parser.add_argument("--skip-vault", action="store_true", help="Only fix paths")
+        parser.add_argument(
+            "--remove-stale-workspaces",
+            action="store_true",
+            help="Delete legacy backend/clones and backend/clone* folders inside this hub",
+        )
 
     def handle(self, *args, **options):
         from apps.diagnostics.diagnostics import run_diagnostics
-        from apps.projects.git_clone import clone_project_repo
         from apps.projects.models import Project
+        from apps.stripe_core.portfolio_workspace import (
+            is_invalid_portfolio_path,
+            reconcile_hub_workspace,
+            remove_stale_hub_workspaces,
+            resolve_workspace_path,
+        )
         from apps.vault.models import clear_project_vault, get_secret, set_secret, vault_health
 
         User = get_user_model()
@@ -42,49 +56,58 @@ class Command(BaseCommand):
             raise CommandError("No users found")
 
         slugs = options.get("projects") or []
-        if not slugs:
-            raise CommandError("Pass --project <slug> (e.g. --project elite-fintech-systems --project righand)")
+        if options.get("all_projects"):
+            slugs = list(Project.objects.exclude(slug=HUB_SLUG).values_list("slug", flat=True))
+        elif options.get("all"):
+            slugs = list(
+                Project.objects.filter(owner=owner)
+                .exclude(slug=HUB_SLUG)
+                .values_list("slug", flat=True)
+            )
+        if not slugs and not options.get("remove_stale_workspaces"):
+            raise CommandError("Pass --project <slug>, --all, or --remove-stale-workspaces")
 
         hub = Project.objects.filter(owner=owner, slug=HUB_SLUG).first()
-        if not hub and not options.get("skip_vault"):
+        if not hub and not options.get("skip_vault") and slugs:
             raise CommandError(f"Hub project {HUB_SLUG} not found for this user")
 
-        from apps.stripe_core.portfolio_workspace import resolve_workspace_path
-
-        clone_root = Path(getattr(settings, "PROJECT_CLONE_ROOT", settings.BASE_DIR / "clones"))
+        repaired = 0
 
         for slug in slugs:
             try:
                 project = Project.objects.get(owner=owner, slug=slug)
-            except Project.DoesNotExist as exc:
+            except Project.DoesNotExist:
                 self.stdout.write(self.style.ERROR(f"Unknown project: {slug}"))
                 continue
 
-            # Prefer the real portfolio repo folder; only fall back to hub clones when no catalog path exists.
-            target_path = resolve_workspace_path(project) or str((clone_root / slug).resolve())
-            if project.local_path != target_path:
-                project.local_path = target_path
-                project.save(update_fields=["local_path", "updated_at"])
-                self.stdout.write(self.style.SUCCESS(f"{slug}: local_path -> {target_path}"))
-            else:
-                self.stdout.write(f"{slug}: local_path already {target_path}")
+            before = (project.local_path or "").strip()
+            path, changed = reconcile_hub_workspace(project)
+            target_path = resolve_workspace_path(project) or path
 
-            if not options.get("skip_clone"):
-                if not project.git_url:
-                    self.stdout.write(self.style.WARNING(f"{slug}: no git_url — set in project settings"))
-                else:
-                    try:
-                        out = clone_project_repo(project, force=False)
-                        self.stdout.write(self.style.SUCCESS(f"{slug}: git {out['action']} -> {out['local_path']}"))
-                    except Exception as exc:
-                        self.stdout.write(self.style.ERROR(f"{slug}: clone failed — {exc}"))
+            if changed or (before and is_invalid_portfolio_path(project, before)):
+                repaired += 1
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"{slug}: local_path -> {path!r}"
+                        + ("" if path else " (cleared — set your real app folder in Settings)")
+                    )
+                )
+            elif target_path:
+                self.stdout.write(f"{slug}: local_path already {path or target_path}")
+            else:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"{slug}: set local_path in Settings to your real app folder "
+                        f"(e.g. C:\\Software Projects\\YourApp)"
+                    )
+                )
 
             if not options.get("skip_vault") and hub:
                 health = vault_health(project)
                 if health["unreadableCount"]:
                     count = clear_project_vault(project)
                     self.stdout.write(
-                        self.style.WARNING(f"{slug}: cleared {count} unreadable vault secret(s) (DB + local backup)")
+                        self.style.WARNING(f"{slug}: cleared {count} unreadable vault secret(s)")
                     )
 
                 copied: list[str] = []
@@ -97,22 +120,30 @@ class Command(BaseCommand):
                         copied.append(key)
 
                 if copied:
-                    self.stdout.write(self.style.SUCCESS(f"{slug}: copied vault keys from hub — {', '.join(copied)}"))
+                    self.stdout.write(self.style.SUCCESS(f"{slug}: copied vault keys — {', '.join(copied)}"))
                 elif not get_secret(project, "STRIPE_SECRET_KEY"):
-                    self.stdout.write(
-                        self.style.WARNING(
-                            f"{slug}: STRIPE_SECRET_KEY still missing — add keys in Vault UI on "
-                            f"{HUB_SLUG} or {slug}"
-                        )
-                    )
+                    self.stdout.write(self.style.WARNING(f"{slug}: STRIPE_SECRET_KEY still missing in vault"))
 
-            root = Path(project.local_path)
+            root = Path(project.local_path or path or target_path)
             if root.is_dir():
                 report = run_diagnostics(project, root.resolve())
                 self.stdout.write(
                     f"{slug}: diagnose health {report.health_score}/100 — {report.summary}"
                 )
             else:
-                self.stdout.write(self.style.WARNING(f"{slug}: clone directory missing — run clone again"))
+                self.stdout.write(
+                    self.style.WARNING(f"{slug}: open {target_path} in your editor and ensure the repo exists there")
+                )
 
-        self.stdout.write("\nNext: open each project in the app -> Verify keys -> Run full setup")
+        if options.get("remove_stale_workspaces") or repaired:
+            removed = remove_stale_hub_workspaces()
+            if removed:
+                self.stdout.write(self.style.SUCCESS(f"Removed stale hub workspace(s): {', '.join(removed)}"))
+            else:
+                self.stdout.write("No stale hub workspace folders found")
+
+        if repaired:
+            self.stdout.write(
+                self.style.SUCCESS(f"\nRepaired {repaired} project(s) that pointed inside this hub repo")
+            )
+        self.stdout.write("\nWork in your app's real folder — this hub only runs setup against that path.")

@@ -1,9 +1,12 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
+# Service Root Directory in Railway UI must be empty (repo root).
+# If set to backend/, the build cannot COPY frontend/ or scripts/docker-entrypoint.sh.
 
 # Default service: web (Daphne). Add worker + beat services in Railway — see deploy/RAILWAY-SERVICES.md.
 # Each service uses the same image; set PROCESS_TYPE per service (web | worker | beat).
+# Do not set a custom Start Command in Railway — ENTRYPOINT runs collectstatic, migrate, then Daphne.
 
 [deploy]
 healthcheckPath = "/health/"

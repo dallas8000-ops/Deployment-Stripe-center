@@ -32,10 +32,8 @@ class Command(BaseCommand):
         deploy.add_argument("--push", action="store_true")
         deploy.add_argument("--force", action="store_true")
 
-        clone = subs.add_parser("clone", help="Clone git_url into workspace")
+        clone = subs.add_parser("git-pull", help="git pull in the project's local_path")
         clone.add_argument("slug")
-        clone.add_argument("--branch", default="")
-        clone.add_argument("--force", action="store_true")
 
         pr = subs.add_parser("open-pr", help="Open GitHub PR with generated changes")
         pr.add_argument("slug")
@@ -83,8 +81,8 @@ class Command(BaseCommand):
             self._run(project, options)
         elif cmd == "deploy":
             self._deploy(project, options)
-        elif cmd == "clone":
-            self._clone(project, options)
+        elif cmd == "git-pull":
+            self._git_pull(project)
         elif cmd == "open-pr":
             self._open_pr(project)
         elif cmd == "vault-import":
@@ -175,14 +173,10 @@ class Command(BaseCommand):
         for step in result.next_steps:
             self.stdout.write(f"→ {step}")
 
-    def _clone(self, project: Project, options: dict) -> None:
-        from apps.projects.git_clone import clone_project_repo
+    def _git_pull(self, project: Project) -> None:
+        from apps.projects.git_clone import pull_project_repo
 
-        out = clone_project_repo(
-            project,
-            branch=options.get("branch") or None,
-            force=options["force"],
-        )
+        out = pull_project_repo(project)
         self.stdout.write(self.style.SUCCESS(f"{out['action']} → {out['local_path']}"))
 
     def _open_pr(self, project: Project) -> None:

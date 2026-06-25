@@ -166,7 +166,6 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
 
-PROJECT_CLONE_ROOT = os.environ.get("PROJECT_CLONE_ROOT", str(BASE_DIR / "clones"))
 GIT_SSH_KEY_PATH = os.environ.get("GIT_SSH_KEY_PATH", "")
 GIT_CREDENTIALS_PATH = os.environ.get("GIT_CREDENTIALS_PATH", "")
 

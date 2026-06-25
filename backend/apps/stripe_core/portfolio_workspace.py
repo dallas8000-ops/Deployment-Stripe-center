@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from django.conf import settings
 
 from apps.projects.models import Project
-from apps.stripe_core.portfolio_catalog import HUB_SLUG, catalog_by_slug, catalog_live_urls, is_stripe_exempt_slug
+from apps.stripe_core.portfolio_catalog import HUB_SLUG, catalog_by_slug, catalog_live_urls
 
 
 # Windows dev paths — match portfolio repo locations on Ray's machine.
@@ -22,7 +23,10 @@ DEFAULT_LOCAL_PATHS: dict[str, str] = {
     "dbops-control-center": r"C:\Software Projects\DBOps-Control-Center",
     "elite-fintech-systems": r"C:\Software Projects\Elite Fintech Systems",
     "specwright": r"C:\Software Projects\Specwright",
+    "eastbridge-ops": r"C:\Software Projects\EastBridge Ops Intelligence",
 }
+
+HUB_REPO_ROOT = Path(settings.REPO_ROOT).resolve()
 
 
 def resolve_scan_root(local_path: str | Path) -> Path:
@@ -53,82 +57,110 @@ def catalog_local_path(slug: str) -> str | None:
     return DEFAULT_LOCAL_PATHS.get(slug)
 
 
-def hub_clone_path(slug: str) -> str:
-    root = Path(getattr(settings, "PROJECT_CLONE_ROOT", settings.BASE_DIR / "clones"))
-    return str((root / slug).resolve())
+def is_inside_hub_repo(path: str, project: Project | None = None) -> bool:
+    """True when path is inside the Automation Center repo (never valid for portfolio apps)."""
+    if project and project.slug == HUB_SLUG:
+        return False
+    if not path:
+        return False
+    try:
+        resolved = Path(path).resolve()
+        resolved.relative_to(HUB_REPO_ROOT)
+        return True
+    except (ValueError, OSError):
+        return False
 
 
-def is_automation_center_clone_path(path: str) -> bool:
-    """True when local_path points at backend/clones/* inside Deployment-Stripe-center."""
-    return is_legacy_hub_clone_path(path) and "deployment-stripe-center" in path.replace("/", "\\").lower()
+def is_invalid_portfolio_path(project: Project, path: str) -> bool:
+    """Portfolio projects must use their own repo folder — never a path inside this hub."""
+    if project.slug == HUB_SLUG or not path:
+        return False
+    return is_inside_hub_repo(path, project)
+
+
+def is_automation_center_nested_path(path: str) -> bool:
+    """UI helper — path points inside Deployment-Stripe-center (not the user's app repo)."""
+    return is_inside_hub_repo(path)
 
 
 def is_legacy_hub_clone_path(path: str) -> bool:
-    """Stale backend/clones paths from Automation Center or legacy Stripe Installer."""
+    """Stale backend/clones paths from older Automation Center builds."""
     if not path:
         return False
     normalized = path.replace("/", "\\").lower()
-    if "\\clones\\" not in normalized:
-        return False
-    return "deployment-stripe-center" in normalized or "stripe installer" in normalized
-
-
-def is_wrong_hub_root_path(project: Project, path: str) -> bool:
-    """Portfolio project mistakenly pointed at the Automation Center repo root."""
-    if project.slug == HUB_SLUG or not path:
-        return False
-    normalized = path.replace("/", "\\").lower()
-    return normalized.endswith("\\deployment-stripe-center") or normalized.endswith(
-        "\\deployment-stripe-center\\"
+    return "\\clones\\" in normalized or (
+        "\\clone" in normalized and "deployment-stripe-center" in normalized
     )
 
 
+def _valid_local_path(project: Project) -> str:
+    current = (project.local_path or "").strip()
+    if current and not is_invalid_portfolio_path(project, current):
+        return current
+    return ""
+
+
 def resolve_workspace_path(project: Project) -> str | None:
-    """Best local folder: real repo path, existing hub clone, or hub clone target for git."""
+    """Real repo folder from catalog or Settings — never inside this hub."""
     if project.slug == HUB_SLUG:
-        return (project.local_path or "").strip() or None
+        return (project.local_path or "").strip() or str(HUB_REPO_ROOT)
 
     canonical = catalog_local_path(project.slug)
+    explicit = _valid_local_path(project)
+
     if canonical and Path(canonical).is_dir():
         return str(Path(canonical).resolve())
+    if explicit and Path(explicit).is_dir():
+        return str(Path(explicit).resolve())
+    if canonical and not is_inside_hub_repo(canonical):
+        return canonical
+    if explicit:
+        return explicit
+    return None
 
-    hub = hub_clone_path(project.slug)
-    if Path(hub).is_dir():
-        return hub
-    if project.git_url:
-        return hub
-    return canonical
+
+def workspace_path_error(project: Project, path: str | None = None) -> str | None:
+    target = (path or project.local_path or "").strip()
+    if not target:
+        return "Set local_path to your real project folder (e.g. C:\\Software Projects\\YourApp)."
+    if is_invalid_portfolio_path(project, target):
+        return (
+            "local_path cannot be inside the Automation Center repository. "
+            "Use your app's own folder on disk."
+        )
+    return None
 
 
 def should_repair_local_path(project: Project, path: str | None = None) -> bool:
     current = (path if path is not None else project.local_path or "").strip()
+    if current and is_invalid_portfolio_path(project, current):
+        return True
     target = resolve_workspace_path(project)
     if not target:
         return False
     if not current:
         return True
-    if is_legacy_hub_clone_path(current):
-        return current != target
-    if is_wrong_hub_root_path(project, current):
-        return True
     if current != target and Path(target).is_dir() and not Path(current).is_dir():
         return True
     canonical = catalog_local_path(project.slug)
     if canonical and current != canonical and Path(canonical).is_dir():
-        if is_legacy_hub_clone_path(current) or not Path(current).is_dir():
+        if is_invalid_portfolio_path(project, current) or not Path(current).is_dir():
             return True
     return False
 
 
 def repair_portfolio_local_path(project: Project, *, save: bool = True) -> tuple[str, bool]:
-    """
-    Point portfolio projects at their real repo folder (not legacy hub clones).
-    Returns (local_path, changed).
-    """
+    """Point portfolio projects at their real repo folder. Returns (local_path, changed)."""
     if project.slug == HUB_SLUG:
         return project.local_path or "", False
 
     current = (project.local_path or "").strip()
+    if current and is_invalid_portfolio_path(project, current) and not resolve_workspace_path(project):
+        if save:
+            project.local_path = ""
+            project.save(update_fields=["local_path", "updated_at"])
+        return "", True
+
     target = resolve_workspace_path(project)
     if not target or not should_repair_local_path(project, current):
         return current, False
@@ -141,23 +173,54 @@ def repair_portfolio_local_path(project: Project, *, save: bool = True) -> tuple
     return target, current != target
 
 
-def ensure_project_workspace(project: Project, *, clone_if_missing: bool = True) -> tuple[str, bool]:
-    """Repair stale clone paths and clone from git when the workspace folder is missing."""
+def require_project_folder(project: Project) -> Path:
+    """Resolved, existing project root — raises if missing or inside the hub repo."""
+    repair_portfolio_local_path(project)
+    err = workspace_path_error(project)
+    if err:
+        raise ValueError(err)
+    root = Path(resolve_workspace_path(project) or project.local_path or "")
+    if not root.is_dir():
+        raise FileNotFoundError(
+            f"Project folder not found: {root}. Open that folder in your editor and clone the repo there manually."
+        )
+    return root.resolve()
+
+
+def ensure_project_workspace(project: Project) -> tuple[str, bool]:
+    """Repair invalid paths and verify the real project folder exists. Never clones or copies repos."""
     path, changed = repair_portfolio_local_path(project)
     if project.slug == HUB_SLUG:
-        return path, changed
-
-    root = Path(project.local_path or path or "")
-    if root.is_dir():
-        return str(root.resolve()), changed
-
-    if clone_if_missing and project.git_url:
-        from apps.projects.git_clone import clone_project_repo
-
-        clone_project_repo(project)
-        return project.local_path or "", True
-
+        return path or str(HUB_REPO_ROOT), changed
+    require_project_folder(project)
     return project.local_path or path or "", changed
+
+
+def reconcile_hub_workspace(project: Project) -> tuple[str, bool]:
+    """Repair local_path and delete stale hub clone dirs when a bad path is detected."""
+    before = (project.local_path or "").strip()
+    was_invalid = bool(before and is_invalid_portfolio_path(project, before))
+    path, changed = repair_portfolio_local_path(project)
+    if was_invalid:
+        remove_stale_hub_workspaces()
+    return path, changed
+
+
+def remove_stale_hub_workspaces() -> list[str]:
+    """Delete any legacy workspace folders created inside backend/ (clones, cloneN, etc.)."""
+    removed: list[str] = []
+    backend = Path(settings.BASE_DIR)
+    candidates: list[Path] = []
+    clones = backend / "clones"
+    if clones.exists():
+        candidates.append(clones)
+    for path in backend.glob("clone*"):
+        if path.is_dir() and path not in candidates:
+            candidates.append(path)
+    for path in candidates:
+        shutil.rmtree(path, ignore_errors=True)
+        removed.append(str(path))
+    return removed
 
 
 def sync_portfolio_scan_metadata(project: Project, *, save: bool = True) -> None:

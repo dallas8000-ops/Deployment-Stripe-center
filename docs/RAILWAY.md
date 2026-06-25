@@ -41,7 +41,7 @@ Project secrets (Railway API token, Stripe keys, etc.) are encrypted in Postgres
 **Auto-configured by Railway** (do not hardcode in repo):
 
 - `RAILWAY_PUBLIC_DOMAIN` — public hostname (e.g. `your-app.up.railway.app`)
-- `PORT` — injected; entrypoint binds Daphne to this port
+- `PORT` — injected; entrypoint runs collectstatic, migrate, then binds Daphne to this port
 
 **Auto-configured by Django when `RAILWAY_PUBLIC_DOMAIN` is set:**
 
@@ -80,6 +80,18 @@ curl https://<your-domain>/health/
 ```
 
 Expect `"status":"ok"` with database and vault checks passing.
+
+## Troubleshooting 502
+
+## Troubleshooting build failures
+
+Railway builds from **git** (`origin/main`), not your uncommitted local files. Push Dockerfile / `railway.toml` changes before redeploying.
+
+1. **Root Directory** — Railway → Service → Settings → must be **empty** (repo root). If set to `backend/`, the Dockerfile cannot find `frontend/` or `scripts/docker-entrypoint.sh` and the build fails.
+2. **Custom Start Command** — leave empty; `ENTRYPOINT` runs startup (see `railway.toml`).
+3. **`npm run build` / `tsc: not found`** — Railway sets `NODE_ENV=production` during builds, which skips frontend `devDependencies`. The Dockerfile sets `NODE_ENV=development` for the frontend stage so `typescript` and `vite` install.
+4. **Builder** — `railway.toml` uses `builder = "DOCKERFILE"`. Do not override the service to Nixpacks unless intentional.
+5. **Build logs** — Railway → Deployments → failed deploy → **Build** tab (not Deploy). Look for `npm ERR`, `tsc`, `COPY failed`, or `Dockerfile does not exist`.
 
 ## Troubleshooting 502
 

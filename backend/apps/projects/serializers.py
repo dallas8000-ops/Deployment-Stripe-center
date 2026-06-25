@@ -144,6 +144,13 @@ class ProjectUpdateSerializer(serializers.ModelSerializer):
         production_url = validated_data.pop("production_url", None)
         active_environment = validated_data.pop("active_environment", None)
         organization_slug = validated_data.pop("organization_slug", None)
+        local_path = validated_data.get("local_path")
+        if local_path is not None:
+            from apps.stripe_core.portfolio_workspace import workspace_path_error
+
+            err = workspace_path_error(instance, local_path.strip())
+            if err:
+                raise serializers.ValidationError({"local_path": err})
         instance = super().update(instance, validated_data)
         scan = dict(instance.scan_data or {})
         changed = False

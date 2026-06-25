@@ -140,6 +140,7 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
         "webhookPath": "/api/v1/billing/webhook/",
         "healthPath": "/health/",
         "projectSlug": "righand",
+        "defaultLocalPath": r"C:\Software Projects\RigHand",
     },
     {
         "id": "pc-checker-extreme",
@@ -148,6 +149,7 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
         "webhookPath": "/api/v1/billing/webhook/",
         "healthPath": "/health/",
         "projectSlug": "pc-checker-extreme",
+        "defaultLocalPath": r"C:\Software Projects\PC Checker Extreme",
     },
     {
         "id": "dbops",
@@ -176,6 +178,7 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
         "webhookPath": "/api/v1/billing/webhook/",
         "healthPath": "/health/",
         "projectSlug": "enpowercommand",
+        "defaultLocalPath": r"C:\Software Projects\EnPowerCommand",
     },
     {
         "id": "elite-fintech-web-legacy",

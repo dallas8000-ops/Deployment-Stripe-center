@@ -4,7 +4,13 @@ cd /app/backend
 
 PROCESS_TYPE="${PROCESS_TYPE:-web}"
 
+run_collectstatic() {
+  echo "Running collectstatic..."
+  python manage.py collectstatic --noinput
+}
+
 run_migrate() {
+  echo "Running migrations..."
   python manage.py migrate --noinput
 }
 
@@ -18,6 +24,7 @@ validate_license_if_needed() {
 case "$PROCESS_TYPE" in
   web)
     echo "Starting web (Daphne) — PORT=${PORT:-8080}"
+    run_collectstatic
     run_migrate
     validate_license_if_needed
     exec daphne -b 0.0.0.0 -p "${PORT:-8080}" config.asgi:application

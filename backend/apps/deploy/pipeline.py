@@ -72,7 +72,7 @@ def _project_root(project: Project) -> Path:
         sync_portfolio_scan_metadata,
     )
 
-    ensure_project_workspace(project, clone_if_missing=True)
+    ensure_project_workspace(project)
     sync_portfolio_scan_metadata(project)
     if not project.local_path:
         raise ValueError("Project local_path is required")

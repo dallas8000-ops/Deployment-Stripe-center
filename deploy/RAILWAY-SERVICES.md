@@ -13,7 +13,7 @@ Run **three services** from this repo (same Dockerfile). This removes the single
 
 | Service | `PROCESS_TYPE` | Replicas | Health check | Notes |
 |---------|----------------|----------|--------------|-------|
-| **web** | `web` | 2+ | `GET /health/` | Public domain + TLS here. Runs migrations on start. |
+| **web** | `web` | 2+ | `GET /health/` | Public domain + TLS here. Runs collectstatic + migrations on start. |
 | **worker** | `worker` | 2+ | none | `celery -A config worker` |
 | **beat** | `beat` | **1** | none | `celery -A config beat` — never scale above 1 |
 
