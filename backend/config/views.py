@@ -91,9 +91,12 @@ def health(_request):
     except Exception as exc:
         checks["license"] = str(exc)
 
+    from apps.core.api_revision import API_REVISION
+
     payload = {
         "status": "ok" if ok else "degraded",
         "version": getattr(settings, "APP_VERSION", "1.0.0"),
+        "apiRevision": API_REVISION,
         "checks": checks,
     }
     return JsonResponse(payload, status=200 if ok else 503)

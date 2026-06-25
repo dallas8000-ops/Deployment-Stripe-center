@@ -227,7 +227,19 @@ def sync_registry_for_user(user) -> dict[str, Any]:
     return sync_portfolio_registry(projects)
 
 
-def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
+HUB_PRODUCTION_HOST = "stripe-installer-production.up.railway.app"
+
+
+def _display_webhook_for_project(project: Project, expected: str, detail: str) -> str:
+    """Never show the hub billing webhook on portfolio child projects."""
+    if project.slug == HUB_SLUG:
+        return detail if str(detail).startswith("http") else expected
+    if expected and HUB_PRODUCTION_HOST not in expected:
+        return expected
+    resolved = resolve_expected_webhook_url(project)
+    if resolved and HUB_PRODUCTION_HOST not in resolved:
+        return resolved
+    return expected
     from apps.stripe_core.portfolio_workspace import (
         repair_portfolio_local_path,
         should_repair_local_path,
@@ -277,7 +289,10 @@ def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
             else "Run Scan Stripe account"
         )
     elif project_gaps:
-        webhook_detail = project_gaps[0].get("issue") or expected_webhook
+        webhook_detail = project_gaps[0].get("expectedUrl") or project_gaps[0].get("issue") or expected_webhook
+
+    webhook_detail = _display_webhook_for_project(project, expected_webhook, webhook_detail)
+    expected_webhook = _display_webhook_for_project(project, expected_webhook, expected_webhook)
 
     deploy_platform = str((project.scan_data or {}).get("deployPlatform") or "unknown")
     railway_scan = (project.scan_data or {}).get("railway") or {}

@@ -96,6 +96,21 @@ async function portInUse(port) {
 }
 
 async function backendIsCurrent() {
+  try {
+    const healthRes = await fetch("http://127.0.0.1:8000/health/");
+    if (!healthRes.ok) return false;
+    const health = await healthRes.json();
+    const { readFileSync } = await import("node:fs");
+    const revPath = path.join(root, "backend", "apps", "core", "api_revision.py");
+    const src = readFileSync(revPath, "utf8");
+    const match = src.match(/API_REVISION\s*=\s*["']([^"']+)["']/);
+    const expected = match?.[1];
+    if (expected && health.apiRevision !== expected) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
   const probes = [
     "http://127.0.0.1:8000/api/v1/agency/dashboard/",
     "http://127.0.0.1:8000/api/v1/projects/stripe-installer/setup-hub/",
@@ -118,7 +133,7 @@ if (busy) {
   const current = await backendIsCurrent();
   if (!current) {
     console.error(
-      "Port 8000 is running an OLD backend (missing new API routes).\n" +
+      "Port 8000 is running an OLD backend (missing new API routes or apiRevision).\n" +
         "Stop it, then start fresh:\n" +
         "  npm run dev:stop\n" +
         "  npm run dev\n"
