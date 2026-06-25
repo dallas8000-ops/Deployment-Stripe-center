@@ -10,7 +10,6 @@ from apps.projects.models import Project
 from apps.stripe_core.codegen import generate_all, write_codegen_files
 from apps.diagnostics.diagnostics import DiagnosticReport, run_diagnostics
 from apps.stripe_core.hub_keys import (
-    resolve_expected_webhook_url,
     resolve_production_app_url,
     resolve_stripe_billing_urls,
     resolve_webhook_path,
