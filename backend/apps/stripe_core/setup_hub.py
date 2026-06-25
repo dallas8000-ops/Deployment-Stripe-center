@@ -143,6 +143,49 @@ def reset_workspace(project: Project, *, clear_vault: bool = False) -> dict[str,
     }
 
 
+def _persist_portfolio_audit(project: Project, data: dict[str, Any]) -> None:
+    """Store portfolio audit on the hub; child projects only keep their own webhook gap."""
+    from apps.stripe_core.hub_keys import get_hub_project
+
+    hub = project if project.slug == HUB_SLUG else get_hub_project(project.owner)
+    all_gaps = data.get("registryGaps") or []
+    summary = data.get("summary")
+    scanned_at = data.get("scannedAt")
+
+    if hub:
+        hub_scan = dict(hub.scan_data or {})
+        hub_scan["lastPortfolioAuditAt"] = scanned_at
+        hub_scan["lastPortfolioAuditSummary"] = summary
+        hub_scan["lastPortfolioAuditRegistryGaps"] = all_gaps
+        hub.scan_data = hub_scan
+        hub.save(update_fields=["scan_data", "updated_at"])
+
+    if project.slug != HUB_SLUG:
+        app_entry = portfolio_app_for_project(project)
+        app_id = app_entry.id if app_entry else project.slug
+        own_gaps = [g for g in all_gaps if g.get("app") == app_id]
+        project_scan = dict(project.scan_data or {})
+        project_scan["lastPortfolioAuditAt"] = scanned_at
+        project_scan["lastPortfolioAuditSummary"] = summary
+        project_scan["lastPortfolioAuditRegistryGaps"] = own_gaps
+        project.scan_data = project_scan
+        project.save(update_fields=["scan_data", "updated_at"])
+
+
+def _portfolio_audit_from_hub(project: Project, *, user=None) -> tuple[dict | None, list[dict[str, str]]]:
+    """Portfolio-wide audit results always live on the hub project record."""
+    from apps.stripe_core.hub_keys import get_hub_project
+
+    hub = project if project.slug == HUB_SLUG else None
+    if not hub and user is not None:
+        hub = get_hub_project(user)
+    if not hub:
+        hub = get_hub_project(project.owner)
+    source = hub or project
+    scan = source.scan_data or {}
+    return scan.get("lastPortfolioAuditSummary"), list(scan.get("lastPortfolioAuditRegistryGaps") or [])
+
+
 def audit_stripe_account(project: Project) -> dict[str, Any]:
     secret = get_secret(project, "STRIPE_SECRET_KEY")
     publishable = get_secret(project, "STRIPE_PUBLISHABLE_KEY")
@@ -156,12 +199,7 @@ def audit_stripe_account(project: Project) -> dict[str, Any]:
         registry_apps=registry,
     )
     md_path, json_path = write_portfolio_report(data)
-    scan_data = dict(project.scan_data or {})
-    scan_data["lastPortfolioAuditAt"] = data.get("scannedAt")
-    scan_data["lastPortfolioAuditSummary"] = data.get("summary")
-    scan_data["lastPortfolioAuditRegistryGaps"] = data.get("registryGaps") or []
-    project.scan_data = scan_data
-    project.save(update_fields=["scan_data", "updated_at"])
+    _persist_portfolio_audit(project, data)
     return {
         **data,
         "reportMarkdownPath": str(md_path),
@@ -219,13 +257,8 @@ def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
     )
 
     scan_data = project.scan_data or {}
-    last_summary = scan_data.get("lastPortfolioAuditSummary")
-    registry_gaps = scan_data.get("lastPortfolioAuditRegistryGaps") or []
-    project_gaps = [
-        g
-        for g in registry_gaps
-        if g.get("app") == app_registry_id or g.get("expectedUrl") == expected_webhook
-    ]
+    last_summary, registry_gaps = _portfolio_audit_from_hub(project, user=user)
+    project_gaps = [g for g in registry_gaps if g.get("app") == app_registry_id]
 
     stripe_config_exists = False
     if project.local_path:
@@ -238,7 +271,11 @@ def setup_hub_status(project: Project, *, user=None) -> dict[str, Any]:
         webhook_ok = True
         webhook_detail = "Portfolio exempt — no Stripe subscription billing for this app"
     elif not last_summary:
-        webhook_detail = "Run Scan Stripe account on Automation Center hub"
+        webhook_detail = (
+            "Run Scan Stripe account on Automation Center hub"
+            if project.slug != HUB_SLUG
+            else "Run Scan Stripe account"
+        )
     elif project_gaps:
         webhook_detail = project_gaps[0].get("issue") or expected_webhook
 

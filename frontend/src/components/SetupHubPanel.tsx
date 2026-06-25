@@ -369,6 +369,12 @@ export default function SetupHubPanel({
                   <strong>3. Register webhooks</strong> to create endpoints for apps that are deployed.
                 </p>
               )}
+              {!status.isHubProject && (
+                <p className="muted">
+                  Portfolio-wide gaps are managed from the <strong>Automation Center hub</strong> project.
+                  Register webhooks here only affects this app when its endpoint is missing.
+                </p>
+              )}
               <ul>
                 {status.lastPortfolioAuditRegistryGaps.map((gap) => (
                   <li key={`${gap.app}-${gap.expectedUrl}`}>
