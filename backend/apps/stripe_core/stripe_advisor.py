@@ -10,7 +10,7 @@ from typing import Any
 
 from apps.deploy.postgres import get_production_url
 from apps.projects.models import Project
-from apps.stripe_core.pipeline import _webhook_path
+from apps.stripe_core.hub_keys import resolve_expected_webhook_url, resolve_production_app_url
 from apps.stripe_core.portfolio_audit import _probe_url
 from apps.diagnostics.webhook_health import webhook_health
 from apps.stripe_core.webhook_tester import run_webhook_test_suite
@@ -211,14 +211,15 @@ def run_stripe_advisor(project: Project, project_root: Path | None = None) -> di
     mode = verification.secret_key.mode if verification.secret_key.valid else "test"
     links = _dashboard_links(mode if mode in ("test", "live") else "test")
 
-    prod_url = ""
-    if project_root and project_root.is_dir():
+    prod_url = resolve_production_app_url(project)
+    if not prod_url and project_root and project_root.is_dir():
         prod_url = get_production_url(project, "")
-    if not prod_url:
-        prod_url = str((project.scan_data or {}).get("productionUrl") or "").rstrip("/")
 
-    webhook_path = _webhook_path(project.framework or "unknown", project.scan_data)
-    webhook_url = f"{prod_url.rstrip('/')}{webhook_path}" if prod_url else ""
+    webhook_url = resolve_expected_webhook_url(project)
+    if not webhook_url and prod_url:
+        from apps.stripe_core.hub_keys import resolve_webhook_path
+
+        webhook_url = f"{prod_url.rstrip('/')}{resolve_webhook_path(project)}"
     health_url = f"{prod_url.rstrip('/')}/health/?format=json" if prod_url else ""
 
     findings: list[AdvisorFinding] = []

@@ -126,11 +126,14 @@ def config_from_disk(root: Path) -> dict[str, Any]:
 
 def provision_config_from_stripe_file(root: Path, *, app_url: str, webhook_path: str) -> dict[str, Any]:
     """Build kwargs for ProvisionConfig from stripe.config.json."""
+    from urllib.parse import urlparse
+
     cfg = config_from_disk(root)
     prov = cfg.get("provision") or {}
     # Caller-supplied app_url wins when it's a real production URL; only fall back to
     # config file's appUrl when the caller didn't provide one (or provided localhost).
     from .provision import _is_public_url
+
     cfg_url = cfg.get("appUrl") or ""
     if app_url and _is_public_url(app_url):
         url = app_url
@@ -138,10 +141,20 @@ def provision_config_from_stripe_file(root: Path, *, app_url: str, webhook_path:
         url = cfg_url
     else:
         url = app_url or cfg_url or DEFAULT_CONFIG["appUrl"]
+
+    computed_webhook = f"{url.rstrip('/')}{webhook_path}"
+    cfg_wh = str(cfg.get("webhookUrl") or "").strip()
+    if cfg_wh:
+        cfg_host = urlparse(cfg_wh).netloc
+        url_host = urlparse(url).netloc
+        webhook_url = cfg_wh if (not url_host or not cfg_host or cfg_host == url_host) else computed_webhook
+    else:
+        webhook_url = computed_webhook
+
     return {
         "tiers": cfg.get("tiers"),
         "app_url": url,
-        "webhook_url": cfg.get("webhookUrl") or f"{url.rstrip('/')}{webhook_path}",
+        "webhook_url": webhook_url,
         "billing_portal_return_url": cfg.get("billingPortalReturnUrl")
         or f"{url.rstrip('/')}/stripe/account/",
         "reuse_existing": prov.get("reuseExisting", True),

@@ -6,9 +6,8 @@ from typing import Any
 
 import stripe
 
-from apps.deploy.postgres import get_production_url
 from apps.projects.models import Project
-from apps.stripe_core.pipeline import _webhook_path
+from apps.stripe_core.hub_keys import resolve_expected_webhook_url
 from apps.vault.models import get_secret
 
 
@@ -18,8 +17,7 @@ def webhook_health(project: Project) -> dict[str, Any]:
         raise RuntimeError("STRIPE_SECRET_KEY not in vault")
 
     stripe.api_key = secret
-    prod = get_production_url(project, "")
-    expected = f"{prod.rstrip('/')}{_webhook_path(project.framework or 'unknown')}" if prod else None
+    expected = resolve_expected_webhook_url(project) or None
 
     endpoints = stripe.WebhookEndpoint.list(limit=10)
     endpoint_rows: list[dict[str, Any]] = []

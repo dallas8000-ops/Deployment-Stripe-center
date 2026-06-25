@@ -13,7 +13,13 @@ from apps.vault.models import get_secret, hydrate_project_vault, vault_health
 from .codegen import generate_all, write_codegen_files
 from .events import EventEmitter, PipelineEvent, emit
 from .provision import ProvisionConfig, load_manifest, provision_catalog
-from .hub_keys import HUB_SLUG, pull_stripe_keys_for_user, resolve_production_app_url, resolve_web_app_url
+from .hub_keys import (
+    HUB_SLUG,
+    pull_stripe_keys_for_user,
+    resolve_production_app_url,
+    resolve_stripe_billing_urls,
+    resolve_webhook_path,
+)
 from .portfolio_catalog import is_stripe_exempt_slug
 from .readiness import readiness_label, run_readiness_checks, score_readiness
 from .stripe_config import provision_config_from_stripe_file, write_stripe_config
@@ -59,11 +65,13 @@ def _project_root(project: Project) -> Path:
 
 
 def _webhook_path(framework: str, scan_data: dict | None = None) -> str:
+    """Framework default path — prefer resolve_webhook_path(project) when a Project is available."""
     if scan_data:
         for key in ("webhookPath", "webhook_path"):
             path = scan_data.get(key)
             if path:
-                return str(path)
+                path = str(path).strip()
+                return path if path.startswith("/") else f"/{path}"
     if framework in ("nextjs", "remix", "nuxt", "sveltekit"):
         return "/api/stripe/webhook"
     if framework == "django":
@@ -238,9 +246,12 @@ def run_pipeline(
         project.scan_data = scan.to_dict()
         project.save(update_fields=["framework", "language", "scan_data", "updated_at"])
 
-    webhook_path = _webhook_path(project.framework, project.scan_data)
-    prod_url = resolve_web_app_url(project) or resolve_production_app_url(project)
-    app_url = (prod_url or options.app_url).rstrip("/")
+    webhook_path = resolve_webhook_path(project)
+    app_url, _expected_webhook = resolve_stripe_billing_urls(project)
+    if not app_url:
+        app_url = options.app_url.rstrip("/")
+    else:
+        app_url = app_url.rstrip("/")
     provision_data = None
     files_written: list[str] = []
     generated_files: dict[str, str] | None = None

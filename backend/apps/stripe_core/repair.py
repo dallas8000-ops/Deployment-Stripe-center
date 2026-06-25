@@ -9,7 +9,13 @@ from typing import Any
 from apps.projects.models import Project
 from apps.stripe_core.codegen import generate_all, write_codegen_files
 from apps.diagnostics.diagnostics import DiagnosticReport, run_diagnostics
-from apps.stripe_core.pipeline import _sync_env, _webhook_path
+from apps.stripe_core.hub_keys import (
+    resolve_expected_webhook_url,
+    resolve_production_app_url,
+    resolve_stripe_billing_urls,
+    resolve_webhook_path,
+)
+from apps.stripe_core.pipeline import _sync_env
 from apps.stripe_core.provision import ProvisionConfig, provision_catalog
 from apps.stripe_core.verify import verify_stripe_keys
 from apps.vault.models import get_secret, set_secret
@@ -98,16 +104,20 @@ def _provision_stripe(project: Project, project_root: Path, app_url: str) -> Rep
     if not secret:
         return RepairResult("provision-stripe", False, "STRIPE_SECRET_KEY not in vault")
     verification = verify_stripe_keys(secret, get_secret(project, "STRIPE_PUBLISHABLE_KEY"))
-    webhook_path = _webhook_path(project.framework)
+    billing_app_url, webhook_url = resolve_stripe_billing_urls(project)
+    if not billing_app_url:
+        billing_app_url = app_url.rstrip("/")
+    if not webhook_url:
+        webhook_url = f"{billing_app_url.rstrip('/')}{resolve_webhook_path(project)}"
     result = provision_catalog(
         secret,
         project_root,
         project=project,
         account_id=verification.account_id,
         config=ProvisionConfig(
-            webhook_url=f"{app_url.rstrip('/')}{webhook_path}",
-            billing_portal_return_url=f"{app_url.rstrip('/')}/stripe/account/",
-            app_url=app_url,
+            webhook_url=webhook_url,
+            billing_portal_return_url=f"{billing_app_url.rstrip('/')}/stripe/account/",
+            app_url=billing_app_url,
         ),
     )
     return RepairResult(

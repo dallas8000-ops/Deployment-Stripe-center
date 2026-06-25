@@ -77,7 +77,17 @@ class PipelineRunListCreateView(ProjectOwnedMixin, generics.ListCreateAPIView):
         pull_stripe_keys_for_user(project, request.user)
         if not options.get("app_url"):
             prod = resolve_production_app_url(project)
-            options["app_url"] = prod or request.build_absolute_uri("/").rstrip("/")
+            if not prod:
+                return Response(
+                    {
+                        "error": (
+                            "Set production URL in portfolio catalog, deploy.config.json, "
+                            "or project scan_data before running the pipeline."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            options["app_url"] = prod
 
         from apps.deploy.automation_gate import run_automation_before_pipeline
 

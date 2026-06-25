@@ -36,18 +36,51 @@ def get_hub_project(owner) -> Project | None:
 
 
 def resolve_production_app_url(project: Project) -> str:
-    """Railway API URL for webhooks/provision — not the local Django dev server."""
-    for app in load_registry():
-        if app.project_slug == project.slug and app.production_url:
-            return app.production_url.rstrip("/")
-
+    """Railway API URL for webhooks/provision — not the web frontend or dev server."""
     catalog = catalog_by_slug(project.slug)
     if catalog and catalog.get("productionUrl"):
         return str(catalog["productionUrl"]).rstrip("/")
 
+    app = portfolio_app_for_project(project)
+    if app and app.production_url:
+        return app.production_url.rstrip("/")
+
     scan = project.scan_data or {}
     url = str(scan.get("productionUrl") or scan.get("production_url") or "").strip()
     return url.rstrip("/")
+
+
+def resolve_webhook_path(project: Project) -> str:
+    """Webhook path segment for this project (catalog → scan → framework default)."""
+    app = portfolio_app_for_project(project)
+    if app and app.webhook_path:
+        path = str(app.webhook_path).strip()
+        return path if path.startswith("/") else f"/{path}"
+
+    scan = project.scan_data or {}
+    for key in ("webhookPath", "webhook_path"):
+        path = str(scan.get(key) or "").strip()
+        if path:
+            return path if path.startswith("/") else f"/{path}"
+
+    from apps.deploy.platform import webhook_path_for
+
+    return webhook_path_for(
+        project.framework or "django",
+        scan.get("nextRouter") or scan.get("next_router"),
+    )
+
+
+def resolve_stripe_billing_urls(project: Project) -> tuple[str, str]:
+    """API base URL + full webhook URL for provision/codegen (never the web frontend host)."""
+    app_url = resolve_production_app_url(project)
+    if not app_url:
+        return "", ""
+    webhook_url = resolve_expected_webhook_url(project)
+    if webhook_url:
+        return app_url.rstrip("/"), webhook_url.rstrip("/")
+    wh_path = resolve_webhook_path(project)
+    return app_url.rstrip("/"), f"{app_url.rstrip('/')}{wh_path}"
 
 
 def resolve_web_app_url(project: Project) -> str:

@@ -95,8 +95,9 @@ class ProjectSerializer(serializers.ModelSerializer):
         }
 
     def get_production_url(self, obj: Project) -> str:
-        scan = obj.scan_data or {}
-        return str(scan.get("productionUrl") or scan.get("production_url") or "")
+        from apps.stripe_core.hub_keys import resolve_production_app_url
+
+        return resolve_production_app_url(obj)
 
     def get_latest_readiness_score(self, obj: Project) -> int | None:
         run = (
