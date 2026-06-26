@@ -236,9 +236,21 @@ def _is_local_redis(url: str) -> bool:
 
 # Pasted dev .env often sets REDIS_URL=127.0.0.1 — treat as no Redis on Railway.
 # Legacy single-container mode (no Redis addon): set ALLOW_SINGLE_CONTAINER=true on Railway.
-ALLOW_SINGLE_CONTAINER = os.environ.get("ALLOW_SINGLE_CONTAINER", "").lower() == "true"
+_redis_env_raw = os.environ.get("REDIS_URL", "").strip()
+_has_managed_redis = bool(_redis_env_raw) and not _is_local_redis(_redis_env_raw)
+_allow_single_env = os.environ.get("ALLOW_SINGLE_CONTAINER", "").strip().lower()
+if _allow_single_env == "true":
+    ALLOW_SINGLE_CONTAINER = True
+elif _allow_single_env == "false":
+    ALLOW_SINGLE_CONTAINER = False
+elif ON_RAILWAY and not _has_managed_redis:
+    # Stripe-Installer web service without a Redis plugin — avoid fatal /health/ 503 on deploy.
+    ALLOW_SINGLE_CONTAINER = True
+else:
+    ALLOW_SINGLE_CONTAINER = False
+
 RAILWAY_SINGLE_CONTAINER = ON_RAILWAY and ALLOW_SINGLE_CONTAINER and (
-    not os.environ.get("REDIS_URL") or _is_local_redis(REDIS_URL)
+    not _redis_env_raw or _is_local_redis(_redis_env_raw)
 )
 
 # Tier-1 multi-replica deploy: Redis + non-eager Celery required when not in dev shortcuts.
