@@ -282,11 +282,19 @@ def automate_project_deploy(project: Project, *, user=None) -> dict[str, Any]:
 
         try:
             env_push = auto_push_railway_env(project, preset=preset_for_project(project))
+            deploy = (env_push or {}).get("railwayDeploy") or {}
+            detail = env_push.get("message", "Env vars pushed")
+            if deploy.get("repoConnected"):
+                detail += f"; GitHub linked ({deploy.get('connectedRepo')})"
+            if deploy.get("deployTriggered"):
+                detail += f"; deploy {deploy.get('deploymentId')}"
+            elif not deploy.get("currentRepo") and not deploy.get("repoConnected"):
+                detail += "; WARNING: no GitHub repo on Railway — git push will not redeploy"
             steps.append(
                 {
                     "step": "railway_env_push",
                     "ok": True,
-                    "detail": env_push.get("message", "Env vars pushed"),
+                    "detail": detail,
                 }
             )
         except (RuntimeError, ValueError) as exc:

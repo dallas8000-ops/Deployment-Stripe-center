@@ -1,10 +1,12 @@
-import { existsSync } from "node:fs";
-import { spawn, spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { execSync, spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const isWin = process.platform === "win32";
+const DEFAULT_BACKEND_PORT = 8000;
+const FALLBACK_BACKEND_PORT = 8001;
 
 function prefix(name) {
   const colors = { backend: "\x1b[34m", frontend: "\x1b[32m" };
@@ -25,13 +27,13 @@ function pipe(name, child) {
 }
 
 /** Spawn without shell so paths containing & or spaces stay intact on Windows. */
-function startProcess(name, executable, args, cwd) {
+function startProcess(name, executable, args, cwd, extraEnv = {}) {
   const child = spawn(executable, args, {
     cwd: path.join(root, cwd),
     stdio: ["ignore", "pipe", "pipe"],
     shell: false,
     windowsHide: true,
-    env: process.env,
+    env: { ...process.env, ...extraEnv },
   });
   pipe(name, child);
   child.on("exit", (code, signal) => {
@@ -62,6 +64,51 @@ function shutdown(code = 0) {
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
+function system32(exe) {
+  return path.join(process.env.SystemRoot || "C:\\Windows", "System32", exe);
+}
+
+function killPortWindows(port) {
+  const netstat = system32("netstat.exe");
+  const taskkill = system32("taskkill.exe");
+  let out = "";
+  try {
+    out = execSync(`"${netstat}" -ano`, { encoding: "utf8" });
+  } catch {
+    return;
+  }
+  const pids = new Set();
+  for (const line of out.split(/\r?\n/)) {
+    if (!line.includes("LISTENING")) continue;
+    if (!new RegExp(`:${port}\\s`).test(line)) continue;
+    const parts = line.trim().split(/\s+/);
+    const pid = parts[parts.length - 1];
+    if (pid && /^\d+$/.test(pid) && pid !== "0") pids.add(pid);
+  }
+  for (const pid of pids) {
+    console.log(`[dev] Stopping stale listener on :${port} (PID ${pid})`);
+    try {
+      execSync(`"${taskkill}" /F /PID ${pid}`, { stdio: "inherit" });
+    } catch {
+      /* zombie PID or already exited */
+    }
+  }
+}
+
+function killPort(port) {
+  if (process.platform === "win32") killPortWindows(port);
+  else {
+    try {
+      const out = execSync(`lsof -ti :${port}`, { encoding: "utf8" }).trim();
+      for (const pid of out.split(/\s+/)) {
+        if (pid) process.kill(Number(pid), "SIGTERM");
+      }
+    } catch {
+      /* port free */
+    }
+  }
+}
+
 const python = path.join(root, "backend", ".venv", isWin ? "Scripts" : "bin", isWin ? "python.exe" : "python");
 const uvicorn = path.join(root, "backend", ".venv", isWin ? "Scripts" : "bin", isWin ? "uvicorn.exe" : "uvicorn");
 const viteJs = path.join(root, "frontend", "node_modules", "vite", "bin", "vite.js");
@@ -86,6 +133,10 @@ if (repair.status !== 0) {
   process.exit(repair.status || 1);
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function portInUse(port) {
   try {
     const res = await fetch(`http://127.0.0.1:${port}/health/`);
@@ -95,16 +146,19 @@ async function portInUse(port) {
   }
 }
 
-async function backendIsCurrent() {
+function expectedApiRevision() {
+  const revPath = path.join(root, "backend", "apps", "core", "api_revision.py");
+  const src = readFileSync(revPath, "utf8");
+  const match = src.match(/API_REVISION\s*=\s*["']([^"']+)["']/);
+  return match?.[1] || "";
+}
+
+async function backendIsCurrent(port) {
   try {
-    const healthRes = await fetch("http://127.0.0.1:8000/health/");
+    const healthRes = await fetch(`http://127.0.0.1:${port}/health/`);
     if (!healthRes.ok) return false;
     const health = await healthRes.json();
-    const { readFileSync } = await import("node:fs");
-    const revPath = path.join(root, "backend", "apps", "core", "api_revision.py");
-    const src = readFileSync(revPath, "utf8");
-    const match = src.match(/API_REVISION\s*=\s*["']([^"']+)["']/);
-    const expected = match?.[1];
+    const expected = expectedApiRevision();
     if (expected && health.apiRevision !== expected) {
       return false;
     }
@@ -112,14 +166,13 @@ async function backendIsCurrent() {
     return false;
   }
   const probes = [
-    "http://127.0.0.1:8000/api/v1/agency/dashboard/",
-    "http://127.0.0.1:8000/api/v1/projects/stripe-installer/setup-hub/",
-    "http://127.0.0.1:8000/api/v1/projects/stripe-installer/vault/pull-from-hub/",
+    `http://127.0.0.1:${port}/api/v1/agency/dashboard/`,
+    `http://127.0.0.1:${port}/api/v1/projects/stripe-installer/setup-hub/`,
+    `http://127.0.0.1:${port}/api/v1/projects/stripe-installer/vault/pull-from-hub/`,
   ];
   try {
     for (const url of probes) {
       const res = await fetch(url, { method: url.endsWith("pull-from-hub/") ? "POST" : "GET" });
-      // 404 = old URLconf; 401/403/400/405 = route exists, needs auth or valid body
       if (res.status === 404) return false;
     }
     return true;
@@ -128,48 +181,73 @@ async function backendIsCurrent() {
   }
 }
 
-const busy = await portInUse(8000);
-if (busy) {
-  const current = await backendIsCurrent();
-  if (!current) {
-    console.error(
-      "Port 8000 is running an OLD backend (missing new API routes or apiRevision).\n" +
-        "Stop it, then start fresh:\n" +
-        "  npm run dev:stop\n" +
-        "  npm run dev\n"
+async function resolveBackendPort() {
+  const preferred = DEFAULT_BACKEND_PORT;
+  if (await portInUse(preferred)) {
+    if (await backendIsCurrent(preferred)) {
+      return { port: preferred, start: false };
+    }
+    console.warn(
+      `[backend] Port ${preferred} has an old API (missing apiRevision) — stopping it…`
     );
-    process.exit(1);
+    killPort(preferred);
+    await sleep(800);
+    if ((await portInUse(preferred)) && !(await backendIsCurrent(preferred))) {
+      const fallback = FALLBACK_BACKEND_PORT;
+      console.warn(
+        `[backend] Port ${preferred} still occupied by stale API — starting on :${fallback}`
+      );
+      if (await portInUse(fallback)) {
+        killPort(fallback);
+        await sleep(400);
+      }
+      return { port: fallback, start: true };
+    }
+    if (await backendIsCurrent(preferred)) {
+      return { port: preferred, start: false };
+    }
+    return { port: preferred, start: true };
   }
+  return { port: preferred, start: true };
+}
+
+const { port: backendPort, start: startBackend } = await resolveBackendPort();
+const devBackendEnv = {
+  DJANGO_DEBUG: "true",
+  DEV_BACKEND_PORT: String(backendPort),
+};
+
+if (startBackend) {
+  children.push(
+    startProcess(
+      "backend",
+      uvicorn,
+      ["config.asgi:application", "--host", "127.0.0.1", "--port", String(backendPort), "--reload"],
+      "backend",
+      devBackendEnv
+    )
+  );
+} else {
   try {
-    const probe = await fetch("http://127.0.0.1:8000/api/v1/auth/login/", {
+    const probe = await fetch(`http://127.0.0.1:${backendPort}/api/v1/auth/login/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "probe@local", password: "probe" }),
     });
     if (probe.status >= 500) {
       console.error(
-        "Port 8000 is in use by a broken backend (login returns 500).\n" +
+        `Port ${backendPort} is in use by a broken backend (login returns 500).\n` +
           "Stop it: npm run dev:stop\n"
       );
       process.exit(1);
     }
-    console.log("[backend] Already listening on :8000 — skipping backend start\n");
+    console.log(`[backend] Already listening on :${backendPort} — skipping backend start\n`);
   } catch {
-    console.error("Port 8000 is in use but not responding. Run: npm run dev:stop\n");
+    console.error(`Port ${backendPort} is in use but not responding. Run: npm run dev:stop\n`);
     process.exit(1);
   }
-} else {
-  children.push(
-    startProcess(
-      "backend",
-      uvicorn,
-      ["config.asgi:application", "--host", "127.0.0.1", "--port", "8000", "--reload"],
-      "backend"
-    )
-  );
 }
 
-// Invoke vite via node directly — npm/.cmd shims break when the project path contains &.
-children.push(startProcess("frontend", process.execPath, [viteJs], "frontend"));
+children.push(startProcess("frontend", process.execPath, [viteJs], "frontend", devBackendEnv));
 
-console.log("Dev servers starting — open http://localhost:5173\n");
+console.log(`Dev servers starting — UI http://localhost:5173  API http://127.0.0.1:${backendPort}\n`);

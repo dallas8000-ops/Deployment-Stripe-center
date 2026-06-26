@@ -1,11 +1,11 @@
 /**
- * Stop Stripe Installer dev servers (ports 8000, 5173–5175).
+ * Stop Stripe Installer dev servers (ports 8000–8001, 5173–5175).
  * Pure Node — no PowerShell required in PATH.
  */
 import { execSync } from "node:child_process";
 import path from "node:path";
 
-const ports = [8000, 5173, 5174, 5175];
+const ports = [8000, 8001, 5173, 5174, 5175];
 
 function system32(exe) {
   return path.join(process.env.SystemRoot || "C:\\Windows", "System32", exe);

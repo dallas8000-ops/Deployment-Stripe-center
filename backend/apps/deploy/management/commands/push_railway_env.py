@@ -7,6 +7,7 @@ from pathlib import Path
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.deploy.env_push import auto_push_railway_env, build_env_var_payload
+from apps.deploy.railway_postgres import postgres_service_for_preset
 from apps.deploy.railway_resolve import (
     preset_for_project,
     remember_railway_targets,
@@ -58,7 +59,11 @@ class Command(BaseCommand):
             raise CommandError("RAILWAY_API_TOKEN missing from vault")
 
         preset = options["preset"] or preset_for_project(project) or slug
-        postgres_name = options["postgres_service"].strip()
+        postgres_name = (
+            options["postgres_service"].strip()
+            if options["postgres_service"] != "Postgres"
+            else (postgres_service_for_preset(preset) or "Postgres")
+        )
         extra_vars = {"DATABASE_URL": "${{" + postgres_name + ".DATABASE_URL}}"}
 
         project_id = resolve_railway_project_id(project, token)

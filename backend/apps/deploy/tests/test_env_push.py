@@ -8,6 +8,10 @@ from apps.deploy.env_push import (
     merge_env_vars,
     merge_service_env_vars,
 )
+from apps.deploy.railway_postgres import (
+    postgres_reference_for_preset,
+    postgres_service_for_preset,
+)
 
 
 class EnvPushMergeTests(SimpleTestCase):
@@ -74,6 +78,26 @@ class EnvPushMergeTests(SimpleTestCase):
 
     def test_placeholder_database_url_detector(self):
         self.assertTrue(is_placeholder_database_url("postgresql://user:pass@localhost:5432/yourdb"))
+        self.assertTrue(is_placeholder_database_url("postgresql://postgres:secret@:5432/railway"))
         self.assertFalse(
             is_placeholder_database_url("postgresql://postgres:secret@monorail.proxy.rlwy.net:6543/railway")
         )
+
+    def test_merge_replaces_broken_database_url_with_reference(self):
+        existing = {"DATABASE_URL": "postgresql://postgres:secret@:5432/railway"}
+        incoming = {"DATABASE_URL": "${{Postgres.DATABASE_URL}}"}
+        merged = merge_service_env_vars(existing, incoming)
+        self.assertEqual(merged["DATABASE_URL"], "${{Postgres.DATABASE_URL}}")
+
+    def test_merge_replaces_hub_database_for_kistie(self):
+        existing = {
+            "DATABASE_URL": "postgresql://postgres:secret@postgres-rdf6.railway.internal:5432/railway",
+        }
+        incoming = {"DATABASE_URL": "${{Postgres.DATABASE_URL}}"}
+        merged = merge_service_env_vars(existing, incoming, preset="kistie-store")
+        self.assertEqual(merged["DATABASE_URL"], "${{Postgres.DATABASE_URL}}")
+
+    def test_kistie_postgres_automation_mapping(self):
+        self.assertEqual(postgres_service_for_preset("kistie-store"), "Postgres")
+        self.assertEqual(postgres_reference_for_preset("kistie-store"), "${{Postgres.DATABASE_URL}}")
+        self.assertEqual(KISTIE_STORE_PRESET["DATABASE_URL"], "${{Postgres.DATABASE_URL}}")

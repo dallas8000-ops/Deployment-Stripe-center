@@ -19,6 +19,7 @@ STRIPE_ENV_KEYS = [
 ]
 
 # Non-secret defaults — override DATABASE_URL / secrets via vault or request `variables`.
+# Kistie uses dedicated Railway plugin "Postgres" (see railway_postgres.RAILWAY_POSTGRES_SERVICE_BY_PRESET).
 KISTIE_STORE_PRESET: dict[str, str] = {
     "DJANGO_DEBUG": "False",
     "DJANGO_ENABLE_ADMIN": "False",
@@ -67,9 +68,9 @@ SILVERFOX_VAULT_KEYS = [
 # AgriPay — Django uses SECRET_KEY; DATABASE_URL via Railway Postgres reference.
 AGRIPAY_PRESET: dict[str, str] = {
     "DEBUG": "False",
-    "ALLOWED_HOSTS": ".railway.app .up.railway.app",
+    "ALLOWED_HOSTS": ".railway.app .up.railway.app healthcheck.railway.app",
     "APP_URL": "https://agripay-api-production.up.railway.app",
-    "DATABASE_URL": "${{Postgres.DATABASE_URL}}",
+    "DATABASE_URL": "${{Postgres-AgriPay.DATABASE_URL}}",
 }
 
 AGRIPAY_VAULT_KEYS = [
@@ -125,10 +126,15 @@ def is_railway_reference(value: str) -> bool:
 
 def is_placeholder_database_url(value: str) -> bool:
     """True for hub .env.example templates and other non-production Postgres URLs."""
+    from urllib.parse import urlparse
+
     text = str(value or "").strip().lower()
     if not text or is_railway_reference(value):
         return not bool(text)
     if not text.startswith(("postgres://", "postgresql://")):
+        return True
+    parsed = urlparse(text)
+    if not (parsed.hostname or "").strip():
         return True
     markers = (
         "localhost",
@@ -147,8 +153,12 @@ def merge_service_env_vars(
     incoming: dict[str, str],
     *,
     skip_empty_overwrites: bool = True,
+    preset: str | None = None,
+    slug: str | None = None,
 ) -> dict[str, str]:
     """Merge env vars before Railway upsert — incoming wins; empty incoming never wipes secrets."""
+    from .railway_postgres import database_url_should_be_replaced
+
     merged = dict(existing)
     for key, value in incoming.items():
         incoming_value = str(value)
@@ -158,13 +168,13 @@ def merge_service_env_vars(
             continue
         if key == "DATABASE_URL":
             existing_db = str(merged.get("DATABASE_URL", "")).strip()
-            if is_placeholder_database_url(existing_db):
+            if database_url_should_be_replaced(existing_db, incoming_value, preset=preset, slug=slug):
                 merged[key] = incoming_value
                 continue
             if existing_db.startswith(("postgres://", "postgresql://")) and is_railway_reference(
                 incoming_value
             ):
-                # Never replace a working Railway Postgres URL with a plugin reference.
+                # Never replace a working dedicated Postgres URL with a plugin reference.
                 continue
         merged[key] = incoming_value
     return merged
@@ -243,6 +253,7 @@ def push_to_railway(
     environment_id: str | None = None,
     *,
     preserve_existing: bool = True,
+    preset: str | None = None,
 ) -> dict[str, Any]:
     if not environment_id:
         environment_id = _railway_environment_id(token, project_id)
@@ -251,7 +262,7 @@ def push_to_railway(
     merge_meta: dict[str, Any] = {"mode": "replace"}
     if preserve_existing:
         existing = get_railway_env_vars(token, project_id, service_id, environment_id)
-        upsert_vars = merge_service_env_vars(existing, env_vars)
+        upsert_vars = merge_service_env_vars(existing, env_vars, preset=preset)
         merge_meta = {
             "mode": "merge",
             "existingKeyCount": len(existing),
@@ -354,7 +365,7 @@ def push_vault_env_to_platform(
             )
         return {"pushed": [], "message": "No variables to push (empty preset, vault, and inline)"}
 
-    result = push_to_railway(token, project_id, service_id, env_vars, environment_id)
+    result = push_to_railway(token, project_id, service_id, env_vars, environment_id, preset=preset)
     db_pushed = env_vars.get("DATABASE_URL")
     if db_pushed and is_railway_reference(db_pushed):
         vault_db = get_secret(project, "DATABASE_URL")
@@ -568,6 +579,12 @@ def auto_push_railway_env(
         )
 
     from apps.projects.scan_data_utils import update_project_scan_data
+    from .railway_postgres import postgres_reference_for_preset
+
+    merged_variables = dict(variables or {})
+    postgres_ref = postgres_reference_for_preset(resolved_preset, slug=project.slug)
+    if postgres_ref:
+        merged_variables.setdefault("DATABASE_URL", postgres_ref)
 
     result = push_vault_env_to_platform(
         project,
@@ -575,7 +592,7 @@ def auto_push_railway_env(
         resolved_service_id,
         project_id=resolved_project_id,
         preset=resolved_preset,
-        variables=variables,
+        variables=merged_variables or None,
     )
     remember_railway_targets(project, resolved_project_id, resolved_service_id)
 
@@ -595,4 +612,25 @@ def auto_push_railway_env(
 
     result["projectId"] = resolved_project_id
     result["serviceId"] = resolved_service_id
+
+    try:
+        from .railway_deploy import ensure_railway_github_and_deploy
+
+        deploy_result = ensure_railway_github_and_deploy(
+            project,
+            token,
+            resolved_project_id,
+            resolved_service_id,
+        )
+        result["railwayDeploy"] = deploy_result
+        if deploy_result.get("deployTriggered"):
+            pushed = list(result.get("pushed") or [])
+            result["message"] = (
+                f"Pushed {len(pushed)} var(s); {deploy_result.get('message', 'deploy triggered')}"
+            )
+        elif deploy_result.get("repoConnected"):
+            result["message"] = deploy_result.get("message", result.get("message", ""))
+    except RuntimeError as exc:
+        result["railwayDeploy"] = {"ok": False, "message": str(exc)}
+
     return result

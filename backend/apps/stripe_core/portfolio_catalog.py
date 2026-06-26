@@ -43,6 +43,43 @@ MERGED_INTO_PROJECT_SLUGS: dict[str, str] = {
 
 HUB_SLUG = "stripe-installer"
 
+# Mirror FrontlineDigital DevCollective/frontend/src/data/portfolioLiveUrls.ts (portfolio Live demo buttons).
+PORTFOLIO_LIVE_URLS: dict[str, str] = {
+    "automationCenter": "https://stripe-installer-production.up.railway.app/login",
+    "eastbridge": "https://eastbridge-ops-production.up.railway.app",
+    "agripayLogistics": "https://agripay-api-production.up.railway.app/demo",
+    "eliteFintech": "https://elite-fintech-web-production.up.railway.app/demo",
+    "kistieStore": "https://kistie-store-production.up.railway.app",
+    "silverfox": "https://silverfox-production.up.railway.app",
+    "blogApi": "https://blog-2-production-72bc.up.railway.app",
+    "pcCheckerExtreme": "https://pc-checker-extreme-production.up.railway.app",
+    "reactStoreCatalog": "https://react-store-catalog-1-production.up.railway.app",
+    "righandFrontend": "https://righand-production.up.railway.app",
+    "dbopsWeb": "https://dbops-web-production.up.railway.app",
+    "specwrightWeb": "https://specwright-web-production.up.railway.app",
+    "enPowerCommand": "https://enpowercommand-production.up.railway.app",
+    "marketingSite": "https://gilliomfrontlinedigital.com",
+    "marketingSiteRailway": "https://frontlinedigital-1-production.up.railway.app",
+}
+
+# portfolioLiveUrls key → hub catalog projectSlug (when applicable).
+PORTFOLIO_LIVE_URL_SLUGS: dict[str, str] = {
+    "automationCenter": "stripe-installer",
+    "eastbridge": "eastbridge-ops",
+    "agripayLogistics": "agripay-logistics-ai",
+    "eliteFintech": "elite-fintech-systems",
+    "kistieStore": "kistie-store",
+    "silverfox": "silverfox",
+    "blogApi": "blog-2",
+    "pcCheckerExtreme": "pc-checker-extreme",
+    "reactStoreCatalog": "react-store-catalog",
+    "righandFrontend": "righand",
+    "dbopsWeb": "dbops-control-center",
+    "specwrightWeb": "specwright",
+    "enPowerCommand": "enpowercommand",
+    "marketingSiteRailway": "frontlinedigital",
+}
+
 STRIPE_EXEMPT_SLUGS: frozenset[str] = frozenset(
     {
         "kistie-store",
@@ -60,7 +97,7 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
     {
         "id": "eastbridge",
         "name": "EastBridge Ops Intelligence",
-        "productionUrl": "https://eastbridge-production.up.railway.app",
+        "productionUrl": "https://eastbridge-ops-production.up.railway.app",
         "portfolioDemoUrl": "https://eastbridge.gilliomfrontlinedigital.com",
         "healthPath": "/api/v1/health/",
         "projectSlug": "eastbridge-ops",
