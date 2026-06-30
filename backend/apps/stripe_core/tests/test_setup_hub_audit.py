@@ -2,6 +2,7 @@
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from unittest.mock import patch
 
 from apps.projects.models import Project
 from apps.stripe_core.hub_keys import HUB_SLUG
@@ -56,7 +57,14 @@ class SetupHubAuditStorageTests(TestCase):
             "agripay-logistics",
         )
 
-    def test_child_status_reads_audit_from_hub_not_stale_local_gaps(self):
+    @patch(
+        "apps.stripe_core.setup_hub._platform_automation_block",
+        return_value={"available": True},
+    )
+    @patch("apps.stripe_core.setup_hub.get_secret", return_value=None)
+    def test_child_status_reads_audit_from_hub_not_stale_local_gaps(
+        self, _get_secret, _platform_status
+    ):
         self.child.scan_data = {
             "lastPortfolioAuditSummary": {"endpointCount": 0},
             "lastPortfolioAuditRegistryGaps": [

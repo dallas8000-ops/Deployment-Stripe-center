@@ -186,11 +186,17 @@ def platform_automation_status(project: Project) -> dict[str, Any]:
     if token:
         from apps.deploy.railway_resolve import ensure_railway_targets_detected
 
-        detection = ensure_railway_targets_detected(project, token)
-        project_id = detection.get("projectId") or project_id
-        service_id = detection.get("serviceId") or service_id
-        railway_detected = bool(detection.get("detected"))
-        railway_message = str(detection.get("message") or "")
+        try:
+            detection = ensure_railway_targets_detected(project, token)
+        except Exception as exc:
+            # This function feeds a read-only status view. A provider outage,
+            # DNS failure, or expired token must not take the page down.
+            railway_message = f"Railway discovery unavailable: {exc}"
+        else:
+            project_id = detection.get("projectId") or project_id
+            service_id = detection.get("serviceId") or service_id
+            railway_detected = bool(detection.get("detected"))
+            railway_message = str(detection.get("message") or "")
 
     return {
         "masterKey": {

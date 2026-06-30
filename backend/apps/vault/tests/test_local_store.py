@@ -68,8 +68,11 @@ class LocalStoreTests(TestCase):
         self.data_dir = Path(self.tmp.name)
         self.patch_dir = patch("apps.vault.local_store.portfolio_data_dir", return_value=self.data_dir)
         self.patch_dir.start()
+        self.patch_verification = patch("apps.vault.models._apply_verification")
+        self.patch_verification.start()
 
     def tearDown(self):
+        self.patch_verification.stop()
         self.patch_dir.stop()
         self.tmp.cleanup()
 

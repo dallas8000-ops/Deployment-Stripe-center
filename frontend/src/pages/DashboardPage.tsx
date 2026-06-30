@@ -29,20 +29,12 @@ export default function DashboardPage() {
     return { avg, running, total: visibleProjects.length };
   }, [visibleProjects]);
 
-  async function loadPortfolioProjects() {
-    const entries = await Promise.all(
-      PORTFOLIO_DEMOS.map(async (demo) => {
-        try {
-          const project = await projectsApi.get(demo.slug);
-          return [demo.slug, project] as const;
-        } catch {
-          return [demo.slug, null] as const;
-        }
-      })
-    );
+  function loadPortfolioProjects(listed: Project[]) {
+    const projectsBySlug = new Map(listed.map((project) => [project.slug, project]));
     const mapped: Record<string, Project> = {};
-    for (const [slug, project] of entries) {
-      if (project) mapped[slug] = project;
+    for (const demo of PORTFOLIO_DEMOS) {
+      const project = projectsBySlug.get(demo.slug);
+      if (project) mapped[demo.slug] = project;
     }
     setPortfolioProjects(mapped);
   }
@@ -50,8 +42,9 @@ export default function DashboardPage() {
   async function load() {
     setLoading(true);
     try {
-      const [listed] = await Promise.all([projectsApi.list(), loadPortfolioProjects()]);
+      const listed = await projectsApi.list();
       setProjects(listed);
+      loadPortfolioProjects(listed);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load projects");
     } finally {
@@ -117,7 +110,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && <div className="alert alert-error" role="alert">{error}</div>}
 
       <section className="card">
         <h2>Portfolio demos (Railway storefronts)</h2>

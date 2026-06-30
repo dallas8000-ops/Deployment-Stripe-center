@@ -213,6 +213,7 @@ SAAS_STRIPE_PRICE_STARTER = os.environ.get("SAAS_STRIPE_PRICE_STARTER", "")
 SAAS_STRIPE_PRICE_PRO = os.environ.get("SAAS_STRIPE_PRICE_PRO", "")
 SAAS_STRIPE_PRICE_ENTERPRISE = os.environ.get("SAAS_STRIPE_PRICE_ENTERPRISE", "")
 SAAS_BILLING_RETURN_URL = os.environ.get("SAAS_BILLING_RETURN_URL") or _public_app_url()
+STRIPE_API_VERSION = os.environ.get("STRIPE_API_VERSION", "2026-05-27.dahlia")
 
 # Public app URL (invites, billing return, license validation server default)
 APP_PUBLIC_URL = os.environ.get("APP_PUBLIC_URL") or _public_app_url()

@@ -58,9 +58,11 @@ class Command(BaseCommand):
                 getattr(settings, "SECURE_HSTS_SECONDS", 0) > 0,
                 "SECURE_HSTS_SECONDS configured",
             )
+        django_secret = str(getattr(settings, "SECRET_KEY", "") or "")
         require(
-            bool(getattr(settings, "DJANGO_SECRET_KEY", ""))
-            and settings.DJANGO_SECRET_KEY != "change-me-in-production",
+            bool(django_secret)
+            and django_secret
+            not in {"change-me-in-production", "dev-only-change-me-in-production"},
             "DJANGO_SECRET_KEY is set (not default)",
         )
         require(bool(getattr(settings, "VAULT_MASTER_KEY", "")), "VAULT_MASTER_KEY is set")

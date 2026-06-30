@@ -129,8 +129,8 @@ export default function LoginPage() {
           </a>
         </p>
       )}
-      <form className="auth-form" onSubmit={onSubmit} autoComplete="off">
-        {error && <div className="alert alert-error">{error}</div>}
+      <form className="auth-form" onSubmit={onSubmit} autoComplete="on">
+        {error && <div className="alert alert-error" role="alert">{error}</div>}
         <label className="field">
           <span>Email</span>
           <input
@@ -152,9 +152,7 @@ export default function LoginPage() {
             name="password"
             defaultValue=""
             placeholder="Type your password"
-            autoComplete="new-password"
-            data-1p-ignore="true"
-            data-lpignore="true"
+            autoComplete="current-password"
             required
           />
           <span className="field-hint">

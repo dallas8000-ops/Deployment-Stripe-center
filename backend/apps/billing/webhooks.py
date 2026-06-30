@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 def _get_stripe():
     stripe.api_key = settings.SAAS_STRIPE_SECRET_KEY
+    stripe.api_version = settings.STRIPE_API_VERSION
     return stripe
 
 

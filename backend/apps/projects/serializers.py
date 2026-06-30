@@ -1,3 +1,4 @@
+from django.utils.text import slugify
 from rest_framework import serializers
 
 from apps.core.access import ROLE_RANK, org_membership
@@ -54,6 +55,20 @@ class ProjectSerializer(serializers.ModelSerializer):
             "production_url",
             "active_environment",
         )
+
+    def validate_local_path(self, value: str) -> str:
+        value = value.strip()
+        if not value:
+            return value
+        from apps.stripe_core.portfolio_workspace import workspace_path_error
+
+        project = self.instance or Project(
+            slug=slugify(str(self.initial_data.get("name") or "")) or "project"
+        )
+        error = workspace_path_error(project, value)
+        if error:
+            raise serializers.ValidationError(error)
+        return value
 
     def get_active_environment(self, obj: Project) -> str:
         return obj.active_environment

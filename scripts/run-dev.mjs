@@ -109,8 +109,17 @@ function killPort(port) {
   }
 }
 
-const python = path.join(root, "backend", ".venv", isWin ? "Scripts" : "bin", isWin ? "python.exe" : "python");
-const uvicorn = path.join(root, "backend", ".venv", isWin ? "Scripts" : "bin", isWin ? "uvicorn.exe" : "uvicorn");
+const defaultPython = path.join(
+  root,
+  "backend",
+  ".venv",
+  isWin ? "Scripts" : "bin",
+  isWin ? "python.exe" : "python"
+);
+// A developer or CI runner may supply a healthy interpreter while repairing a
+// moved/stale virtual environment. Running Uvicorn as a module also avoids the
+// absolute interpreter path embedded in Windows console-script launchers.
+const python = process.env.DEV_PYTHON?.trim() || defaultPython;
 const viteJs = path.join(root, "frontend", "node_modules", "vite", "bin", "vite.js");
 
 if (!existsSync(python)) {
@@ -221,8 +230,8 @@ if (startBackend) {
   children.push(
     startProcess(
       "backend",
-      uvicorn,
-      ["config.asgi:application", "--host", "127.0.0.1", "--port", String(backendPort), "--reload"],
+      python,
+      ["-m", "uvicorn", "config.asgi:application", "--host", "127.0.0.1", "--port", String(backendPort), "--reload"],
       "backend",
       devBackendEnv
     )

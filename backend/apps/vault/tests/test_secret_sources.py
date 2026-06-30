@@ -78,6 +78,7 @@ class DiscoverSourcesTests(TestCase):
         self.assertTrue(any(s["keyCount"] >= 1 for s in env_sources))
 
     def test_import_from_env_path(self):
-        with patch("apps.vault.local_store.portfolio_data_dir", return_value=Path(self.tmp.name)):
-            keys = import_from_env_path(self.project, self.root / ".env.local")
+        with patch("apps.vault.models._apply_verification"):
+            with patch("apps.vault.local_store.portfolio_data_dir", return_value=Path(self.tmp.name)):
+                keys = import_from_env_path(self.project, self.root / ".env.local")
         self.assertIn("STRIPE_SECRET_KEY", keys)

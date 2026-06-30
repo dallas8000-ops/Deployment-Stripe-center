@@ -94,7 +94,7 @@ export default function Layout() {
           <span className="muted topbar-env" title="One app: Stripe setup + deploy/transfer (API Transfer is not a separate product)">
             {apiConnectionLabel()}
           </span>
-          <span className="user-email">
+          <span className="user-email" title={user?.email}>
             <Link to="/account/security" className="topbar-nav-link">
               {user?.email}
             </Link>

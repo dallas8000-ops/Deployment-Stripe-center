@@ -62,7 +62,7 @@ export default function RegisterPage() {
       }
     >
       <form className="auth-form" onSubmit={onSubmit}>
-        {error && <div className="alert alert-error">{error}</div>}
+        {error && <div className="alert alert-error" role="alert">{error}</div>}
         {inviteOrg && !error && (
           <div className="alert">
             You were invited to <strong>{inviteOrg}</strong>. Use the email address from your invite.
@@ -98,9 +98,7 @@ export default function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Choose a password (8+ characters)"
             minLength={8}
-            autoComplete="off"
-            data-1p-ignore="true"
-            data-lpignore="true"
+            autoComplete="new-password"
             required
           />
           <span className="field-hint">Use your own password — ignore browser “suggest strong password” if you prefer.</span>

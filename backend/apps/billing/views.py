@@ -19,6 +19,7 @@ def _stripe_configured() -> bool:
 
 def _get_stripe():
     stripe.api_key = settings.SAAS_STRIPE_SECRET_KEY
+    stripe.api_version = settings.STRIPE_API_VERSION
     return stripe
 
 
@@ -40,6 +41,10 @@ def _plans() -> list[dict]:
                 }
             )
     return plans
+
+
+def _allowed_price_ids() -> set[str]:
+    return {plan["priceId"] for plan in _plans()}
 
 
 def _get_or_create_subscription(user) -> Subscription:
@@ -93,9 +98,14 @@ class OrgCheckoutView(APIView):
 
         org_slug = request.data.get("org") or request.data.get("organization_slug")
         price_id = request.data.get("priceId") or request.data.get("price_id")
-        domain = (request.data.get("domain") or "").strip()
-        if not org_slug or not price_id:
+        domain_value = request.data.get("domain")
+        if not isinstance(org_slug, str) or not isinstance(price_id, str):
             return Response({"error": "org and priceId required"}, status=400)
+        if not isinstance(domain_value, str):
+            return Response({"error": "domain required for license issuance"}, status=400)
+        domain = domain_value.strip()
+        if price_id not in _allowed_price_ids():
+            return Response({"error": "Unknown or unavailable plan"}, status=400)
         if not domain:
             return Response({"error": "domain required for license issuance"}, status=400)
 
@@ -217,9 +227,14 @@ class CheckoutView(APIView):
             )
 
         price_id = request.data.get("priceId") or request.data.get("price_id")
-        domain = (request.data.get("domain") or "").strip()
-        if not price_id:
+        domain_value = request.data.get("domain")
+        if not isinstance(price_id, str) or not price_id:
             return Response({"error": "priceId required"}, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(domain_value, str):
+            return Response({"error": "domain required for license issuance"}, status=400)
+        domain = domain_value.strip()
+        if price_id not in _allowed_price_ids():
+            return Response({"error": "Unknown or unavailable plan"}, status=status.HTTP_400_BAD_REQUEST)
         if not domain:
             return Response({"error": "domain required for license issuance"}, status=400)
 

@@ -1,10 +1,11 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { orgsApi, projectsApi, type Organization, type Project } from "../api/client";
 
 export default function ProjectSettingsPage() {
   const { slug = "" } = useParams();
+  const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -17,6 +18,7 @@ export default function ProjectSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState("");
   const [pullMessage, setPullMessage] = useState("");
+  const [deleteArmed, setDeleteArmed] = useState(false);
 
   useEffect(() => {
     orgsApi.list().then(setOrgs).catch(() => setOrgs([]));
@@ -77,6 +79,18 @@ export default function ProjectSettingsPage() {
     }
   }
 
+  async function removeProject() {
+    setBusy("delete");
+    setError("");
+    try {
+      await projectsApi.remove(slug);
+      navigate("/", { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+      setBusy("");
+    }
+  }
+
   if (!project) {
     return (
       <div className="page">
@@ -96,8 +110,8 @@ export default function ProjectSettingsPage() {
         </div>
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
-      {saved && <div className="alert alert-success">Settings saved.</div>}
+      {error && <div className="alert alert-error" role="alert">{error}</div>}
+      {saved && <div className="alert alert-success" role="status">Settings saved.</div>}
 
       <section className="card">
         <form className="settings-form" onSubmit={onSave}>
@@ -156,6 +170,41 @@ export default function ProjectSettingsPage() {
             {busy === "save" ? "Saving…" : "Save settings"}
           </button>
         </form>
+      </section>
+
+      <section className="card">
+        <h2>Danger zone</h2>
+        <p className="muted">
+          Remove this project and its stored configuration from Automation Center. This does not
+          delete the source repository or local project folder.
+        </p>
+        {deleteArmed ? (
+          <div className="danger-confirm" role="alert">
+            <p>Delete <strong>{project.name}</strong>? This action cannot be undone.</p>
+            <div className="page-actions">
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={removeProject}
+                disabled={busy === "delete"}
+              >
+                {busy === "delete" ? "Deletingâ€¦" : "Yes, delete project"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setDeleteArmed(false)}
+                disabled={busy === "delete"}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" className="btn btn-danger" onClick={() => setDeleteArmed(true)}>
+            Delete project
+          </button>
+        )}
       </section>
     </div>
   );
