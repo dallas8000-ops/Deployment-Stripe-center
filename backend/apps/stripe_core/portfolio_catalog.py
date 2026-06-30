@@ -112,6 +112,7 @@ PORTFOLIO_CATALOG: list[CatalogEntry] = [
         "webhookPath": "/api/v1/billing/webhook/",
         "healthPath": "/health/",
         "projectSlug": "stripe-installer",
+        "defaultLocalPath": r"C:\Software Projects\Deployment-Stripe-center",
         "notes": "Unified Stripe setup + deploy hub",
     },
         {

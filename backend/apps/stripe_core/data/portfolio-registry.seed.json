@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "allowedApps": [
+    {
+      "id": "eastbridge",
+      "name": "EastBridge Ops Intelligence",
+      "productionUrl": "https://eastbridge-ops-production.up.railway.app",
+      "webhookPath": "/stripe/webhook",
+      "healthPath": "/api/v1/health/",
+      "projectSlug": "eastbridge-ops",
+      "localPath": "C:\\Software Projects\\EastBridge Ops Intelligence",
+      "transferAllowedTo": [],
+      "stripeExempt": true,
+      "notes": "EU\u2192East Africa compliance, trade, vendor intelligence \u2014 monorepo Django+React on Railway"
+    },
+    {
+      "id": "automation-center",
+      "name": "Deployment & Stripe Automation Center",
+      "productionUrl": "https://stripe-installer-production.up.railway.app",
+      "webhookPath": "/api/v1/billing/webhook/",
+      "healthPath": "/health/",
+      "projectSlug": "stripe-installer",
+      "localPath": "C:\\Software Projects\\Deployment-Stripe-center",
+      "transferAllowedTo": [],
+      "stripeExempt": false,
+      "notes": "Unified Stripe setup + deploy hub"
+    },
+    {
+      "id": "elite-fintech",
+      "name": "Elite Fintech Systems",
+      "productionUrl": "https://elite-fintech-api-production.up.railway.app",
+      "webhookPath": "/webhooks/stripe/",
+      "healthPath": "/health/",
+      "projectSlug": "elite-fintech-systems",
+      "localPath": "C:\\Software Projects\\Elite Fintech Systems",
+      "transferAllowedTo": [],
+      "stripeExempt": false,
+      "notes": "One Railway project (portfolio hub) \u2014 three services: elite-fintech-systems-api, -web, -db. Same monorepo, not a separate project."
+    },
+    {
+      "id": "kistie-store",
+      "name": "Kistie Store",
+      "productionUrl": "https://kistie-store-production.up.railway.app",
+      "webhookPath": "/stripe/webhook",
+      "healthPath": "/health/",
+      "projectSlug": "kistie-store",
+      "localPath": "C:\\Software Projects\\Kristie-Store",
+      "transferAllowedTo": [],
+      "stripeExempt": true,
+      "notes": "Portfolio exempt \u2014 no Stripe subscription billing"
+    },
+    {
+      "id": "silverfox",
+      "name": "SilverFox",
+      "productionUrl": "https://silverfox-production.up.railway.app",
+      "webhookPath": "/stripe/webhook",
+      "healthPath": "/health/",
+      "projectSlug": "silverfox",
+      "localPath": "C:\\Software Projects\\SilverFox",
+      "transferAllowedTo": [],
+      "stripeExempt": true,
+      "notes": "Men's fashion e-commerce \u2014 Django SSR, live FX, Stripe checkout planned"
+    },
+    {
+      "id": "agripay-logistics",
+      "name": "AgriPay Logistics AI",
+      "productionUrl": "https://agripay-api-production.up.railway.app",
+      "webhookPath": "/webhooks/stripe/",
+      "healthPath": "/health/",
+      "projectSlug": "agripay-logistics-ai",
+      "localPath": "C:\\Software Projects\\AgriPay Logistics AI",
+      "transferAllowedTo": [],
+      "stripeExempt": false,
+      "notes": "Django API + React \u2014 mobile money + Stripe subscription billing"
+    },
+    {
+      "id": "blog-api",
+      "name": "Django REST Blog API",
+      "productionUrl": "https://blog-2-production-72bc.up.railway.app",
+      "webhookPath": "/stripe/webhook",
+      "healthPath": "/health/",
+      "projectSlug": "blog-2",
+      "localPath": "C:\\Software Projects\\Blog-2",
+      "transferAllowedTo": [],
+      "stripeExempt": true,
+      "notes": "Portfolio exempt \u2014 content API, no paid Stripe catalog"
+    },
+    {
+      "id": "react-store-catalog",
+      "name": "React Store Catalog",
+      "productionUrl": "https://react-store-catalog-1-production.up.railway.app",
+      "webhookPath": "/api/stripe/webhook",
+      "healthPath": "/health/",
+      "projectSlug": "react-store-catalog",
+      "localPath": "C:\\Software Projects\\React-Store-Catalog",
+      "transferAllowedTo": [],
+      "stripeExempt": true,
+      "notes": "Portfolio exempt \u2014 catalog demo, not a paid Stripe product"
+    },
+    {
+      "id": "righand",
+      "name": "RIGHAND",
+      "productionUrl": "https://righand-production.up.railway.app",
+      "webhookPath": "/api/v1/billing/webhook/",
+      "healthPath": "/health/",
+      "projectSlug": "righand",
+      "localPath": "C:\\Software Projects\\RigHand",
+      "transferAllowedTo": [],
+      "stripeExempt": false,
+      "notes": ""
+    },
+    {
+      "id": "pc-checker-extreme",
+      "name": "PC Checker Extreme",
+      "productionUrl": "https://pc-checker-extreme-production.up.railway.app",
+      "webhookPath": "/api/v1/billing/webhook/",
+      "healthPath": "/health/",
+      "projectSlug": "pc-checker-extreme",
+      "localPath": "C:\\Software Projects\\PC Checker Extreme",
+      "transferAllowedTo": [],
+      "stripeExempt": false,
+      "notes": ""
+    },
+    {
+      "id": "dbops",
+      "name": "DBOps Control Center",
+      "productionUrl": "https://dbops-api-production-5047.up.railway.app",
+      "webhookPath": "/api/v1/billing/webhook/",
+      "healthPath": "/health/",
+      "projectSlug": "dbops-control-center",
+      "localPath": "C:\\Software Projects\\DBOps-Control-Center",
+      "transferAllowedTo": [],
+      "stripeExempt": false,
+      "notes": "Webhook on API service (not dbops-web frontend)"
+    },
+    {
+      "id": "specwright",
+      "name": "Specwright",
+      "productionUrl": "https://specwright-api-production.up.railway.app",
+      "webhookPath": "/api/v1/billing/webhook",
+      "healthPath": "/api/v1/health",
+      "projectSlug": "specwright",
+      "localPath": "C:\\Software Projects\\Specwright",
+      "transferAllowedTo": [],
+      "stripeExempt": false,
+      "notes": "Webhook on API service (not specwright-web frontend)"
+    },
+    {
+      "id": "enpowercommand",
+      "name": "EnPowerCommand",
+      "productionUrl": "https://enpowercommand-production.up.railway.app",
+      "webhookPath": "/api/v1/billing/webhook/",
+      "healthPath": "/health/",
+      "projectSlug": "enpowercommand",
+      "localPath": "C:\\Software Projects\\EnPowerCommand",
+      "transferAllowedTo": [],
+      "stripeExempt": false,
+      "notes": ""
+    }
+  ]
+}

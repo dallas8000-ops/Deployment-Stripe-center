@@ -1,9 +1,15 @@
-"""Allowed portfolio apps — stored only on this machine (~/.stripe-installer/)."""
+"""Allowed portfolio apps — stored only on this machine (~/.stripe-installer/).
+
+A checked-in seed (apps/stripe_core/data/portfolio-registry.seed.json) is used to
+populate the first-run template so localPath survives Railway wiping
+~/.stripe-installer/ on redeploy. See ensure_registry_template().
+"""
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -13,6 +19,9 @@ EXAMPLE_REGISTRY: dict[str, Any] = {
     "version": 1,
     "allowedApps": [],
 }
+
+# Checked into git — the source of truth for first-run / post-redeploy seeding.
+SEED_REGISTRY_PATH = Path(__file__).resolve().parent / "data" / "portfolio-registry.seed.json"
 
 
 def _example_apps_from_catalog() -> list[dict[str, Any]]:
@@ -30,7 +39,7 @@ def _example_apps_from_catalog() -> list[dict[str, Any]]:
                 "webhookPath": entry.get("webhookPath", "/stripe/webhook"),
                 "healthPath": entry.get("healthPath", "/health/"),
                 "projectSlug": entry.get("projectSlug", ""),
-                "localPath": "",
+                "localPath": entry.get("defaultLocalPath", ""),
                 "transferAllowedTo": [],
                 "stripeExempt": bool(entry.get("stripeExempt")),
                 "notes": entry.get("notes", ""),
@@ -110,6 +119,17 @@ def ensure_registry_template() -> Path:
     path = portfolio_registry_path()
     if path.is_file():
         return path
+
+    # Prefer the checked-in seed (real localPath values, reviewed in git) over the
+    # catalog-derived template. This is what makes the registry survive Railway
+    # wiping ~/.stripe-installer/ on every redeploy: the seed always exists.
+    if SEED_REGISTRY_PATH.is_file():
+        seed_text = SEED_REGISTRY_PATH.read_text(encoding="utf-8")
+        path.write_text(seed_text, encoding="utf-8")
+        example = portfolio_data_dir() / "portfolio-registry.example.json"
+        example.write_text(seed_text, encoding="utf-8")
+        return path
+
     example = portfolio_data_dir() / "portfolio-registry.example.json"
     example.write_text(json.dumps(EXAMPLE_REGISTRY, indent=2) + "\n", encoding="utf-8")
     path.write_text(json.dumps(EXAMPLE_REGISTRY, indent=2) + "\n", encoding="utf-8")
