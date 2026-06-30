@@ -287,7 +287,13 @@ def _check_catalog(issues: list[StripeIssue], manifest: dict | None, secret: str
             ))
 
 
-def _check_webhook(issues: list[StripeIssue], manifest: dict | None, secret: str, scan: dict) -> None:
+def _check_webhook(
+    issues: list[StripeIssue],
+    project: Project,
+    manifest: dict | None,
+    secret: str,
+    scan: dict,
+) -> None:
     webhook = (manifest or {}).get("webhookEndpoint")
     if webhook and webhook.get("id"):
         stripe.api_key = secret
@@ -300,6 +306,25 @@ def _check_webhook(issues: list[StripeIssue], manifest: dict | None, secret: str
                     message=f"Endpoint {webhook.get('url')} is disabled in Stripe",
                     fix_hint="Re-provision webhook",
                     auto_fixable=True, fix_action="provision-stripe",
+                ))
+            from apps.stripe_core.hub_keys import resolve_stripe_billing_urls
+
+            _, expected_url = resolve_stripe_billing_urls(project)
+            current_url = str(getattr(endpoint, "url", "") or "")
+            if (
+                expected_url
+                and current_url != expected_url
+                and current_url.rstrip("/") == expected_url.rstrip("/")
+            ):
+                _push(issues, StripeIssue(
+                    id="webhook-url-redirect",
+                    category="webhooks",
+                    severity="warning",
+                    title="Webhook URL redirects because of a trailing slash mismatch",
+                    message=f"Stripe has {current_url}; the app expects {expected_url}",
+                    fix_hint="Normalize the existing Stripe endpoint URL (signing secret is preserved)",
+                    auto_fixable=True,
+                    fix_action="normalize-webhook-url",
                 ))
         except stripe.error.StripeError:
             _push(issues, StripeIssue(
@@ -357,7 +382,7 @@ def run_diagnostics(project: Project, project_root: Path) -> DiagnosticReport:
 
         if verification.secret_key.valid and secret:
             _check_catalog(issues, manifest, secret)
-            _check_webhook(issues, manifest, secret, scan)
+            _check_webhook(issues, project, manifest, secret, scan)
 
     health_score = score_issues(issues)
     errors = sum(1 for i in issues if i.severity == "error")

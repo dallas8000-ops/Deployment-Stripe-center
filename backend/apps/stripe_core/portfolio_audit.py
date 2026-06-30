@@ -32,6 +32,7 @@ class EndpointProbe:
     status_code: int | None
     message: str
     latency_ms: float
+    redirect_url: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -40,7 +41,15 @@ class EndpointProbe:
             "statusCode": self.status_code,
             "message": self.message,
             "latencyMs": round(self.latency_ms, 1),
+            "redirectUrl": self.redirect_url,
         }
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Expose redirects to the audit; Stripe webhook deliveries must return 2xx directly."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 @dataclass
@@ -69,10 +78,11 @@ class WebhookAuditRow:
 
 def _probe_url(url: str, *, timeout: float = 12.0) -> EndpointProbe:
     start = time.time()
+    opener = urllib.request.build_opener(_NoRedirect)
     for method in ("HEAD", "GET"):
         try:
             req = urllib.request.Request(url, method=method)
-            with urllib.request.urlopen(req, timeout=timeout) as response:
+            with opener.open(req, timeout=timeout) as response:
                 code = response.status
                 elapsed = (time.time() - start) * 1000
                 # Webhooks expect POST; 405/401/400 often means the app is up.
@@ -86,6 +96,19 @@ def _probe_url(url: str, *, timeout: float = 12.0) -> EndpointProbe:
                 )
         except urllib.error.HTTPError as exc:
             elapsed = (time.time() - start) * 1000
+            if 300 <= exc.code < 400:
+                redirect_url = exc.headers.get("Location") if exc.headers else None
+                return EndpointProbe(
+                    url=url,
+                    reachable=False,
+                    status_code=exc.code,
+                    message=(
+                        f"{method} {exc.code} redirects to {redirect_url or 'another URL'}; "
+                        "Stripe webhooks must return 2xx without redirecting"
+                    ),
+                    latency_ms=elapsed,
+                    redirect_url=redirect_url,
+                )
             if exc.code < 500:
                 return EndpointProbe(
                     url=url,

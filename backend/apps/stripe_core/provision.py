@@ -432,9 +432,21 @@ def _register_webhook(url: str, events: list[str]) -> dict[str, Any]:
     # Exact URL match — reuse as-is (path must match registry; legacy /stripe/webhook ≠ /api/v1/billing/webhook/)
     match = next((e for e in endpoints.data if (e.url or "").rstrip("/") == normalized), None)
     if match:
-        stripe.WebhookEndpoint.modify(match.id, enabled_events=events, disabled=False)
+        current_url = match.url or ""
+        updated = stripe.WebhookEndpoint.modify(
+            match.id,
+            url=url,
+            enabled_events=events,
+            disabled=False,
+        )
         _retire_superseded_host_webhooks(normalized)
-        return {"id": match.id, "url": match.url, "secret": None, "reused": True}
+        return {
+            "id": match.id,
+            "url": getattr(updated, "url", url),
+            "secret": None,
+            "reused": True,
+            "urlCorrected": current_url != url,
+        }
 
     created = stripe.WebhookEndpoint.create(
         url=url,

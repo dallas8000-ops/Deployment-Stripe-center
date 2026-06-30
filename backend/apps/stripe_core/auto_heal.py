@@ -30,6 +30,7 @@ class HealPolicy:
                 "sync-public-key",
                 "sync-env",
                 "create-stripe-config",
+                "normalize-webhook-url",
             ]
 
 

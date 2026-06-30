@@ -28,6 +28,7 @@ class RootCause(str, Enum):
     KEYS_INVALID = "KEYS_INVALID"
     NO_PRODUCTION_URL = "NO_PRODUCTION_URL"
     HOSTING_DOWN = "HOSTING_DOWN"
+    WEBHOOK_REDIRECT = "WEBHOOK_REDIRECT"
     WEBHOOK_NOT_REGISTERED = "WEBHOOK_NOT_REGISTERED"
     ENDPOINT_DISABLED = "ENDPOINT_DISABLED"
     WEBHOOK_SECRET_MISSING = "WEBHOOK_SECRET_MISSING"
@@ -202,6 +203,25 @@ def _playbook_not_registered(webhook_url: str, links: dict[str, str]) -> list[Pl
     ]
 
 
+def _playbook_redirect(webhook_url: str, redirect_url: str | None) -> list[PlaybookStep]:
+    return [
+        PlaybookStep(
+            1,
+            "Normalize the Stripe webhook URL",
+            f"Change the endpoint to {webhook_url}. Current delivery redirects to {redirect_url or 'another URL'}.",
+            "installer",
+            confirm="Stripe endpoint URL exactly matches the app route and returns no 3xx response.",
+        ),
+        PlaybookStep(
+            2,
+            "Run safe auto-heal",
+            "The normalize-webhook-url action changes only a trailing-slash mismatch and preserves the signing secret.",
+            "installer",
+            confirm="Advisor reports no WEBHOOK_REDIRECT finding.",
+        ),
+    ]
+
+
 def run_stripe_advisor(project: Project, project_root: Path | None = None) -> dict[str, Any]:
     """Build advisor report: classify root cause + ordered playbook."""
     secret = get_secret(project, "STRIPE_SECRET_KEY")
@@ -220,7 +240,14 @@ def run_stripe_advisor(project: Project, project_root: Path | None = None) -> di
         from apps.stripe_core.hub_keys import resolve_webhook_path
 
         webhook_url = f"{prod_url.rstrip('/')}{resolve_webhook_path(project)}"
-    health_url = f"{prod_url.rstrip('/')}/health/?format=json" if prod_url else ""
+    if prod_url:
+        from apps.stripe_core.portfolio_catalog import catalog_by_slug
+
+        catalog = catalog_by_slug(project.slug)
+        health_path = str((catalog or {}).get("healthPath") or "/health/")
+        health_url = f"{prod_url.rstrip('/')}/{health_path.lstrip('/')}"
+    else:
+        health_url = ""
 
     findings: list[AdvisorFinding] = []
     checks: dict[str, Any] = {
@@ -283,6 +310,24 @@ def run_stripe_advisor(project: Project, project_root: Path | None = None) -> di
         checks["webhookProbe"] = probe.to_dict()
     if health_probe:
         checks["healthProbe"] = health_probe.to_dict()
+
+    webhook_redirect = bool(
+        probe and probe.status_code and 300 <= probe.status_code < 400
+    )
+    if webhook_redirect:
+        findings.append(
+            AdvisorFinding(
+                RootCause.WEBHOOK_REDIRECT,
+                "error",
+                "Webhook URL redirects instead of accepting Stripe directly",
+                probe.message,
+                _playbook_redirect(webhook_url, probe.redirect_url),
+                metrics={
+                    "statusCode": probe.status_code,
+                    "redirectUrl": probe.redirect_url,
+                },
+            )
+        )
 
     hosting_down = bool(
         webhook_url
@@ -423,6 +468,7 @@ def run_stripe_advisor(project: Project, project_root: Path | None = None) -> di
         "webhookErrorRisk": primary.root_cause
         in (
             RootCause.HOSTING_DOWN,
+            RootCause.WEBHOOK_REDIRECT,
             RootCause.WEBHOOK_SECRET_MISSING,
             RootCause.WEBHOOK_SECRET_INVALID,
             RootCause.WEBHOOK_NOT_REGISTERED,

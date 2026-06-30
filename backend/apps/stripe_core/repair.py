@@ -126,6 +126,44 @@ def _provision_stripe(project: Project, project_root: Path, app_url: str) -> Rep
     )
 
 
+def _normalize_webhook_url(project: Project, project_root: Path) -> RepairResult:
+    """Safely fix only slash-equivalent URLs; broader URL changes require provisioning approval."""
+    import stripe
+
+    from apps.stripe_core.provision import load_manifest, save_manifest
+
+    secret = get_secret(project, "STRIPE_SECRET_KEY")
+    if not secret:
+        return RepairResult("normalize-webhook-url", False, "STRIPE_SECRET_KEY not in vault")
+    _, expected_url = resolve_stripe_billing_urls(project)
+    manifest = load_manifest(project_root) or {}
+    webhook = manifest.get("webhookEndpoint") or {}
+    endpoint_id = webhook.get("id")
+    if not expected_url or not endpoint_id:
+        return RepairResult("normalize-webhook-url", False, "Expected URL or webhook ID missing")
+
+    stripe.api_key = secret
+    endpoint = stripe.WebhookEndpoint.retrieve(endpoint_id)
+    current_url = str(getattr(endpoint, "url", "") or "")
+    if current_url == expected_url:
+        return RepairResult("normalize-webhook-url", True, "Webhook URL already canonical")
+    if current_url.rstrip("/") != expected_url.rstrip("/"):
+        return RepairResult(
+            "normalize-webhook-url",
+            False,
+            "Webhook host/path differs; refusing automatic mutation",
+        )
+
+    stripe.WebhookEndpoint.modify(endpoint_id, url=expected_url)
+    manifest.setdefault("webhookEndpoint", {})["url"] = expected_url
+    save_manifest(project_root, manifest)
+    return RepairResult(
+        "normalize-webhook-url",
+        True,
+        f"Normalized webhook URL to {expected_url}; signing secret preserved",
+    )
+
+
 def run_repair_action(
     project: Project,
     action: str,
@@ -149,6 +187,8 @@ def run_repair_action(
         return _generate_infra(project, root, force, app_url)
     if action == "provision-stripe":
         return _provision_stripe(project, root, app_url)
+    if action == "normalize-webhook-url":
+        return _normalize_webhook_url(project, root)
     return RepairResult(action, False, f"Unknown action: {action}")
 
 
