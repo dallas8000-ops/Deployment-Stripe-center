@@ -56,8 +56,9 @@ class SetupHubActionView(ProjectOwnedMixin, APIView):
                 else:
                     data = audit_project_secret_placement(project, hub=hub).to_dict()
                 if request.data.get("repair") and not data.get("ok"):
-                    data["repair"] = repair_project_secret_placement(project, hub=hub)
+                    repair_result = repair_project_secret_placement(project, hub=hub)
                     data = audit_project_secret_placement(project, hub=hub).to_dict()
+                    data["repair"] = repair_result
                 return Response({"ok": data.get("ok", False), "audit": data, "status": setup_hub_status(project, user=request.user)})
 
             if action == "repair_secrets":

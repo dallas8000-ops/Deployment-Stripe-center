@@ -466,7 +466,27 @@ def _register_webhook(url: str, events: list[str]) -> dict[str, Any]:
                 "urlCorrected": current_url != url,
             }
         # Stripe does not expose signing secrets for existing endpoints — recreate to sync whsec_.
-        stripe.WebhookEndpoint.delete(match.id)
+        # Create the replacement BEFORE deleting the old one: if create() throws (network blip,
+        # rate limit, Stripe-side error), the account is never left with zero live webhook
+        # endpoints for this URL.
+        created = stripe.WebhookEndpoint.create(
+            url=url,
+            enabled_events=events,
+            metadata={"created_by": INSTALLER_TAG},
+        )
+        stale_endpoint_id = None
+        try:
+            stripe.WebhookEndpoint.delete(match.id)
+        except stripe.StripeError:
+            stale_endpoint_id = match.id  # surfaced as a warning by the caller
+        _retire_superseded_host_webhooks(normalized)
+        return {
+            "id": created.id,
+            "url": created.url,
+            "secret": created.secret,
+            "reused": False,
+            "staleEndpointId": stale_endpoint_id,
+        }
 
     created = stripe.WebhookEndpoint.create(
         url=url,
@@ -560,6 +580,12 @@ def _provision_webhook(
         warnings.append(
             "Webhook endpoint already exists — could not rotate signing secret. "
             "Copy whsec_ from Stripe Dashboard → Webhooks → Signing secret."
+        )
+    if webhook.get("staleEndpointId"):
+        warnings.append(
+            f"Old webhook endpoint {webhook['staleEndpointId']} could not be deleted after "
+            "its replacement was created — remove it manually in the Stripe Dashboard to avoid "
+            "duplicate event deliveries."
         )
 
 
