@@ -19,5 +19,5 @@ django-csp>=3.8
 pyotp>=2.9
 authlib>=1.7.2
 requests>=2.31
-sentry-sdk>=2.19
+sentry-sdk>=2.69.2
 coverage>=7.6
