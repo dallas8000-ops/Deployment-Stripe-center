@@ -20,4 +20,4 @@ pyotp>=2.9
 authlib>=1.7.2
 requests>=2.31
 sentry-sdk>=2.19
-coverage>=7.6
+coverage>=7.16.1
