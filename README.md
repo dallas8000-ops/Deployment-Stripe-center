@@ -6,6 +6,13 @@ Combined platform for **deployment / API transfer** and **Stripe setup** — one
 
 This repo merges the former **Stripe Installer** and **API Transfer** products into a single Django + React app. Never exposes secrets to the frontend, AI, or logs.
 
+> **At a glance**
+> - **What:** one login for agencies to scan client repos, wire Stripe billing and push deploys to Railway, Render or Fly.io, with no secret ever reaching the browser, an AI prompt or a log.
+> - **Stack:** Django 5 + DRF · React 18 + TypeScript (Vite) · PostgreSQL · Celery + Redis · Docker · Railway
+> - **Security:** AES-256-GCM encrypted vault per project · TOTP MFA · org RBAC with email invites · Stripe webhook signature verification · SOC 2-oriented audit retention ([deploy/COMPLIANCE.md](deploy/COMPLIANCE.md))
+> - **Quality:** 150+ backend tests, dependency audit, Django checks and smoke test in CI on every push
+> - **Live:** https://stripe-installer.gilliomfrontlinedigital.com/login
+
 | Doc | Purpose |
 |-----|---------|
 | [docs/PRODUCT.md](docs/PRODUCT.md) | Product wedge + ICP |
@@ -15,6 +22,7 @@ This repo merges the former **Stripe Installer** and **API Transfer** products i
 | [docs/AUTOMATION-CENTER.md](docs/AUTOMATION-CENTER.md) | Merge vision + secret rules |
 | [docs/CUTOVER.md](docs/CUTOVER.md) | Retire old production apps |
 | [docs/MERGE-STATUS.md](docs/MERGE-STATUS.md) | Cutover checklist (live) |
+| [docs/OPERATIONS-HISTORY.md](docs/OPERATIONS-HISTORY.md) | Last cutover verification + remaining cutover steps |
 | [docs/RAILWAY.md](docs/RAILWAY.md) | Railway deploy + vault key |
 | [docs/GO-LIVE.md](docs/GO-LIVE.md) | Client project → production |
 | [docs/PRODUCTION.md](docs/PRODUCTION.md) | Docker prod stack |
@@ -31,24 +39,6 @@ This repo merges the former **Stripe Installer** and **API Transfer** products i
 | **Health** | `GET /health/` |
 | **SaaS billing webhook** | `POST /api/v1/billing/webhook/` |
 | **Portfolio live demo** | [gilliomfrontlinedigital.com](https://gilliomfrontlinedigital.com) → **Deployment & Stripe Automation Center** card |
-| **Railway service** | `Stripe-Installer` in project `hearty-enjoyment` |
-| **Retiring** | `api-transfer-production` (legacy — delete after cutover) |
-
-**Last verified** (local `python manage.py verify_cutover`):
-
-| Check | Status |
-|-------|--------|
-| Unified health + vault | OK |
-| SaaS billing configured | OK |
-| Portfolio registry (`~/.stripe-installer/portfolio-registry.json`) | OK |
-| Custom domain TLS | Pending — finish cert in Railway → Networking |
-| Legacy api-transfer service | Still up — disable webhook, wait 48h, delete service |
-
-```powershell
-curl https://stripe-installer-production.up.railway.app/health/
-cd backend; python manage.py verify_cutover
-powershell -File scripts/complete-cutover.ps1
-```
 
 ---
 
@@ -238,20 +228,6 @@ Current production entry: **`automation-center`** → `https://stripe-installer.
 
 ---
 
-## Cutover (retire api-transfer-production)
-
-Remaining manual steps — see [docs/MERGE-STATUS.md](docs/MERGE-STATUS.md):
-
-1. Finish TLS on custom domain (Railway Networking).
-2. Disable legacy Stripe webhook on `api-transfer-production.../api/billing/webhook`.
-3. Smoke test: login → project → Transfer panel.
-4. Redeploy portfolio (`frontlinedigital-1-production`) for updated demo URL.
-5. After 48h quiet → delete `api-transfer-production` Railway service.
-
-Helper: `powershell -File scripts/complete-cutover.ps1`
-
----
-
 ## License protection (deployed instances)
 
 When you sell this platform as a product, deployed copies validate against your licensing server:
@@ -378,7 +354,7 @@ python manage.py transfer_worker --once
 
 ## Legacy Node CLI
 
-The v0.6 CLI and Electron app live in [`legacy/node/`](legacy/node/README.md) for reference only.
+The v0.6 CLI and Electron app live in [`legacy/node/`](legacy/node/) for reference only.
 
 ---
 
