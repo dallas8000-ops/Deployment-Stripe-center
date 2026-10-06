@@ -8,13 +8,14 @@
 
 FROM node:20-alpine AS frontend
 WORKDIR /app/frontend
-# Railway injects NODE_ENV=production during builds — devDeps (typescript, vite) are required.
-ENV NODE_ENV=development \
-    NPM_CONFIG_PRODUCTION=false
+# devDeps (typescript, vite) are required to build, so install them explicitly even when the
+# environment says production (Railway injects NODE_ENV=production during builds).
+# The build itself must run with NODE_ENV=production: under NODE_ENV=development Vite ships
+# React's development build (~2x larger, slower, dev-only warnings) to production.
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci
+RUN npm ci --include=dev
 COPY frontend/ ./
-RUN npm run build
+RUN NODE_ENV=production npm run build
 
 FROM python:3.12-slim AS backend
 ENV PYTHONDONTWRITEBYTECODE=1 \
