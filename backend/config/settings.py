@@ -64,6 +64,7 @@ if os.environ.get("RAILWAY_PUBLIC_DOMAIN") and os.environ["RAILWAY_PUBLIC_DOMAIN
     ALLOWED_HOSTS.append(os.environ["RAILWAY_PUBLIC_DOMAIN"])
 
 INSTALLED_APPS = [
+    "csp",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -422,6 +423,27 @@ if ON_RAILWAY:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     USE_X_FORWARDED_HOST = True
 
+# Content-Security-Policy in django-csp 4.x format. The legacy CSP_* settings are
+# silently ignored by django-csp >= 4.0, which left production with no CSP header.
+# "csp" is in INSTALLED_APPS so its system check (csp.E001) fails fast if they return.
+# Extra connect-src origins (e.g. a split API host) via CSP_EXTRA_CONNECT_SRC="https://a,https://b".
+from csp.constants import NONE, SELF  # noqa: E402
+
+_csp_extra_connect = [
+    o.strip() for o in os.environ.get("CSP_EXTRA_CONNECT_SRC", "").split(",") if o.strip()
+]
+PRODUCTION_CSP = {
+    "DIRECTIVES": {
+        "default-src": [SELF],
+        "script-src": [SELF],
+        "style-src": [SELF, "'unsafe-inline'"],  # Django admin
+        "img-src": [SELF, "data:", "https:"],
+        "connect-src": [SELF, *_csp_extra_connect],
+        "font-src": [SELF],
+        "frame-ancestors": [NONE],
+    }
+}
+
 # Production security — active when DJANGO_DEBUG is false (local dev keeps DEBUG=true in .env).
 # Skipped under `manage.py test`: the test client speaks plain HTTP, so SECURE_SSL_REDIRECT
 # would turn every request into a 301 and mask real assertions.
@@ -437,13 +459,7 @@ if not DEBUG and not RUNNING_TESTS:
     X_FRAME_OPTIONS = "DENY"
     SECURE_REFERRER_POLICY = "same-origin"
 
-    CSP_DEFAULT_SRC = ("'self'",)
-    CSP_SCRIPT_SRC = ("'self'",)
-    CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")  # Django admin
-    CSP_IMG_SRC = ("'self'", "data:", "https:")
-    CSP_CONNECT_SRC = ("'self'",)
-    CSP_FONT_SRC = ("'self'",)
-    CSP_FRAME_ANCESTORS = ("'none'",)
+    CONTENT_SECURITY_POLICY = PRODUCTION_CSP
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "DEBUG" if DEBUG else "INFO")
 
