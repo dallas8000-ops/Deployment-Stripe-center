@@ -79,3 +79,19 @@ class PortfolioWorkspaceTests(SimpleTestCase):
         path, changed = repair_portfolio_local_path(p, save=False)
         self.assertTrue(changed)
         self.assertEqual(path, "")
+
+    def test_windows_app_path_is_not_inside_hub_on_any_host(self):
+        # Regression: on a Linux host, Path(r"C:\...").resolve() became
+        # <cwd>/C:\..., i.e. inside the hub, so every Windows path was rejected.
+        path = r"C:\Software Projects\Digital-Sales-Automation-Center"
+        self.assertFalse(is_inside_hub_repo(path))
+
+        class P:
+            slug = "digital-sales-automation-center"
+            local_path = path
+            git_url = ""
+
+        self.assertIsNone(workspace_path_error(P()))
+
+    def test_relative_path_under_hub_is_still_rejected(self):
+        self.assertTrue(is_inside_hub_repo("backend/some-app"))

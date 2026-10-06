@@ -1,4 +1,6 @@
 import os
+import sys
+import tempfile
 from datetime import timedelta
 from pathlib import Path
 
@@ -12,6 +14,14 @@ REPO_ROOT = BASE_DIR.parent
 from config.private_env import load_private_env
 
 load_private_env(REPO_ROOT)
+
+# Test runs must never touch the developer's real portfolio data or app secrets
+# (~/.stripe-installer/), and must not inherit production-only HTTP hardening.
+RUNNING_TESTS = "test" in sys.argv
+if RUNNING_TESTS:
+    os.environ["STRIPE_INSTALLER_DATA_DIR"] = str(
+        Path(tempfile.gettempdir()) / "deployment-stripe-center-tests"
+    )
 
 from apps.vault.app_secrets import load_app_secrets_into_environ
 
@@ -399,7 +409,7 @@ CHANNEL_LAYERS = {
     }
 }
 
-if os.environ.get("CHANNEL_LAYER_INMEMORY", "").lower() == "true":
+if RUNNING_TESTS or os.environ.get("CHANNEL_LAYER_INMEMORY", "").lower() == "true":
     CHANNEL_LAYERS = {
         "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
     }
@@ -413,7 +423,9 @@ if ON_RAILWAY:
     USE_X_FORWARDED_HOST = True
 
 # Production security — active when DJANGO_DEBUG is false (local dev keeps DEBUG=true in .env).
-if not DEBUG:
+# Skipped under `manage.py test`: the test client speaks plain HTTP, so SECURE_SSL_REDIRECT
+# would turn every request into a 301 and mask real assertions.
+if not DEBUG and not RUNNING_TESTS:
     SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = os.environ.get("SECURE_HSTS_PRELOAD", "false").lower() == "true"
