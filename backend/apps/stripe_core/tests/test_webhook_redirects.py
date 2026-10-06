@@ -42,8 +42,9 @@ class WebhookRedirectTests(SimpleTestCase):
     @patch("apps.stripe_core.provision.stripe.WebhookEndpoint.delete")
     @patch("apps.stripe_core.provision.stripe.WebhookEndpoint.modify")
     @patch("apps.stripe_core.provision.stripe.WebhookEndpoint.list")
+    @patch("apps.stripe_core.provision._rotate_webhook_secret", return_value="whsec_test")
     def test_registration_normalizes_existing_slash_variant(
-        self, list_endpoints, modify_endpoint, _delete_endpoint
+        self, _rotate_secret, list_endpoints, modify_endpoint, _delete_endpoint
     ):
         existing = SimpleNamespace(id="we_test", url="https://example.com/webhook/")
         list_endpoints.return_value = SimpleNamespace(data=[existing])
