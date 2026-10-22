@@ -8,7 +8,8 @@ from .spa import spa_asset, spa_index
 from .views import health, metrics, readiness, root
 
 urlpatterns = [
-    path("", root),
+    path("", spa_index, name="app-root"),
+    path("api/", root, name="api-root"),
     path("health/", health),
     path("health/ready/", readiness),
     path("health/metrics/", metrics),
