@@ -26,7 +26,7 @@ def root(_request):
         {
             "service": "Deployment & Stripe Automation Center API",
             "status": "ok",
-            "ui": getattr(settings, "APP_PUBLIC_URL", "http://localhost:5173"),
+            "ui": "/",
             "api": "/api/v1/",
         }
     )
