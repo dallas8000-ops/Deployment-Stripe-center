@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from django.conf import settings
+from django.db import transaction
 
 from apps.vault.crypto import EncryptedPayload, VaultConfigurationError, decrypt_secret, encrypt_secret
 from apps.vault.models import ProjectVault, VaultSecret
@@ -45,23 +46,30 @@ def rotate_vault_master_key(new_master_key_raw: str, *, dry_run: bool = False) -
     project_count = 0
     secret_count = 0
 
-    for vault in ProjectVault.objects.select_related("project").all():
-        project_count += 1
-        salt = bytes(vault.salt)
-        for secret in VaultSecret.objects.filter(project=vault.project):
-            payload = EncryptedPayload(
-                encrypted_value=secret.encrypted_value,
-                iv=secret.iv,
-                auth_tag=secret.auth_tag,
-            )
-            plaintext = decrypt_secret(payload, salt, master_key=old_key)
-            secret_count += 1
-            if dry_run:
-                continue
-            new_payload = encrypt_secret(plaintext, salt, master_key=new_key)
-            secret.encrypted_value = new_payload.encrypted_value
-            secret.iv = new_payload.iv
-            secret.auth_tag = new_payload.auth_tag
-            secret.save(update_fields=["encrypted_value", "iv", "auth_tag", "updated_at"])
+    # Atomic: a crash partway through must not leave some secrets re-encrypted under the
+    # new key and others still under the old one with no record of which is which.
+    with transaction.atomic():
+        for vault in ProjectVault.objects.select_related("project").all():
+            project_count += 1
+            salt = bytes(vault.salt)
+            for secret in VaultSecret.objects.filter(project=vault.project):
+                payload = EncryptedPayload(
+                    encrypted_value=secret.encrypted_value,
+                    iv=secret.iv,
+                    auth_tag=secret.auth_tag,
+                )
+                plaintext = decrypt_secret(payload, salt, master_key=old_key)
+                secret_count += 1
+                if dry_run:
+                    continue
+                new_payload = encrypt_secret(plaintext, salt, master_key=new_key)
+                secret.encrypted_value = new_payload.encrypted_value
+                secret.iv = new_payload.iv
+                secret.auth_tag = new_payload.auth_tag
+                secret.save(update_fields=["encrypted_value", "iv", "auth_tag", "updated_at"])
+
+        if dry_run:
+            # Belt-and-suspenders: dry_run never writes above, but guarantee no commit either.
+            transaction.set_rollback(True)
 
     return RotationResult(projects=project_count, secrets=secret_count, dry_run=dry_run)

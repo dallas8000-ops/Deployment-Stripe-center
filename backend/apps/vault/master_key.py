@@ -79,13 +79,15 @@ def _resolve_for_railway(path: Path, env_key: str, file_key: str) -> str:
         )
         return file_key
 
-    key = secrets.token_hex(32)
-    logger.error(
-        "Railway: VAULT_MASTER_KEY not set; generated ephemeral key. "
-        "Set a permanent 64-char hex VAULT_MASTER_KEY in Railway Variables "
-        "or previously encrypted secrets will be unreadable after redeploy."
+    raise RuntimeError(
+        "VAULT_MASTER_KEY is not set in Railway Variables, and no key file exists in this "
+        "container. Refusing to start with a freshly generated key: every vault secret "
+        "already encrypted under the real key would become permanently unreadable, and new "
+        "secrets would be encrypted under a key nobody has a record of. Set VAULT_MASTER_KEY "
+        "(64-char hex) in Railway Variables — generate one with: "
+        "python -c \"import secrets; print(secrets.token_hex(32))\" — using the SAME value "
+        "already in use if secrets have been stored before, then redeploy."
     )
-    return key
 
 
 def _write_master_key_file(path: Path, key: str) -> None:

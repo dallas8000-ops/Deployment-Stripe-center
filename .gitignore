@@ -28,3 +28,10 @@ frontend/dist/
 frontend/.env
 frontend/.env.local
 *.tsbuildinfo
+
+# local-only artifacts
+**/.venv/
+.tmp-specwright-review/
+*.log
+.coverage
+*.patch

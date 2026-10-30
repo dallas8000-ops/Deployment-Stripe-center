@@ -70,14 +70,24 @@ def checkout(request):
 
 @require_POST
 def portal(request):
-    customer_id = _post_value(request, "customerId")
-    if not customer_id and getattr(request, "user", None) and request.user.is_authenticated:
+    """Open the Stripe billing portal for the CALLER's own linked customer.
+
+    Never trusts a client-supplied customerId: that used to let anyone POST
+    an arbitrary Stripe customer id here and get redirected straight into
+    that customer's live billing portal (saved payment methods, invoices,
+    subscription controls) — no auth, no proof of any relationship to that
+    customer. An authenticated user's customer id now always comes from our
+    own DB link (get_stripe_customer_for_user); an anonymous caller's only
+    comes from this exact browser's Django session, set by success() right
+    after a real Stripe Checkout redirect for that browser.
+    """
+    if getattr(request, "user", None) and request.user.is_authenticated:
         from .db import get_stripe_customer_for_user
         customer_id = get_stripe_customer_for_user(request.user.pk)
-    if not customer_id:
+    else:
         customer_id = request.session.get("stripe_customer_id")
     if not customer_id:
-        return JsonResponse({"error": "customerId required"}, status=400)
+        return JsonResponse({"error": "No linked Stripe customer for this session."}, status=403)
     app_url = os.environ.get("APP_URL", "https://stripe-installer-production.up.railway.app")
     session = stripe.billing_portal.Session.create(
         customer=customer_id,
