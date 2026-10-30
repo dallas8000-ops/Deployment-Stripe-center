@@ -23,7 +23,7 @@
 
 - Generic CI/CD replacement (use GitHub Actions + our deploy hooks)
 - Full Terraform IDE (transfer runs cover common paths)
-- Archived Node CLI (`legacy/`) — reference only until removed post-cutover
+- Archived Electron shell (`legacy/desktop/`) - reference only; the Node CLI was removed 2026-10-30
 
 ## Success metrics
 

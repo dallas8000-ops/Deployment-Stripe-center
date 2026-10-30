@@ -79,7 +79,7 @@ This repo merges the former **Stripe Installer** and **API Transfer** products i
 
 **Optional:** charge for this platform itself via `SAAS_STRIPE_*` (or `STRIPE_*`) in Railway Variables / `backend/.env`.
 
-The archived Node/Electron CLI in `legacy/node/` is reference only — **do not run it alongside Django on the same project.**
+The v0.6 Node CLI has been removed; Django is the only implementation (recover with `git checkout 445cf5b -- legacy/node` if ever needed). `legacy/desktop/` is an archived Electron shell, reference only.
 
 ---
 
@@ -88,7 +88,7 @@ The archived Node/Electron CLI in `legacy/node/` is reference only — **do not 
 ```
 backend/          Django — vault, pipeline, stripe_engine, billing, deploy, api_transfer, ai, organizations
 frontend/         React — dashboard, agency, vault UI, transfer panel, live pipeline terminal
-legacy/node/      Archived Node CLI + Electron (reference only)
+legacy/desktop/   Archived Electron shell (reference only)
 ~/.stripe-installer/   Local vault master key, portfolio registry, per-project vault mirror (dev)
 ```
 
@@ -354,7 +354,7 @@ python manage.py transfer_worker --once
 
 ## Legacy Node CLI
 
-The v0.6 CLI and Electron app live in [`legacy/node/`](legacy/node/) for reference only.
+The v0.6 Node CLI was removed on 2026-10-30 (last present in `445cf5b`; recover with `git checkout 445cf5b -- legacy/node`). The archived Electron shell remains in [`legacy/desktop/`](legacy/desktop/) for reference only.
 
 ---
 

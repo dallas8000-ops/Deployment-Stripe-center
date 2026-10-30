@@ -6,9 +6,9 @@ The `legacy/` directory holds the **v0.6 Node.js CLI and Electron GUI**. It is n
 
 | Item | Status |
 |------|--------|
-| `legacy/node/` | Archived reference — logic ported to Django |
+| `legacy/node/` | **Removed 2026-10-30** - last present in `445cf5b`; recover with `git checkout 445cf5b -- legacy/node` |
 | `legacy/desktop/` | Archived Electron shell |
-| `STRIPE_INSTALLER_CLI` env | Optional; Python codegen is canonical |
+| `STRIPE_INSTALLER_CLI` env | Removed with `legacy/node/` |
 | `api-transfer-production` Railway | Retire per [CUTOVER.md](CUTOVER.md) |
 
 ## Removal criteria

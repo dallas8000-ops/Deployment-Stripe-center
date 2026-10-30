@@ -29,7 +29,7 @@ Use this when **Deployment & Stripe Automation Center** (this repo) replaces the
 |------|------|
 | **`C:\Software Projects\API Transfer`** or **`API-Transfer`** | After unified app is live and you no longer need unported features |
 | **Second duplicate checkout** | Immediately — you only need one archive copy |
-| **`legacy/node/`** | Only if you never use the old CLI as reference (repo keeps it for docs) |
+| **`legacy/node/`** | Removed 2026-10-30 (last present in `445cf5b`) |
 | **`api-transfer-legacy` entry** in `~/.stripe-installer/portfolio-registry.json` | After old Railway service is removed |
 
 ### Do not delete

@@ -1,6 +1,6 @@
 # Stripe Installer — Architecture
 
-**Django + React** product at repo root (`backend/`, `frontend/`). Legacy Node v0.6 CLI is archived under `legacy/node/`.
+**Django + React** product at repo root (`backend/`, `frontend/`). The legacy Node v0.6 CLI was removed (last present in `445cf5b`); `legacy/desktop/` holds the archived Electron shell.
 
 This document maps modules to Django apps, REST endpoints, and WebSocket events.
 

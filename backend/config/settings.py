@@ -213,9 +213,6 @@ from apps.vault.master_key import resolve_vault_master_key
 
 VAULT_MASTER_KEY = resolve_vault_master_key()
 
-# Optional path to legacy Node CLI (legacy/node/dist/cli.js) — Python codegen works without this
-STRIPE_INSTALLER_CLI = os.environ.get("STRIPE_INSTALLER_CLI", "")
-
 # Platform billing (Stripe Installer SaaS — dogfood our own integration)
 # Pricing: $79/mo flat rate per customer (7900 cents)
 SAAS_STRIPE_SECRET_KEY = os.environ.get("SAAS_STRIPE_SECRET_KEY", "")

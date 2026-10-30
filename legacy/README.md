@@ -1,18 +1,7 @@
-# Archived Node.js CLI + Electron (v0.6)
+# Archived Electron shell (v0.6)
 
 This folder is **not part of the active product**. Stripe Installer was rewritten as a single Django + React app at the repo root (`backend/`, `frontend/`).
 
-## Why it's here
+The v0.6 Node CLI (`legacy/node/`) was removed on 2026-10-30. It is last present in commit `445cf5b`; recover it with `git checkout 445cf5b -- legacy/node`.
 
-Reference only — for porting any remaining logic (AI orchestrator, Neon/Supabase postgres provision, full deploy pipeline) into Django.
-
-## If you need the old CLI
-
-```powershell
-cd legacy/node
-npm install
-npm run dev -- scan ./your-project
-npm run gui
-```
-
-Do not run Node and Django side by side for the same project — use **one vault** (Django DB).
+`legacy/desktop/` is kept for reference only. Do not run it against a project managed by the Django app - use **one vault** (Django DB).
