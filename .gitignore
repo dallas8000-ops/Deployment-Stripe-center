@@ -31,7 +31,8 @@ frontend/.env.local
 
 # local-only artifacts
 **/.venv/
-.tmp-specwright-review/
+.tmp-*/
+__copilot_zip_extract/
 *.log
 .coverage
 *.patch
