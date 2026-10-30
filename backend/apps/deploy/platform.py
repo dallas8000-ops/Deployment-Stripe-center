@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from apps.projects.models import Project
@@ -82,14 +83,48 @@ def framework_build_command(framework: str) -> str:
     return "npm ci && npm run build"
 
 
-def framework_start_command(framework: str) -> str:
+_DJANGO_SETTINGS_RX = re.compile(r"""DJANGO_SETTINGS_MODULE["']\s*,\s*["']([\w.]+)["']""")
+
+
+def resolve_django_wsgi_module(app_root: Path) -> str | None:
+    """Dotted WSGI module (e.g. ``config.wsgi``) for the Django project rooted at ``app_root``.
+
+    Reads DJANGO_SETTINGS_MODULE from manage.py and walks up the dotted path until a
+    ``wsgi.py`` exists (handles ``config.settings`` and ``config.settings.production``).
+    Falls back to a single unambiguous ``*/wsgi.py``. Returns None when it cannot be
+    determined -- callers must then skip generating a start command rather than guess.
+    """
+    manage = app_root / "manage.py"
+    if manage.is_file():
+        match = _DJANGO_SETTINGS_RX.search(manage.read_text(encoding="utf-8", errors="ignore"))
+        if match:
+            parts = match.group(1).split(".")[:-1]
+            while parts:
+                if (app_root.joinpath(*parts) / "wsgi.py").is_file():
+                    return ".".join(parts) + ".wsgi"
+                parts = parts[:-1]
+    candidates = [p for p in app_root.glob("*/wsgi.py") if p.is_file()]
+    if len(candidates) == 1:
+        return f"{candidates[0].parent.name}.wsgi"
+    return None
+
+
+def framework_start_command(framework: str, *, wsgi_module: str | None = None) -> str | None:
+    """Production start command, or None when it cannot be derived safely.
+
+    Django needs the project's real WSGI module; there is no safe default
+    (a guessed module name crash-loops the deploy).
+    """
+    if framework == "django":
+        if not wsgi_module:
+            return None
+        return f"gunicorn {wsgi_module}:application --bind 0.0.0.0:$PORT"
     return {
         "nextjs": "npm run start",
         "nuxt": "node .output/server/index.mjs",
         "express": "node dist/server.js",
         "fastify": "node dist/server.js",
         "react": "node dist/server.js",
-        "django": "gunicorn myproject.wsgi:application --bind 0.0.0.0:$PORT",
         "flask": "gunicorn app:app --bind 0.0.0.0:$PORT",
         "rails": "bundle exec rails server -p $PORT -e production",
         "laravel": "php artisan serve --host=0.0.0.0 --port=$PORT",
@@ -121,16 +156,19 @@ def production_env_example(framework: str, prod_url: str) -> str:
     )
 
 
-def generate_dockerfile(framework: str) -> str:
-    start = framework_start_command(framework)
+def generate_dockerfile(framework: str, *, wsgi_module: str | None = None) -> str | None:
+    """Dockerfile for the app, or None when a correct one cannot be generated."""
+    start = framework_start_command(framework, wsgi_module=wsgi_module)
+    if start is None:
+        return None
     templates = {
-        "django": """FROM python:3.12-slim
+        "django": f"""FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt gunicorn
 COPY . .
 ENV PORT=8000
-CMD gunicorn myproject.wsgi:application --bind 0.0.0.0:${PORT}
+CMD gunicorn {wsgi_module}:application --bind 0.0.0.0:${{PORT}}
 """,
         "flask": """FROM python:3.12-slim
 WORKDIR /app

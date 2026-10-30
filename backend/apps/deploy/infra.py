@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -18,9 +19,14 @@ from .platform import (
     health_check_path,
     platform_deploy_command,
     production_env_example,
+    resolve_django_wsgi_module,
     webhook_path_for,
 )
 from .postgres import schema_sql
+
+logger = logging.getLogger(__name__)
+
+_PYTHON_FRAMEWORKS = frozenset({"django", "flask"})
 
 
 def _prod_url(project: Project, fallback: str) -> str:
@@ -200,7 +206,45 @@ export default router;
 '''
 
 
-def _platform_configs(platform: str, project: Project, prod_url: str, health_path: str, webhook_path: str) -> dict[str, str]:
+def railway_config_skip_reason(
+    project: Project,
+    project_root: Path,
+    backend_prefix: str,
+    start_command: str | None,
+) -> str | None:
+    """Why a root railway.toml must NOT be generated, or None when it is safe.
+
+    A root railway.toml overrides the build of every Railway service connected to the
+    repo, so it is only generated for a single-service app at the repo root with a
+    resolvable start command and no existing Railway config anywhere it would shadow.
+    """
+    for base in {project_root, project_root / backend_prefix} if backend_prefix else {project_root}:
+        for name in ("railway.toml", "railway.json"):
+            if (base / name).is_file():
+                return f"existing {(base / name).relative_to(project_root).as_posix()} is the source of truth"
+    if backend_prefix:
+        return (
+            f"monorepo (app under {backend_prefix}/): Railway services are configured per service; "
+            "a root railway.toml would override every service's build"
+        )
+    if start_command is None:
+        return f"could not determine a start command for framework {project.framework!r}"
+    if project.framework in _PYTHON_FRAMEWORKS and not (project_root / "requirements.txt").is_file():
+        return "no requirements.txt at the repo root for the generated build command"
+    return None
+
+
+def _platform_configs(
+    platform: str,
+    project: Project,
+    prod_url: str,
+    health_path: str,
+    webhook_path: str,
+    *,
+    project_root: Path | None = None,
+    backend_prefix: str = "",
+    start_command: str | None = None,
+) -> dict[str, str]:
     files: dict[str, str] = {}
     if platform == "vercel" and project.framework == "nextjs":
         files["vercel.json"] = json.dumps(
@@ -219,12 +263,17 @@ def _platform_configs(platform: str, project: Project, prod_url: str, health_pat
             indent=2,
         )
     elif platform == "railway":
+        root = project_root or Path(project.local_path or ".")
+        reason = railway_config_skip_reason(project, root, backend_prefix, start_command)
+        if reason:
+            logger.warning("Not generating railway.toml for %s: %s", getattr(project, "slug", "?"), reason)
+            return files
         files["railway.toml"] = f"""[build]
 builder = "nixpacks"
 buildCommand = "{framework_build_command(project.framework)}"
 
 [deploy]
-startCommand = "{framework_start_command(project.framework)}"
+startCommand = "{start_command}"
 healthcheckPath = "{health_path}"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
@@ -251,9 +300,25 @@ def generate_infra_files(project: Project, project_root: Path, *, prod_url: str)
         ".env.production.example": production_env_example(project.framework, prod_url),
     }
 
+    from apps.stripe_core.codegen.paths import codegen_backend_prefix
+
     from .platform import generate_dockerfile
 
-    files["Dockerfile"] = generate_dockerfile(project.framework)
+    backend_prefix = codegen_backend_prefix(project, project_root)
+    app_root = project_root / backend_prefix if backend_prefix else project_root
+    wsgi_module = resolve_django_wsgi_module(app_root) if project.framework == "django" else None
+    start_command = framework_start_command(project.framework, wsgi_module=wsgi_module)
+
+    # A root Dockerfile for a monorepo (app under backend/) builds the wrong context.
+    dockerfile = None if backend_prefix else generate_dockerfile(project.framework, wsgi_module=wsgi_module)
+    if dockerfile is not None:
+        files["Dockerfile"] = dockerfile
+    else:
+        logger.warning(
+            "Not generating root Dockerfile for %s (%s)",
+            getattr(project, "slug", "?"),
+            f"monorepo app under {backend_prefix}/" if backend_prefix else "start command unresolved",
+        )
 
     if project.framework == "nextjs" and next_router != "pages":
         files["app/api/health/route.ts"] = _health_route_next_app()
@@ -262,7 +327,18 @@ def generate_infra_files(project: Project, project_root: Path, *, prod_url: str)
     elif project.framework in ("express", "fastify"):
         files["src/routes/health.ts"] = _health_route_express()
 
-    files.update(_platform_configs(platform, project, prod_url, health_path, webhook_path))
+    files.update(
+        _platform_configs(
+            platform,
+            project,
+            prod_url,
+            health_path,
+            webhook_path,
+            project_root=project_root,
+            backend_prefix=backend_prefix,
+            start_command=start_command,
+        )
+    )
     return files
 
 
